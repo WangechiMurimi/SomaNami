@@ -102,6 +102,14 @@ h3{font-family:var(--display);font-size:1.1rem;margin:0 0 10px}
 .found{display:grid;grid-template-columns:120px 1fr;gap:14px;margin-top:14px;align-items:center}
 .thumb{aspect-ratio:16/10;border-radius:10px;background:var(--gold-soft);display:grid;place-items:center}
 .found small{color:var(--muted)}
+.upload{position:relative;margin-top:18px;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;border:2px dashed var(--jac);background:var(--jac-soft);border-radius:16px;padding:24px 16px;cursor:pointer;transition:background .2s}
+.upload:hover,.upload.over{background:var(--surface)}
+.upload small{color:var(--muted)}
+.upload u{color:var(--jac)}
+.upload input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.upload:focus-within{outline:3px solid var(--gold);outline-offset:2px}
+.status{display:inline-block;margin-top:6px;font-size:.8rem;font-weight:700;background:var(--mint-soft);color:var(--mint);padding:2px 10px;border-radius:999px}
+.found b{word-break:break-word}
 .hero-art{background:var(--jac-soft);border-radius:18px;aspect-ratio:1;display:grid;place-items:center}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{border:1.5px solid var(--line);background:var(--surface);padding:7px 14px;border-radius:999px;font-size:.92rem}
@@ -242,14 +250,16 @@ h3{font-family:var(--display);font-size:1.1rem;margin:0 0 10px}
             <div class="hero">
               <div>
                 <h1>Hi Anthony. What did you find today?</h1>
-                <p class="sub" style="margin:0">Paste a link to a video, article or post. We’ll turn it into a lesson and a project you can actually make.</p>
-                <label class="field">
-                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8.5 11.5a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1 1M11.5 8.5a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1-1"/></svg>
-                  <input aria-label="Content link" value="youtube.com/watch?v=bouncing-ball-101">
+                <p class="sub" style="margin:0">Upload a document you want to understand: class notes, a handout, an article or a PDF. We’ll turn it into a lesson and a project you can actually make.</p>
+                <label class="upload" id="upload">
+                  <input type="file" id="fileIn" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md" aria-label="Upload a document">
+                  <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--jac)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+                  <span><b>Drop a document here</b> or <u>browse your files</u></span>
+                  <small>PDF, Word, PowerPoint or text, up to 20 MB</small>
                 </label>
                 <div class="found">
-                  <div class="thumb" aria-hidden="true"><svg width="70" height="44" viewBox="0 0 50 34"><circle cx="12" cy="8" r="5" fill="#F2B632" opacity=".35"/><circle cx="24" cy="18" r="5" fill="#F2B632" opacity=".6"/><ellipse cx="36" cy="28" rx="7" ry="4" fill="#F2B632"/><path d="M2 32h46" stroke="#5B3FD1" stroke-width="2"/></svg></div>
-                  <div><b>2D animation basics: the bouncing ball</b><br><small>Video, 14 min, found on YouTube</small></div>
+                  <div class="thumb" aria-hidden="true"><svg width="40" height="48" viewBox="0 0 40 48"><path d="M4 2h22l10 10v32a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="var(--surface)" stroke="var(--gold)" stroke-width="2"/><path d="M26 2v10h10" fill="none" stroke="var(--gold)" stroke-width="2"/><path d="M9 22h20M9 28h20M9 34h13" stroke="var(--line)" stroke-width="2.5" stroke-linecap="round"/></svg></div>
+                  <div><b id="docName">Animation 101, Week 2: The bouncing ball.pdf</b><br><small id="docMeta">PDF · 12 pages · uploaded just now</small><br><span class="status" id="docStatus">✓ Analyzed: 4 main ideas found</span></div>
                 </div>
               </div>
               <div class="hero-art" aria-hidden="true">
@@ -278,7 +288,7 @@ h3{font-family:var(--display);font-size:1.1rem;margin:0 0 10px}
           <!-- 2 -->
           <section data-s="1">
             <h2>How do you want to learn this?</h2>
-            <p class="sub">We turned the 14-minute video into a 6-minute lesson with 4 main ideas. You can switch modes any time.</p>
+            <p class="sub">We turned your 12-page document into a 6-minute lesson with 4 main ideas. You can switch modes any time.</p>
             <div class="modes" data-single>
               <button class="mode" aria-pressed="true">
                 <span class="ic" style="background:var(--gold-soft)"><svg width="28" height="28" viewBox="0 0 26 26" fill="none" stroke="#C98D00" stroke-width="2"><rect x="3" y="5" width="20" height="16" rx="3"/><circle cx="9" cy="11" r="2"/><path d="m3 18 6-5 5 4 3-2 6 5"/></svg></span>
@@ -300,7 +310,7 @@ h3{font-family:var(--display);font-size:1.1rem;margin:0 0 10px}
                 <span class="pv" aria-hidden="true"><svg width="120" height="40" viewBox="0 0 120 40" stroke="var(--mint)" stroke-width="3" stroke-linecap="round"><path d="M10 16v8M20 10v20M30 4v32M40 12v16M50 8v24M60 14v12M70 6v28M80 12v16M90 16v8M100 10v20M110 16v8"/></svg></span>
               </button>
             </div>
-            <p class="why"><b>How the AI did this:</b> it read the video’s transcript, kept the 4 main ideas, and dropped the intro and sponsor segment. Every card links to the exact moment in the video it came from, so you can check it.</p>
+            <p class="why"><b>How the AI did this:</b> it read your document, kept the 4 main ideas, and skipped the reading list and admin notes. Every card links to the exact page it came from, so you can check it against the original.</p>
           </section>
 
           <!-- 3 -->
@@ -325,7 +335,7 @@ h3{font-family:var(--display);font-size:1.1rem;margin:0 0 10px}
                       <circle cx="470" cy="130" r="16" fill="var(--gold)" opacity=".5"/>
                       <line x1="10" y1="204" x2="590" y2="204" stroke="var(--jac)" stroke-width="3"/>
                     </svg>
-                    <span class="step-k">Idea 2 of 4, at 4:12 in the video</span>
+                    <span class="step-k">Idea 2 of 4, from page 5 of your document</span>
                     <p><b>Squash and stretch.</b> The ball flattens when it hits the ground and stretches as it falls fast. Its size stays the same, only its shape changes.</p>
                   </div>
                 </div>
@@ -430,7 +440,7 @@ h3{font-family:var(--display);font-size:1.1rem;margin:0 0 10px}
               <div class="card track">
                 <h3>AI literacy <small>3 of 10 skills</small></h3>
                 <div class="meter"><b style="width:30%;background:var(--jac)"></b></div>
-                <div class="skill"><span class="tick">✓</span>Turning a video into a learning plan</div>
+                <div class="skill"><span class="tick">✓</span>Turning a document into a learning plan</div>
                 <div class="skill"><span class="tick">✓</span>Writing a clear feedback request</div>
                 <div class="skill"><span class="tick">✓</span>Checking AI advice against your own work</div>
                 <div class="skill todo"><span class="tick"></span>Spotting when AI makes things up</div>
@@ -507,6 +517,20 @@ h3{font-family:var(--display);font-size:1.1rem;margin:0 0 10px}
     }
     thread.appendChild(reply); box.value='';
   };
+  const fileIn=document.getElementById('fileIn'), up=document.getElementById('upload');
+  function showFile(f){
+    if(!f)return;
+    document.getElementById('docName').textContent=f.name;
+    const kb=f.size/1024, ext=(f.name.split('.').pop()||'file').toUpperCase();
+    document.getElementById('docMeta').textContent=ext+' · '+(kb>1024?(kb/1024).toFixed(1)+' MB':Math.max(1,Math.round(kb))+' KB')+' · uploaded just now';
+    const st=document.getElementById('docStatus');
+    st.textContent='Analyzing…';
+    setTimeout(()=>{st.textContent='✓ Analyzed: 4 main ideas found';},1400);
+  }
+  fileIn.onchange=()=>showFile(fileIn.files[0]);
+  ['dragenter','dragover'].forEach(ev=>up.addEventListener(ev,e=>{e.preventDefault();up.classList.add('over');}));
+  ['dragleave','drop'].forEach(ev=>up.addEventListener(ev,e=>{e.preventDefault();up.classList.remove('over');}));
+  up.addEventListener('drop',e=>showFile(e.dataTransfer.files[0]));
   go(0);
 })();
 </script>

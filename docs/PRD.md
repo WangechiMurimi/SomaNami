@@ -11,19 +11,21 @@ approaches without compromising its meaning.
 
 User Stories:
 1. As a user, I want to upload documents so that I can explore and understand their content without manually extracting or reorganizing information.
-	Acceptance Criteria
+	
+Acceptance Criteria
 Users can upload supported documents and receive confirmation of successful processing or clear feedback when processing fails.
 Uploaded document content is retrievable with accurate references to its original source location.
 
 2. As a user, I want to ask questions about uploaded documents in natural language so that I can clarify unfamiliar concepts and investigate specific information.
-		Acceptance Criteria
+
+Acceptance Criteria
 Users can ask natural-language questions about uploaded documents and receive relevant, understandable responses grounded in the document content.
 Responses include references to supporting source material, and the application clearly communicates when a question cannot be answered from the available documents.
 
 		
 3.  As a user, I want to ask questions about uploaded documents in natural language so that I can clarify unfamiliar concepts and investigate specific information.
-Acceptance Criteria
 
+Acceptance Criteria
 Users can ask natural-language questions about uploaded documents and receive relevant, understandable responses grounded in the document content.
 Responses include references to supporting source material, and the application clearly communicates when a question cannot be answered from the available documents.
 
