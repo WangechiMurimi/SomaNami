@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SomaNami — web app mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F7F6FD; --surface:#FFFFFF; --ink:#1B1633; --muted:#5E5A78;
+  --jac:#5B3FD1; --on-jac:#FFFFFF; --jac-soft:#E9E4FF; --gold:#F2B632; --gold-soft:#FFF2CF;
+  --mint:#1E9E7C; --mint-soft:#D9F5EC; --line:#DCD8EE; --desk:#E6E3F3; --chrome:#EFEDF8;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#14112A; --surface:#1F1B3A; --ink:#F1EFFF; --muted:#B3AED0;
+    --jac:#9C87FF; --on-jac:#14112A; --jac-soft:#2E2660; --gold:#F5C451; --gold-soft:#3A3020;
+    --mint:#4FD3AE; --mint-soft:#173A32; --line:#353058; --desk:#0D0B1C; --chrome:#191532;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#14112A; --surface:#1F1B3A; --ink:#F1EFFF; --muted:#B3AED0;
+  --jac:#9C87FF; --on-jac:#14112A; --jac-soft:#2E2660; --gold:#F5C451; --gold-soft:#3A3020;
+  --mint:#4FD3AE; --mint-soft:#173A32; --line:#353058; --desk:#0D0B1C; --chrome:#191532;
+  color-scheme: dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--desk);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px;border-radius:6px}
+
+.wrap{max-width:1280px;margin:0 auto;padding:28px 24px 48px}
+.flow{list-style:none;margin:0 0 18px;padding:0;display:flex;gap:6px;overflow-x:auto}
+.flow button{border:0;background:transparent;display:flex;gap:8px;align-items:center;padding:8px 12px;border-radius:999px;white-space:nowrap;font-size:.92rem;color:var(--muted)}
+.flow .n{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:.8rem;border:1.5px solid var(--line)}
+.flow button:hover{background:var(--surface)}
+.flow button[aria-current="step"]{background:var(--surface);color:var(--ink);font-weight:700}
+.flow button[aria-current="step"] .n{background:var(--jac);border-color:var(--jac);color:var(--on-jac)}
+
+/* browser window */
+.win{background:var(--paper);border-radius:14px;overflow:hidden;box-shadow:0 0 0 1px var(--line),0 24px 60px -30px rgba(27,22,51,.45)}
+.chrome{background:var(--chrome);display:flex;align-items:center;gap:14px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.lights{display:flex;gap:7px}.lights i{width:12px;height:12px;border-radius:50%;background:var(--line)}
+.url{flex:1;max-width:520px;margin:0 auto;background:var(--surface);border-radius:8px;padding:5px 12px;font-size:.82rem;color:var(--muted);text-align:center}
+.app{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:720px}
+
+.side{background:var(--surface);border-right:1px solid var(--line);padding:22px 16px;display:flex;flex-direction:column;gap:4px}
+.logo{font-family:var(--display);font-weight:800;font-size:1.6rem;letter-spacing:-.02em;padding:0 10px 18px}
+.logo i{font-style:normal;color:var(--gold)}
+.nav{border:0;background:transparent;text-align:left;padding:10px 12px;border-radius:10px;display:flex;gap:10px;align-items:center;font-size:.95rem;color:var(--muted)}
+.nav svg{flex:none}
+.nav:hover{background:var(--paper)}
+.nav[aria-current="page"]{background:var(--jac-soft);color:var(--ink);font-weight:700}
+.side .me{margin-top:auto;display:flex;gap:10px;align-items:center;padding:12px 10px 0;border-top:1px solid var(--line)}
+.avatar{width:36px;height:36px;border-radius:50%;background:var(--gold);display:grid;place-items:center;font-family:var(--display);font-weight:800;color:#1B1633}
+.me small{display:block;color:var(--muted);font-size:.8rem;line-height:1.2}
+
+.main{display:flex;flex-direction:column;min-width:0}
+.head{display:flex;align-items:center;gap:16px;padding:18px 32px;border-bottom:1px solid var(--line)}
+.crumb{font-size:.9rem;color:var(--muted)}
+.crumb b{color:var(--ink)}
+.prog{margin-left:auto;display:flex;gap:5px}
+.prog b{width:28px;height:6px;border-radius:3px;background:var(--line)}
+.prog b.on{background:var(--jac)}
+.head .btns{display:flex;gap:8px}
+.ghost{border:1.5px solid var(--line);background:var(--surface);padding:9px 16px;border-radius:12px;font-weight:700;font-size:.92rem}
+.ghost[hidden]{display:none}
+.cta{border:0;background:var(--jac);color:var(--on-jac);font-weight:700;font-size:.95rem;padding:10px 18px;border-radius:12px}
+
+.view{flex:1;padding:28px 32px 36px;overflow:auto}
+.view section{display:none}
+.view section.active{display:block;animation:in .3s ease}
+@keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.view section.active{animation:none}}
+
+h1{font-family:var(--display);font-weight:800;font-size:clamp(2rem,3.4vw,2.9rem);line-height:1;letter-spacing:-.02em;margin:0 0 10px}
+h2{font-family:var(--display);font-weight:800;font-size:1.9rem;line-height:1.05;letter-spacing:-.015em;margin:0 0 8px}
+h3{font-family:var(--display);font-size:1.1rem;margin:0 0 10px}
+.sub{color:var(--muted);margin:0 0 22px;max-width:42em}
+.cols{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr);gap:24px;align-items:start}
+.card{background:var(--surface);border-radius:18px;padding:20px;box-shadow:0 0 0 1px var(--line)}
+.card + .card{margin-top:16px}
+.card p{margin:6px 0 0;font-size:.95rem}
+.step-k{font-family:var(--display);font-weight:700;color:var(--jac);font-size:.85rem}
+
+/* home */
+.hero{background:var(--surface);border-radius:22px;padding:28px;box-shadow:0 0 0 1px var(--line);display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:28px;align-items:center}
+.field{background:var(--paper);border:2px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:center;margin-top:18px}
+.field:focus-within{border-color:var(--jac)}
+.field input{border:0;background:transparent;font:inherit;color:var(--ink);flex:1;min-width:0}
+.field input:focus{outline:none}
+.found{display:grid;grid-template-columns:120px 1fr;gap:14px;margin-top:14px;align-items:center}
+.thumb{aspect-ratio:16/10;border-radius:10px;background:var(--gold-soft);display:grid;place-items:center}
+.found small{color:var(--muted)}
+.hero-art{background:var(--jac-soft);border-radius:18px;aspect-ratio:1;display:grid;place-items:center}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid var(--line);background:var(--surface);padding:7px 14px;border-radius:999px;font-size:.92rem}
+.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px}
+.recent{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);font-size:.95rem}
+.recent:last-child{border-bottom:0}
+.recent span:last-child{color:var(--muted)}
+
+/* modes */
+.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.mode{border:2px solid var(--line);background:var(--surface);border-radius:20px;padding:20px;text-align:left;display:flex;flex-direction:column;gap:12px}
+.mode .ic{width:56px;height:56px;border-radius:14px;display:grid;place-items:center}
+.mode strong{font-family:var(--display);font-size:1.3rem}
+.mode small{color:var(--muted);font-size:.92rem;line-height:1.4}
+.mode .pv{margin-top:auto;border-radius:12px;background:var(--paper);height:90px;display:grid;place-items:center}
+.mode[aria-pressed="true"]{border-color:var(--jac);background:var(--jac-soft)}
+.mode[aria-pressed="true"] .pv{background:var(--surface)}
+.sug{font-size:.78rem;font-weight:700;background:var(--gold);color:#1B1633;padding:2px 9px;border-radius:999px;align-self:flex-start}
+.why{margin-top:20px;padding:14px 16px;border-radius:14px;background:var(--gold-soft);font-size:.93rem;max-width:60em}
+.why b{font-family:var(--display)}
+
+/* lesson */
+.tabs{display:inline-flex;background:var(--surface);border-radius:14px;padding:4px;box-shadow:0 0 0 1px var(--line);margin-bottom:16px}
+.tabs button{border:0;background:transparent;padding:9px 18px;border-radius:10px;font-weight:700;font-size:.92rem;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--jac);color:var(--on-jac)}
+.pane{display:none}.pane.on{display:block}
+.ideas{list-style:none;margin:0;padding:0}
+.ideas li{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:.93rem}
+.ideas li:last-child{border-bottom:0}
+.ideas .d{width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:.8rem;border:1.5px solid var(--line)}
+.ideas li.now .d{background:var(--jac);color:var(--on-jac);border-color:var(--jac)}
+.ideas li.done .d{background:var(--mint);color:#fff;border-color:var(--mint)}
+.ideas small{color:var(--muted);display:block}
+.player{display:flex;align-items:center;gap:16px}
+.play{width:60px;height:60px;border-radius:50%;border:0;background:var(--jac);color:var(--on-jac);display:grid;place-items:center;flex:none}
+.wave{display:flex;gap:3px;align-items:center;height:48px;flex:1}
+.wave i{flex:1;background:var(--line);border-radius:2px}
+.wave i.p{background:var(--jac)}
+.quote{font-style:italic;color:var(--muted);border-left:3px solid var(--gold);padding-left:14px;margin:16px 0 0}
+.quiz button{display:block;width:100%;text-align:left;margin-top:8px;border:1.5px solid var(--line);background:var(--paper);padding:10px 12px;border-radius:12px;font-size:.93rem}
+.quiz button.right{border-color:var(--mint);background:var(--mint-soft)}
+.quiz button.wrong{border-color:#D04A4A;opacity:.7}
+.feedback{font-size:.9rem;margin-top:10px;min-height:1.4em}
+
+/* build */
+.brief{background:var(--ink);color:var(--paper);border-radius:20px;padding:22px}
+.brief h2{color:var(--paper);margin:8px 0 6px;font-size:1.6rem}
+.brief p{margin:0;opacity:.85;max-width:40em}
+.tag{display:inline-block;font-size:.8rem;font-weight:700;background:var(--gold);color:#1B1633;padding:3px 10px;border-radius:999px}
+.check{list-style:none;padding:0;margin:0}
+.check label{display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line);font-size:.95rem;cursor:pointer}
+.check li:last-child label{border-bottom:0}
+.check input{width:20px;height:20px;accent-color:var(--mint);margin-top:2px;flex:none}
+.drop{margin-top:16px;border:2px dashed var(--line);border-radius:16px;padding:22px;text-align:center;color:var(--muted);font-size:.93rem}
+.coach{background:var(--jac-soft);border-radius:20px;padding:18px;position:sticky;top:0}
+.who{font-family:var(--display);font-weight:700;display:flex;gap:8px;align-items:center}
+.bubble{background:var(--surface);border-radius:14px 14px 14px 4px;padding:11px 13px;margin-top:10px;font-size:.93rem}
+.bubble.mine{border-radius:14px 14px 4px 14px;background:var(--ink);color:var(--paper);margin-left:24px}
+.prompt{margin-top:12px}
+.prompt textarea{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:10px;font:inherit;font-size:.93rem;background:var(--surface);color:var(--ink);resize:vertical}
+.prompt button{margin-top:6px;border:0;background:var(--ink);color:var(--paper);padding:9px 16px;border-radius:10px;font-weight:700;font-size:.9rem}
+.lit{font-size:.85rem;color:var(--muted);margin:10px 0 0}
+
+/* progress */
+.done-head{display:flex;gap:24px;align-items:center;margin-bottom:24px}
+.tracks{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.track h3{display:flex;justify-content:space-between;align-items:baseline}
+.track h3 small{font-family:var(--body);font-weight:400;color:var(--muted);font-size:.88rem}
+.meter{height:10px;border-radius:5px;background:var(--line);overflow:hidden;margin-bottom:14px}
+.meter b{display:block;height:100%;border-radius:5px}
+.skill{display:flex;gap:10px;align-items:center;font-size:.95rem;padding:5px 0}
+.tick{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;flex:none;font-size:.7rem;color:#fff;background:var(--mint)}
+.skill.todo{color:var(--muted)}.skill.todo .tick{background:transparent;border:1.5px solid var(--line)}
+.next{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:20px}
+.next .card{display:flex;gap:14px;align-items:center}
+.next .thumb{width:88px;flex:none}
+.next small{color:var(--muted)}
+.note{margin:18px 4px 0;font-size:.88rem;color:var(--muted)}
+
+@media (max-width:1000px){
+  .app{grid-template-columns:72px minmax(0,1fr)}
+  .side .lbl,.side .me div,.logo span{display:none}
+  .logo{padding:0 0 18px;text-align:center}
+  .nav{justify-content:center}
+  .side .me{justify-content:center}
+  .cols,.hero,.row2,.tracks,.next{grid-template-columns:1fr}
+  .hero-art{display:none}
+  .coach{position:static}
+}
+@media (max-width:720px){
+  .wrap{padding:12px 10px 32px}
+  .modes{grid-template-columns:1fr}
+  .head{flex-wrap:wrap;padding:14px 18px}
+  .prog{display:none}
+  .head .btns{margin-left:auto}
+  .view{padding:20px 18px}
+  .app{grid-template-columns:1fr}
+  .side{display:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <ol class="flow" id="flow" aria-label="Mockup screens">
+    <li><button data-go="0"><span class="n">1</span>Bring your content</button></li>
+    <li><button data-go="1"><span class="n">2</span>Choose how to learn</button></li>
+    <li><button data-go="2"><span class="n">3</span>Learn and check</button></li>
+    <li><button data-go="3"><span class="n">4</span>Build a mini-project</button></li>
+    <li><button data-go="4"><span class="n">5</span>See what you’ve gained</button></li>
+  </ol>
+
+  <div class="win">
+    <div class="chrome" aria-hidden="true"><span class="lights"><i></i><i></i><i></i></span><span class="url">somanami.app/learn</span></div>
+    <div class="app">
+      <aside class="side">
+        <div class="logo"><span>somanami</span><i>.</i></div>
+        <button class="nav" data-nav="0" aria-current="page"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9.5 10 4l7 5.5V16a1 1 0 0 1-1 1h-3.5v-4.5h-5V17H4a1 1 0 0 1-1-1z"/></svg><span class="lbl">Home</span></button>
+        <button class="nav" data-nav="2"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 4.5h5a2 2 0 0 1 2 2V16a1.5 1.5 0 0 0-1.5-1.5H3zM17 4.5h-5a2 2 0 0 0-2 2V16a1.5 1.5 0 0 1 1.5-1.5H17z"/></svg><span class="lbl">My lessons</span></button>
+        <button class="nav" data-nav="3"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="6" height="6" rx="1"/><rect x="11" y="11" width="6" height="6" rx="1"/><rect x="7" y="3" width="6" height="6" rx="1"/></svg><span class="lbl">Projects</span></button>
+        <button class="nav" data-nav="4"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 16V11M8 16V7M12 16v-5M16 16V4"/></svg><span class="lbl">My progress</span></button>
+        <div class="me"><span class="avatar">A</span><div><b>Anthony</b><small>Design &amp; animation</small></div></div>
+      </aside>
+
+      <div class="main">
+        <div class="head">
+          <div class="crumb" id="crumb"><b>Home</b></div>
+          <div class="prog" id="prog" aria-hidden="true"><b></b><b></b><b></b><b></b><b></b></div>
+          <div class="btns">
+            <button class="ghost" id="back" hidden>Back</button>
+            <button class="cta" id="cta">Make my lesson</button>
+          </div>
+        </div>
+
+        <div class="view" id="view">
+          <!-- 1 -->
+          <section data-s="0">
+            <div class="hero">
+              <div>
+                <h1>Hi Anthony. What did you find today?</h1>
+                <p class="sub" style="margin:0">Paste a link to a video, article or post. We’ll turn it into a lesson and a project you can actually make.</p>
+                <label class="field">
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8.5 11.5a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1 1M11.5 8.5a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1-1"/></svg>
+                  <input aria-label="Content link" value="youtube.com/watch?v=bouncing-ball-101">
+                </label>
+                <div class="found">
+                  <div class="thumb" aria-hidden="true"><svg width="70" height="44" viewBox="0 0 50 34"><circle cx="12" cy="8" r="5" fill="#F2B632" opacity=".35"/><circle cx="24" cy="18" r="5" fill="#F2B632" opacity=".6"/><ellipse cx="36" cy="28" rx="7" ry="4" fill="#F2B632"/><path d="M2 32h46" stroke="#5B3FD1" stroke-width="2"/></svg></div>
+                  <div><b>2D animation basics: the bouncing ball</b><br><small>Video, 14 min, found on YouTube</small></div>
+                </div>
+              </div>
+              <div class="hero-art" aria-hidden="true">
+                <svg width="180" height="180" viewBox="0 0 180 180"><path d="M20 30 Q55 150 90 140 Q125 150 160 30" fill="none" stroke="var(--jac)" stroke-width="2.5" stroke-dasharray="5 6"/><circle cx="32" cy="50" r="12" fill="var(--gold)" opacity=".35"/><circle cx="58" cy="105" r="12" fill="var(--gold)" opacity=".6"/><ellipse cx="90" cy="140" rx="20" ry="9" fill="var(--gold)"/><line x1="10" y1="150" x2="170" y2="150" stroke="var(--ink)" stroke-width="2.5"/></svg>
+              </div>
+            </div>
+            <div class="row2">
+              <div class="card">
+                <h3>What field is this for?</h3>
+                <div class="chips" data-single>
+                  <button class="chip" aria-pressed="true">Design &amp; animation</button>
+                  <button class="chip" aria-pressed="false">Coding</button>
+                  <button class="chip" aria-pressed="false">Business</button>
+                  <button class="chip" aria-pressed="false">Music</button>
+                  <button class="chip" aria-pressed="false">Something else</button>
+                </div>
+              </div>
+              <div class="card">
+                <h3>Pick up where you left off</h3>
+                <div class="recent"><span>Color theory for beginners</span><span>Article, 2 of 3 ideas</span></div>
+                <div class="recent"><span>Logo design with shapes</span><span>Project done</span></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 2 -->
+          <section data-s="1">
+            <h2>How do you want to learn this?</h2>
+            <p class="sub">We turned the 14-minute video into a 6-minute lesson with 4 main ideas. You can switch modes any time.</p>
+            <div class="modes" data-single>
+              <button class="mode" aria-pressed="true">
+                <span class="ic" style="background:var(--gold-soft)"><svg width="28" height="28" viewBox="0 0 26 26" fill="none" stroke="#C98D00" stroke-width="2"><rect x="3" y="5" width="20" height="16" rx="3"/><circle cx="9" cy="11" r="2"/><path d="m3 18 6-5 5 4 3-2 6 5"/></svg></span>
+                <span class="sug">Suggested for you</span>
+                <strong>See it</strong>
+                <small>Step-by-step picture cards. A good fit for a visual skill like animation.</small>
+                <span class="pv" aria-hidden="true"><svg width="120" height="50" viewBox="0 0 120 50"><rect x="4" y="6" width="34" height="38" rx="5" fill="var(--gold-soft)"/><rect x="43" y="6" width="34" height="38" rx="5" fill="var(--gold-soft)"/><rect x="82" y="6" width="34" height="38" rx="5" fill="var(--gold-soft)"/><circle cx="21" cy="20" r="6" fill="var(--gold)"/><ellipse cx="60" cy="34" rx="8" ry="4" fill="var(--gold)"/><circle cx="99" cy="22" r="6" fill="var(--gold)"/></svg></span>
+              </button>
+              <button class="mode" aria-pressed="false">
+                <span class="ic" style="background:var(--jac-soft)"><svg width="28" height="28" viewBox="0 0 26 26" fill="none" stroke="var(--jac)" stroke-width="2"><circle cx="13" cy="13" r="3.5"/><circle cx="4.5" cy="5" r="2.5"/><circle cx="21.5" cy="5" r="2.5"/><circle cx="13" cy="23" r="2"/><path d="M6.5 6.8 10.5 11M19.5 6.8 15.5 11M13 16.5V21"/></svg></span>
+                <strong>Map it</strong>
+                <small>A map of the big ideas and how they connect to what you already know.</small>
+                <span class="pv" aria-hidden="true"><svg width="120" height="56" viewBox="0 0 120 56"><g stroke="var(--line)" stroke-width="2"><path d="M60 28 20 10M60 28 100 10M60 28 20 46M60 28 100 46"/></g><circle cx="60" cy="28" r="9" fill="var(--jac)"/><g fill="var(--surface)" stroke="var(--jac)" stroke-width="2"><circle cx="20" cy="10" r="6"/><circle cx="100" cy="10" r="6"/><circle cx="20" cy="46" r="6"/><circle cx="100" cy="46" r="6"/></g></svg></span>
+              </button>
+              <button class="mode" aria-pressed="false">
+                <span class="ic" style="background:var(--mint-soft)"><svg width="28" height="28" viewBox="0 0 26 26" fill="none" stroke="var(--mint)" stroke-width="2" stroke-linecap="round"><path d="M5 10v6M9 7v12M13 4v18M17 8v10M21 11v4"/></svg></span>
+                <strong>Hear it</strong>
+                <small>A short audio walk-through you can play on the bus or while you draw.</small>
+                <span class="pv" aria-hidden="true"><svg width="120" height="40" viewBox="0 0 120 40" stroke="var(--mint)" stroke-width="3" stroke-linecap="round"><path d="M10 16v8M20 10v20M30 4v32M40 12v16M50 8v24M60 14v12M70 6v28M80 12v16M90 16v8M100 10v20M110 16v8"/></svg></span>
+              </button>
+            </div>
+            <p class="why"><b>How the AI did this:</b> it read the video’s transcript, kept the 4 main ideas, and dropped the intro and sponsor segment. Every card links to the exact moment in the video it came from, so you can check it.</p>
+          </section>
+
+          <!-- 3 -->
+          <section data-s="2">
+            <div class="cols">
+              <div>
+                <h2>The bouncing ball</h2>
+                <div class="tabs" role="tablist">
+                  <button role="tab" aria-selected="true" data-pane="see">See it</button>
+                  <button role="tab" aria-selected="false" data-pane="map">Map it</button>
+                  <button role="tab" aria-selected="false" data-pane="hear">Hear it</button>
+                </div>
+                <div class="pane on" id="see">
+                  <div class="card">
+                    <svg viewBox="0 0 600 220" width="100%" aria-label="Ball arc with squash at the bottom">
+                      <path d="M30 30 Q150 210 300 192 Q450 210 570 30" fill="none" stroke="var(--line)" stroke-width="2.5" stroke-dasharray="5 7"/>
+                      <circle cx="50" cy="48" r="16" fill="var(--gold)" opacity=".3"/>
+                      <circle cx="130" cy="130" r="16" fill="var(--gold)" opacity=".5"/>
+                      <ellipse cx="215" cy="172" rx="14" ry="20" fill="var(--gold)" opacity=".75"/>
+                      <ellipse cx="300" cy="192" rx="28" ry="11" fill="var(--gold)"/>
+                      <ellipse cx="385" cy="172" rx="14" ry="20" fill="var(--gold)" opacity=".75"/>
+                      <circle cx="470" cy="130" r="16" fill="var(--gold)" opacity=".5"/>
+                      <line x1="10" y1="204" x2="590" y2="204" stroke="var(--jac)" stroke-width="3"/>
+                    </svg>
+                    <span class="step-k">Idea 2 of 4, at 4:12 in the video</span>
+                    <p><b>Squash and stretch.</b> The ball flattens when it hits the ground and stretches as it falls fast. Its size stays the same, only its shape changes.</p>
+                  </div>
+                </div>
+                <div class="pane" id="map">
+                  <div class="card">
+                    <svg viewBox="0 0 600 260" width="100%" aria-label="Concept map">
+                      <g stroke="var(--line)" stroke-width="2.5"><path d="M300 130 120 50M300 130 480 50M300 130 120 210M300 130 480 210M480 50 560 130M120 50 40 130"/></g>
+                      <g font-family="Atkinson Hyperlegible, sans-serif" font-size="15" text-anchor="middle" fill="var(--ink)">
+                        <rect x="220" y="108" width="160" height="44" rx="22" fill="var(--jac)"/><text x="300" y="136" fill="var(--on-jac)" font-weight="700">Bouncing ball</text>
+                        <rect x="55" y="30" width="130" height="40" rx="20" fill="var(--surface)" stroke="var(--jac)" stroke-width="2"/><text x="120" y="55">Timing</text>
+                        <rect x="400" y="30" width="160" height="40" rx="20" fill="var(--surface)" stroke="var(--jac)" stroke-width="2"/><text x="480" y="55">Squash &amp; stretch</text>
+                        <rect x="55" y="190" width="130" height="40" rx="20" fill="var(--surface)" stroke="var(--jac)" stroke-width="2"/><text x="120" y="215">Arcs</text>
+                        <rect x="415" y="190" width="130" height="40" rx="20" fill="var(--gold-soft)" stroke="var(--gold)" stroke-width="2"/><text x="480" y="215">Spacing (new)</text>
+                        <text x="40" y="150" font-size="12" fill="var(--muted)">Color theory</text>
+                        <text x="560" y="150" font-size="12" fill="var(--muted)">Logo shapes</text>
+                      </g>
+                    </svg>
+                    <p>Spacing is new to you. Timing and squash and stretch link back to lessons you’ve already finished.</p>
+                  </div>
+                </div>
+                <div class="pane" id="hear">
+                  <div class="card">
+                    <div class="player">
+                      <button class="play" aria-label="Play audio"><svg width="20" height="20" viewBox="0 0 18 18" fill="currentColor"><path d="M5 3v12l10-6z"/></svg></button>
+                      <div class="wave" aria-hidden="true" id="wave"></div>
+                    </div>
+                    <p class="step-k" style="margin-top:12px">2:05 of 6:10</p>
+                    <p class="quote">“Think of the ball like a water balloon. When it hits the floor, it spreads out, then it springs back…”</p>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div class="card">
+                  <h3>In this lesson</h3>
+                  <ul class="ideas">
+                    <li class="done"><span class="d">✓</span><span>Timing<small>How many frames each bounce takes</small></span></li>
+                    <li class="now"><span class="d">2</span><span>Squash and stretch<small>You’re here</small></span></li>
+                    <li><span class="d">3</span><span>Arcs<small>The path the ball travels</small></span></li>
+                    <li><span class="d">4</span><span>Spacing<small>Fast and slow parts of the bounce</small></span></li>
+                  </ul>
+                </div>
+                <div class="card quiz">
+                  <span class="step-k">Quick check</span>
+                  <p><b>When does the ball look the most squashed?</b></p>
+                  <button data-a="0">At the top of the bounce</button>
+                  <button data-a="1">The frame it touches the ground</button>
+                  <button data-a="0">Halfway through the fall</button>
+                  <div class="feedback" aria-live="polite"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 4 -->
+          <section data-s="3">
+            <div class="cols">
+              <div>
+                <div class="brief">
+                  <span class="tag">Your mini-project, about 45 min</span>
+                  <h2>Animate a ball bouncing across the screen</h2>
+                  <p>12 frames, two bounces, with squash and stretch. Use a free app like FlipaClip or Krita, or draw on paper and photograph each frame.</p>
+                </div>
+                <div class="card" style="margin-top:16px">
+                  <h3>Steps</h3>
+                  <ul class="check">
+                    <li><label><input type="checkbox" checked> Sketch the arc first, as one light line</label></li>
+                    <li><label><input type="checkbox" checked> Draw the ball on the ground: squashed</label></li>
+                    <li><label><input type="checkbox"> Add frames in between, closer together at the top</label></li>
+                    <li><label><input type="checkbox"> Play it back and upload a clip</label></li>
+                  </ul>
+                  <div class="drop">Drag your animation here, or <u>choose a file</u>. GIF, MP4 or images.</div>
+                </div>
+              </div>
+              <aside class="coach">
+                <div class="who"><svg width="24" height="24" viewBox="0 0 22 22"><circle cx="11" cy="11" r="10" fill="var(--jac)"/><path d="M7 12q4 4 8 0" stroke="var(--on-jac)" stroke-width="1.8" fill="none" stroke-linecap="round"/><circle cx="8" cy="9" r="1.2" fill="var(--on-jac)"/><circle cx="14" cy="9" r="1.2" fill="var(--on-jac)"/></svg> Your AI coach</div>
+                <div class="bubble">Your ball looks a bit heavy in the middle frames. Before I give tips, try asking me for feedback yourself. A good request says what you made, what you want, and what kind of help you need.</div>
+                <div id="thread"></div>
+                <div class="prompt">
+                  <textarea rows="3" aria-label="Write your request to the coach" id="promptBox">My 12-frame bouncing ball feels slow in the air. Can you tell me which frames to space out more?</textarea>
+                  <button id="sendPrompt">Send to coach</button>
+                </div>
+                <p class="lit" id="litNote">AI tip: the coach can be wrong about your drawing. Always check its advice by playing your animation back.</p>
+              </aside>
+            </div>
+          </section>
+
+          <!-- 5 -->
+          <section data-s="4">
+            <div class="done-head">
+              <svg width="130" height="80" viewBox="0 0 110 70" aria-hidden="true"><path d="M10 10 Q30 66 55 60 Q80 66 100 10" fill="none" stroke="var(--jac)" stroke-width="2.5" stroke-dasharray="4 5"/><ellipse cx="55" cy="60" rx="14" ry="6" fill="var(--gold)"/></svg>
+              <div><h2>Project done!</h2><p class="sub" style="margin:0">Your bouncing ball is in your portfolio. Here’s what you built along the way.</p></div>
+            </div>
+            <div class="tracks">
+              <div class="card track">
+                <h3>Animation <small>3 of 8 basics</small></h3>
+                <div class="meter"><b style="width:38%;background:var(--gold)"></b></div>
+                <div class="skill"><span class="tick">✓</span>Timing</div>
+                <div class="skill"><span class="tick">✓</span>Squash and stretch</div>
+                <div class="skill"><span class="tick">✓</span>Arcs</div>
+                <div class="skill todo"><span class="tick"></span>Weight and follow-through</div>
+              </div>
+              <div class="card track">
+                <h3>AI literacy <small>3 of 10 skills</small></h3>
+                <div class="meter"><b style="width:30%;background:var(--jac)"></b></div>
+                <div class="skill"><span class="tick">✓</span>Turning a video into a learning plan</div>
+                <div class="skill"><span class="tick">✓</span>Writing a clear feedback request</div>
+                <div class="skill"><span class="tick">✓</span>Checking AI advice against your own work</div>
+                <div class="skill todo"><span class="tick"></span>Spotting when AI makes things up</div>
+              </div>
+            </div>
+            <h3 style="margin-top:28px">Up next</h3>
+            <div class="next" style="margin-top:0">
+              <div class="card"><div class="thumb" aria-hidden="true"></div><div><b>Make a character walk</b><br><small>Uses timing and arcs, adds weight</small></div></div>
+              <div class="card"><div class="thumb" aria-hidden="true" style="background:var(--jac-soft)"></div><div><b>Design a poster with AI help</b><br><small>Practice giving AI clear art direction</small></div></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="note">Example learner: Anthony, a recent high school graduate in Kenya exploring design and animation. Click the steps above, the sidebar, or the buttons in the app.</p>
+</div>
+
+<script>
+(function(){
+  const labels=["Make my lesson","Start learning","Start the project","Upload my animation","Learn something new"];
+  const crumbs=["<b>Home</b>","Home / <b>New lesson</b>","My lessons / <b>The bouncing ball</b>","Projects / <b>Bouncing ball</b>","My progress / <b>Overview</b>"];
+  const navFor=[0,0,2,3,4];
+  const secs=[...document.querySelectorAll('[data-s]')];
+  const flow=[...document.querySelectorAll('#flow button')];
+  const prog=[...document.querySelectorAll('#prog b')];
+  const navs=[...document.querySelectorAll('.nav')];
+  const cta=document.getElementById('cta'), back=document.getElementById('back'), view=document.getElementById('view'), crumb=document.getElementById('crumb');
+  let cur=0;
+  function go(i){
+    cur=(i+secs.length)%secs.length;
+    secs.forEach((s,k)=>s.classList.toggle('active',k===cur));
+    flow.forEach((b,k)=>{if(k===cur)b.setAttribute('aria-current','step');else b.removeAttribute('aria-current');});
+    prog.forEach((d,k)=>d.classList.toggle('on',k<=cur));
+    navs.forEach(n=>{if(+n.dataset.nav===navFor[cur])n.setAttribute('aria-current','page');else n.removeAttribute('aria-current');});
+    cta.textContent=labels[cur]; crumb.innerHTML=crumbs[cur]; back.hidden=cur===0; view.scrollTop=0;
+  }
+  cta.onclick=()=>go(cur+1); back.onclick=()=>go(cur-1);
+  flow.forEach(b=>b.onclick=()=>go(+b.dataset.go));
+  navs.forEach(n=>n.onclick=()=>go(+n.dataset.nav));
+
+  document.querySelectorAll('[data-single]').forEach(g=>{
+    g.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+      g.querySelectorAll(':scope > button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
+  });
+
+  const tabs=[...document.querySelectorAll('[role=tab]')];
+  function tab(name){tabs.forEach(t=>t.setAttribute('aria-selected',t.dataset.pane===name));
+    document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id===name));}
+  tabs.forEach(t=>t.onclick=()=>tab(t.dataset.pane));
+  const modeMap=['see','map','hear'];
+  document.querySelectorAll('.mode').forEach((m,k)=>m.addEventListener('click',()=>tab(modeMap[k])));
+
+  const wave=document.getElementById('wave');
+  for(let i=0;i<60;i++){const b=document.createElement('i');b.style.height=(8+Math.abs(Math.sin(i*1.7))*36)+'px';if(i<20)b.className='p';wave.appendChild(b);}
+
+  const quiz=document.querySelector('.quiz'), fb=quiz.querySelector('.feedback');
+  quiz.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+    quiz.querySelectorAll('button').forEach(x=>x.classList.remove('right','wrong'));
+    if(b.dataset.a==='1'){b.classList.add('right');fb.textContent='Right. Impact is where it flattens most.';}
+    else{b.classList.add('wrong');fb.textContent='Not quite. Look at idea 2 again: when does it hit the ground?';}});
+
+  document.getElementById('sendPrompt').onclick=()=>{
+    const box=document.getElementById('promptBox'), v=box.value.trim(), note=document.getElementById('litNote'), thread=document.getElementById('thread');
+    if(!v)return;
+    const mine=document.createElement('div');mine.className='bubble mine';mine.textContent=v;thread.appendChild(mine);
+    const reply=document.createElement('div');reply.className='bubble';
+    if(v.length>40){
+      reply.textContent='Good request. Try spreading out frames 4 to 7 near the top of the arc, and keep frames 1 and 12 close together near the ground. Play it back and tell me if it feels lighter.';
+      note.textContent='Nice: you said what you made and what help you want, so the answer is specific. Still check it by playing your animation back.';
+    }else{
+      reply.textContent='Can you tell me a bit more? What did you make, and what feels off about it?';
+      note.textContent='Short requests get vague answers. Add what you made and what kind of help you want.';
+    }
+    thread.appendChild(reply); box.value='';
+  };
+  go(0);
+})();
+</script>
+</body>
+</html>
