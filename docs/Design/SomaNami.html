@@ -250,12 +250,12 @@ h3{font-family:var(--display);font-size:1.1rem;margin:0 0 10px}
             <div class="hero">
               <div>
                 <h1>Hi Anthony. What did you find today?</h1>
-                <p class="sub" style="margin:0">Upload a document you want to understand: class notes, a handout, an article or a PDF. We’ll turn it into a lesson and a project you can actually make.</p>
+                <p class="sub" style="margin:0">Upload a PDF you want to understand: class notes, a handout or an article. We’ll turn it into a lesson and a project you can actually make.</p>
                 <label class="upload" id="upload">
-                  <input type="file" id="fileIn" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md" aria-label="Upload a document">
+                  <input type="file" id="fileIn" accept=".pdf,application/pdf" aria-label="Upload a PDF">
                   <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--jac)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
-                  <span><b>Drop a document here</b> or <u>browse your files</u></span>
-                  <small>PDF, Word, PowerPoint or text, up to 20 MB</small>
+                  <span><b>Drop a PDF here</b> or <u>browse your files</u></span>
+                  <small id="upHint">PDF only, up to 20 MB</small>
                 </label>
                 <div class="found">
                   <div class="thumb" aria-hidden="true"><svg width="40" height="48" viewBox="0 0 40 48"><path d="M4 2h22l10 10v32a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="var(--surface)" stroke="var(--gold)" stroke-width="2"/><path d="M26 2v10h10" fill="none" stroke="var(--gold)" stroke-width="2"/><path d="M9 22h20M9 28h20M9 34h13" stroke="var(--line)" stroke-width="2.5" stroke-linecap="round"/></svg></div>
@@ -520,9 +520,13 @@ h3{font-family:var(--display);font-size:1.1rem;margin:0 0 10px}
   const fileIn=document.getElementById('fileIn'), up=document.getElementById('upload');
   function showFile(f){
     if(!f)return;
+    const hint=document.getElementById('upHint');
+    const isPdf=f.type==='application/pdf'||/\.pdf$/i.test(f.name);
+    if(!isPdf){hint.textContent='That file isn’t a PDF. Please choose a .pdf file.';hint.style.color='#D04A4A';fileIn.value='';return;}
+    hint.textContent='PDF only, up to 20 MB';hint.style.color='';
     document.getElementById('docName').textContent=f.name;
-    const kb=f.size/1024, ext=(f.name.split('.').pop()||'file').toUpperCase();
-    document.getElementById('docMeta').textContent=ext+' · '+(kb>1024?(kb/1024).toFixed(1)+' MB':Math.max(1,Math.round(kb))+' KB')+' · uploaded just now';
+    const kb=f.size/1024;
+    document.getElementById('docMeta').textContent='PDF · '+(kb>1024?(kb/1024).toFixed(1)+' MB':Math.max(1,Math.round(kb))+' KB')+' · uploaded just now';
     const st=document.getElementById('docStatus');
     st.textContent='Analyzing…';
     setTimeout(()=>{st.textContent='✓ Analyzed: 4 main ideas found';},1400);
