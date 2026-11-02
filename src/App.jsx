@@ -3,7 +3,7 @@ import UploadZone from './features/upload/UploadZone.jsx'
 import { useDocumentUpload } from './features/upload/use-document-upload.js'
 
 function App() {
-  const { upload, reset, ...state } = useDocumentUpload()
+  const { upload, retry, reset, ...state } = useDocumentUpload()
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
@@ -15,7 +15,7 @@ function App() {
         article or a PDF.
       </p>
       <UploadZone onFile={upload} disabled={state.status === 'processing'} />
-      <DocumentCard {...state} onClear={reset} />
+      <DocumentCard {...state} onClear={reset} onRetry={retry} />
     </main>
   )
 }

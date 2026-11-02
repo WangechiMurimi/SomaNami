@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ACCEPT_ATTRIBUTE } from './constants.js'
+import { ACCEPT_ATTRIBUTE, SUPPORTED_LABEL } from './constants.js'
 
 /** Drop target plus file picker; reports the chosen file via `onFile`. */
 export default function UploadZone({ onFile, disabled = false }) {
@@ -57,7 +57,7 @@ export default function UploadZone({ onFile, disabled = false }) {
         <b>Drop a document here</b> or{' '}
         <span className="text-jac underline">browse your files</span>
       </span>
-      <small className="text-muted">PDF, TXT or Markdown, up to 20 MB</small>
+      <small className="text-muted">{SUPPORTED_LABEL}, up to 20 MB</small>
     </label>
   )
 }
