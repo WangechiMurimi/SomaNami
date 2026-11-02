@@ -3,12 +3,19 @@ import { formatSize } from './format-size.js'
 const BADGE = {
   processing: { text: 'Reading your document…', style: 'bg-jac-soft text-jac' },
   ready: { text: '✓ Ready to explore', style: 'bg-mint-soft text-mint' },
+  // Rejected before parsing: the file itself is the problem.
+  invalid: { text: 'Can’t use this file', style: 'bg-rose-soft text-rose' },
+  // Accepted, but reading it failed.
   error: { text: 'Couldn’t process', style: 'bg-rose-soft text-rose' },
 }
 
+const KIND_LABEL = { pdf: 'PDF', docx: 'DOCX', text: 'Text' }
+
+const ACTION_STYLE = 'ml-3 text-sm text-muted underline hover:text-ink'
+
 function describe({ status, document }) {
   if (status !== 'ready') return null
-  const kind = document.kind === 'pdf' ? 'PDF' : 'Text'
+  const kind = KIND_LABEL[document.kind]
   const pages = document.pageCount ? ` · ${document.pageCount} pages` : ''
   const passages = document.chunks.length
   return `${kind}${pages} · ${formatSize(document.size)} · ${passages} ${passages === 1 ? 'passage' : 'passages'} indexed`
@@ -21,9 +28,11 @@ export default function DocumentCard({
   error,
   fileName,
   onClear,
+  onRetry,
 }) {
   if (status === 'idle') return null
-  const badge = BADGE[status]
+  const isInvalid = status === 'error' && error.stage === 'validation'
+  const badge = BADGE[isInvalid ? 'invalid' : status]
   const name = document?.name ?? fileName
 
   return (
@@ -71,12 +80,13 @@ export default function DocumentCard({
         >
           {badge.text}
         </span>
+        {status === 'error' && error.retryable && (
+          <button type="button" onClick={onRetry} className={ACTION_STYLE}>
+            Try again
+          </button>
+        )}
         {status !== 'processing' && (
-          <button
-            type="button"
-            onClick={onClear}
-            className="ml-3 text-sm text-muted underline hover:text-ink"
-          >
+          <button type="button" onClick={onClear} className={ACTION_STYLE}>
             {status === 'error' ? 'Dismiss' : 'Remove'}
           </button>
         )}

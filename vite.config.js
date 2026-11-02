@@ -9,5 +9,10 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.js'],
     globals: false,
+    alias: [
+      // Vitest resolves packages like Node, which picks mammoth's Node build
+      // (no `arrayBuffer` input). Use the browser build the app ships with.
+      { find: /^mammoth$/, replacement: 'mammoth/mammoth.browser.js' },
+    ],
   },
 })
