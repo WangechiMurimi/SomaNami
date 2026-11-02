@@ -1,2 +1,2 @@
 # Project Instructions
-See @docs/AGENTS.md
+See @AGENTS.md

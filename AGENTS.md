@@ -1,9 +1,10 @@
 ## Core Principles
+1. **Essential** Adaptive explanations do not necessarily mean personalized learning.
 1. **Code Quality:** Produce maintainable, readable, production-ready code that follows established project standards.
-2. **UI Quality:** Build polished, cohesive, and distinctive interfaces using Tailwind CSS. Avoid generic default styling and prioritize visual consistency, usability, responsiveness, and accessibility.
-3. **Test-Driven:** No feature is considered complete without automated tests.
-4. **Collaborative Workflow:** Strictly use Scrum on GitHub Issues and standard feature branch/Pull Request workflows.
-5. **Incremental Commits:** Commit code often to establish valid development checkpoints. Specifically, a commit must be made every time a major feature (or sub-component) is completed.
+1. **UI Quality:** Build polished, cohesive, and distinctive interfaces using Tailwind CSS. Avoid generic default styling and prioritize visual consistency, usability, responsiveness, and accessibility.
+1. **Test-Driven:** No feature is considered complete without automated tests.
+1. **Collaborative Workflow:** Strictly use Scrum on GitHub Issues and standard feature branch/Pull Request workflows.
+1. **Incremental Commits:** Commit code often to establish valid development checkpoints. Specifically, a commit must be made every time a major feature (or sub-component) is completed.
 
 ## Layout
 The project lives at the repository root. Folders marked *(planned)* don't exist yet; create them when first needed.
@@ -21,10 +22,11 @@ The project lives at the repository root. Folders marked *(planned)* don't exist
 ├── public/             # static assets served as-is
 ├── tests/              # e2e tests (planned); unit tests are colocated in src/
 ├── docs/
-│   ├── AGENTS.md       # this file
+│   ├── Design/         # visual mockups (e.g. SomaNami.html)
 │   ├── PRD.md
 │   └── DESIGN.md
-├── CLAUDE.md           # points to docs/AGENTS.md
+├── AGENTS.md           # this file
+├── CLAUDE.md           # points to AGENTS.md
 ├── index.html
 ├── vite.config.js
 ├── eslint.config.js
