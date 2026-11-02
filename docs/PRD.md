@@ -1,20 +1,46 @@
-## Product Requirements Document: SomaNami - An AI-powered learning app
----
-### Project Description
-People trying to learn something new, whether students working through coursework or self-learners developing a skill, 
-often have access to the material they need but may struggle to understand, explore, or critically evaluate it. 
-While existing tools support searching, summarizing, and questioning documents, these interactions may not adequately 
-accommodate the different ways people develop understanding. This creates a need for more adaptable ways of communicating and 
-representing information, enabling people to engage with the same material at varying levels of complexity and through different 
-approaches without compromising its meaning.
+## Product Requirements Document: SomaNami
 
-#### User Stories and Acceptance criteria
- |ID|User Story|Acceptance Criteria|
+### Project Description
+**Soma Nami is an AI-powered learning application designed to help users understand, explore, and critically evaluate information from their learning materials.** While learners often have access to the information they need, existing tools for searching, summarizing, and questioning documents may not adequately accommodate different ways of developing understanding.
+
+Soma Nami allows users to upload documents, ask natural-language questions, and progressively explore concepts through context-aware conversations. Users can adjust the complexity of explanations and switch between different representations, such as simplified explanations, analogies, structured breakdowns, and visualizations. The application prioritizes source-grounded responses, preserving the meaning of the original material while distinguishing document-supported information from AI-generated examples and interpretations.
+
+**The goal is to support adaptable, user-directed learning that goes beyond retrieving answers to facilitate deeper understanding and critical engagement with information.**
+
+**Adaptive explanations are user-directed**: Users control the complexity and format of explanations. The application adapts how information is presented without independently assessing learner proficiency, tracking learning progress, or altering the underlying meaning of the source material.
+
+### Core Application Capabilities
+
+1. Document ingestion: Upload and process supported documents, making their content available for retrieval and exploration.
+2. Document-grounded questioning: Ask natural-language questions and receive answers supported by relevant document content, with source references.
+3. Contextual conversations: Ask follow-up questions that retain the relevant context of earlier interactions.
+4. Adaptive explanation complexity: Adjust explanations to different levels of prior knowledge without changing the underlying meaning.
+5. Multiple explanation formats: Explore the same information through alternative representations while retaining the original concept and context.
+6. Source transparency: Distinguish source-supported information from AI-generated explanations, examples, and interpretations.
+7. Offline accessibility: Provide clearly defined core capabilities during periods without internet connectivity, subject to the application's offline processing architecture.
+
+### Product Behavior and Scope
+
+- Soma Nami is a learning application centered on user-provided source material, not a general-purpose AI chatbot.
+- Users direct their own exploration by asking questions, requesting follow-ups, and selecting explanation complexity and format.
+- Generated responses must preserve the factual meaning and relevant qualifications of the source material, including when content is simplified or reformatted.
+- Information supported by documents must be distinguishable from AI-generated examples, interpretations, and supplementary explanations.
+- The application must not invent source references, imply unsupported claims are document-grounded, or silently substitute unrelated information when retrieval is insufficient.
+- Explanation complexity and explanation format are independent controls. Changing one should not automatically change the other.
+- The application should preserve conversational context without treating previous AI responses as authoritative evidence from the uploaded documents.
+- Features outside the agreed release scope must not be introduced solely because they are common in other AI learning applications.
+- Unresolved product decisions must be identified explicitly rather than silently assumed during implementation.
+
+### User Stories and Acceptance criteria
+
+| ID | User Story | Acceptance Criteria |
 |---|---|---|
-|US-01|As a user, I want to upload documents so that I can explore and understand their content without manually extracting or reorganizing information.|1. Users can upload supported documents and receive confirmation of successful processing or clear feedback when processing fails.<br><br>2. Uploaded document content is retrievable with accurate references to its original source location.|
-|US-02|As a user, I want to ask questions about uploaded documents in natural language so that I can clarify unfamiliar concepts and investigate specific information.|1. Users can ask natural-language questions about uploaded documents and receive relevant, understandable responses grounded in the document content.<br><br>2. Responses include references to supporting source material, and the application clearly communicates when a question cannot be answered from the available documents.|
-|US-03|As a user, I want to ask follow-up questions that retain the context of previous interactions so that I can explore topics progressively without repeating information.|1. Users can ask follow-up questions without repeating previously established information within the same conversation.<br><br>2.Responses remain relevant to the ongoing discussion and maintain contextual continuity across interactions.|
-|US-04|As a user, I want to adjust the complexity of explanations based on my existing knowledge so that I can engage with information at an appropriate level of understanding.|1. |
-|US-05|As a user, I want to switch between different formats of explanation for the same concept, so that I can understand information through the representation that works best for me.|1. |
-|US-06|As a user, I want to distinguish information from my uploaded documents from AI-generated examples and interpretations so that I can determine what is supported by the original material.|1.|
-|US-07|As a user, I want to access the application's core features without an internet connection so that I can continue exploring and understanding information regardless of connectivity.|1. |
+| US-01 | As a user, I want to upload documents so that I can explore and understand their content without manually extracting or reorganizing information. | 1. Users can upload supported documents and receive confirmation of successful processing or clear feedback when processing fails.<br><br>2. Uploaded document content is retrievable with accurate references to its original source location. |
+| US-02 | As a user, I want to ask questions about uploaded documents in natural language so that I can clarify unfamiliar concepts and investigate specific information. | 1. Users can ask natural-language questions about uploaded documents and receive relevant, understandable responses grounded in the document content.<br><br>2. Responses include references to supporting source material, and the application clearly communicates when a question cannot be answered from the available documents. |
+| US-03 | As a user, I want to ask follow-up questions that retain the context of previous interactions so that I can explore topics progressively without repeating information. | 1. Users can ask follow-up questions without repeating previously established information within the same conversation.<br><br>2. Responses remain relevant to the ongoing discussion and maintain contextual continuity across interactions. |
+| US-04 | As a user, I want to adjust the complexity of explanations based on my existing knowledge so that I can engage with information at an appropriate level of understanding. | 1. Users can select from predefined explanation complexity levels and request an explanation at their chosen level.<br><br>2. The application generates explanations appropriate to the selected level while preserving the key facts, meaning, and relevant qualifications of the source material.<br><br>3. Users can change the complexity of an existing explanation without having to repeat their original question.<br><br>4. The selected complexity level remains active for subsequent responses within the same conversation until the user changes it.<br><br>5. When a concept cannot be simplified without losing important meaning, the response retains necessary technical terms and explains them. |
+| US-05 | As a user, I want to switch between different formats of explanation for the same concept, so that I can understand information through the representation that works best for me. | 1. Users can select from the explanation formats supported by the application.<br><br>2. Users can request the same concept in a different format without having to repeat their original question.<br><br>3. The application presents the concept in the selected format while preserving the underlying meaning, key information, and relevant source references.<br><br>4. The application clearly communicates when a requested format cannot adequately represent the information.<br><br>5. Switching explanation formats preserves the user's selected complexity level. |
+| US-06 | As a user, I want to distinguish information from my uploaded documents from AI-generated examples and interpretations so that I can determine what is supported by the original material. | 1. Responses distinguish information supported by uploaded documents from AI-generated examples, interpretations, or supplementary explanations.<br><br>2. Users can identify and access the supporting source material for claims presented as document-grounded.<br><br>3. AI-generated examples or interpretations are clearly identified and are not presented as direct statements from the uploaded documents.<br><br>4. When the uploaded documents do not provide sufficient evidence for a claim, the application communicates this limitation rather than presenting unsupported information as sourced.<br><br>5. When sources contain conflicting information, the application identifies the disagreement rather than combining the claims into a single unsupported conclusion. |
+| US-07 | As a user, I want to access the application's core features without an internet connection so that I can continue exploring and understanding information regardless of connectivity. | 1. Users can access previously stored documents and generated explanations without an internet connection.<br><br>2. Users can review previously saved conversations and source references while offline.<br><br>3. The application communicates which actions require an internet connection.<br><br>4. Locally saved changes and supported conversation history are preserved and synchronized when connectivity is restored. |
+| US-08 | As a user, I want to view and manage my uploaded documents so that I can organize and remove learning materials I no longer need. | *To be defined.* |
+| US-12 | As a user, I want to access my learning materials and conversations securely so that my information remains private. | *To be defined.* |
