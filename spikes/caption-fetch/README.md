@@ -43,11 +43,27 @@ One video per line as `URL | type | note`. `type` is the caption type you expect
 
 - `GET /captions/{video_id}`: test one video
 - `GET /run?ids=ID1,ID2,ID3`: test several videos, one result row each
+- `GET /transcript/{video_id}`: full English transcript. Add `?format=text` for one plain-text string. Failures return the same `ok: false` / `error` / `detail` shape as `/captions`.
+
+  Timed snippets (default):
+
+  ```bash
+  curl "http://127.0.0.1:8000/transcript/B3U1NDUiwSA"
+  # {"video_id": "B3U1NDUiwSA", "auto_generated": false, "language": "en",
+  #  "snippets": [{"start": 0.36, "duration": 5.0, "text": "A quantum computer is ..."}, ...]}
+  ```
+
+  Plain text (newlines and extra whitespace removed):
+
+  ```bash
+  curl "http://127.0.0.1:8000/transcript/B3U1NDUiwSA?format=text"
+  # {"video_id": "B3U1NDUiwSA", "text": "A quantum computer is an advanced computer that uses ..."}
+  ```
 
 ## Tests
 
 ```bash
-python -m unittest test_run_batch
+python -m unittest test_run_batch test_transcript
 ```
 
 ## Troubleshooting
