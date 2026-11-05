@@ -11,7 +11,7 @@
 :root{
   --paper:#F7F6FD; --surface:#FFFFFF; --ink:#1B1633; --muted:#5E5A78;
   --jac:#5B3FD1; --on-jac:#FFFFFF; --jac-soft:#E9E4FF; --gold:#F2B632; --gold-soft:#FFF2CF;
-  --mint:#1E9E7C; --mint-soft:#D9F5EC; --line:#DCD8EE; --desk:#E6E3F3; --chrome:#EFEDF8;
+  --mint:#1E9E7C; --mint-soft:#D9F5EC; --line:#DCD8EE; --desk:#E6E3F3; --chrome:#EFEDF8; --err:#B93838; --err-soft:#FBE3E3;
   --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
   --body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
   color-scheme: light;
@@ -23,14 +23,14 @@
   :root:not([data-theme="light"]){
     --paper:#14112A; --surface:#1F1B3A; --ink:#F1EFFF; --muted:#B3AED0;
     --jac:#9C87FF; --on-jac:#14112A; --jac-soft:#2E2660; --gold:#F5C451; --gold-soft:#3A3020;
-    --mint:#4FD3AE; --mint-soft:#173A32; --line:#353058; --desk:#0D0B1C; --chrome:#191532;
+    --mint:#4FD3AE; --mint-soft:#173A32; --line:#353058; --desk:#0D0B1C; --chrome:#191532; --err:#FF9B9B; --err-soft:#3D1F2A;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"]{
   --paper:#14112A; --surface:#1F1B3A; --ink:#F1EFFF; --muted:#B3AED0;
   --jac:#9C87FF; --on-jac:#14112A; --jac-soft:#2E2660; --gold:#F5C451; --gold-soft:#3A3020;
-  --mint:#4FD3AE; --mint-soft:#173A32; --line:#353058; --desk:#0D0B1C; --chrome:#191532;
+  --mint:#4FD3AE; --mint-soft:#173A32; --line:#353058; --desk:#0D0B1C; --chrome:#191532; --err:#FF9B9B; --err-soft:#3D1F2A;
   color-scheme: dark;
 }
 *,*::before,*::after{box-sizing:inherit}
@@ -109,6 +109,10 @@ h3{font-family:var(--display);font-size:1.1rem;margin:0 0 10px}
 .upload input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .upload:focus-within{outline:3px solid var(--gold);outline-offset:2px}
 .status{display:inline-block;margin-top:6px;font-size:.8rem;font-weight:700;background:var(--mint-soft);color:var(--mint);padding:2px 10px;border-radius:999px}
+.status.busy{background:var(--jac-soft);color:var(--jac)}
+.status.err{background:var(--err-soft);color:var(--err)}
+.upload small.err{color:var(--err);font-weight:700}
+.retry{border:0;background:none;padding:0 4px;font-size:.85rem;font-weight:700;color:var(--jac);text-decoration:underline}
 .found b{word-break:break-word}
 .hero-art{background:var(--jac-soft);border-radius:18px;aspect-ratio:1;display:grid;place-items:center}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
@@ -250,16 +254,16 @@ h3{font-family:var(--display);font-size:1.1rem;margin:0 0 10px}
             <div class="hero">
               <div>
                 <h1>Hi Anthony. What did you find today?</h1>
-                <p class="sub" style="margin:0">Upload a PDF you want to understand: class notes, a handout or an article. We’ll turn it into a lesson and a project you can actually make.</p>
+                <p class="sub" style="margin:0">Upload a document you want to understand: class notes, a handout or an article. We’ll turn it into a lesson and a project you can actually make.</p>
                 <label class="upload" id="upload">
-                  <input type="file" id="fileIn" accept=".pdf,application/pdf" aria-label="Upload a PDF">
+                  <input type="file" id="fileIn" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" aria-label="Upload a document" aria-describedby="upHint">
                   <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--jac)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
-                  <span><b>Drop a PDF here</b> or <u>browse your files</u></span>
-                  <small id="upHint">PDF only, up to 20 MB</small>
+                  <span><b>Drop a document here</b> or <u>browse your files</u></span>
+                  <small id="upHint" aria-live="polite">PDF, Word (.docx) or text (.txt), up to 20 MB</small>
                 </label>
                 <div class="found">
                   <div class="thumb" aria-hidden="true"><svg width="40" height="48" viewBox="0 0 40 48"><path d="M4 2h22l10 10v32a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="var(--surface)" stroke="var(--gold)" stroke-width="2"/><path d="M26 2v10h10" fill="none" stroke="var(--gold)" stroke-width="2"/><path d="M9 22h20M9 28h20M9 34h13" stroke="var(--line)" stroke-width="2.5" stroke-linecap="round"/></svg></div>
-                  <div><b id="docName">Animation 101, Week 2: The bouncing ball.pdf</b><br><small id="docMeta">PDF · 12 pages · uploaded just now</small><br><span class="status" id="docStatus">✓ Analyzed: 4 main ideas found</span></div>
+                  <div><b id="docName">Animation 101, Week 2: The bouncing ball.pdf</b><br><small id="docMeta">PDF · 12 pages · uploaded just now</small><br><span class="status" id="docStatus" role="status">✓ Analyzed: 4 main ideas found</span> <button type="button" class="retry" id="docRetry" hidden>Try again</button></div>
                 </div>
               </div>
               <div class="hero-art" aria-hidden="true">
@@ -459,6 +463,70 @@ h3{font-family:var(--display);font-size:1.1rem;margin:0 0 10px}
   <p class="note">Example learner: Anthony, a recent high school graduate in Kenya exploring design and animation. Click the steps above, the sidebar, or the buttons in the app.</p>
 </div>
 
+<script id="upload-validation">
+/* Document validation for the upload zone. No DOM access here, so it can be tested in Node
+   (docs/Design/upload-validation.test.js). The input's accept attribute only filters the file
+   picker; drag-and-drop and "All files" bypass it, so this is the check that actually counts.
+   It looks at the file's bytes, because a file's name and its browser MIME type both come from
+   the extension and say nothing about what is really inside. */
+const SomaUpload=(()=>{
+  const MAX_BYTES=20*1024*1024;
+  const KINDS={
+    pdf:{label:'PDF',noun:'PDF',mime:'application/pdf'},
+    docx:{label:'DOCX',noun:'Word document',mime:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'},
+    txt:{label:'TXT',noun:'text file',mime:'text/plain'}
+  };
+  const SUPPORTED='PDF, Word (.docx) or text (.txt)';
+  const ACCEPT=Object.keys(KINDS).map(k=>'.'+k).concat(Object.values(KINDS).map(k=>k.mime)).join(',');
+  const ascii=s=>Uint8Array.from(s,c=>c.charCodeAt(0));
+  const PDF_SIG=ascii('%PDF-'), ZIP_SIG=ascii('PK\x03\x04'), DOCX_PART=ascii('word/document.xml');
+  const OLE_SIG=[0xD0,0xCF,0x11,0xE0,0xA1,0xB1,0x1A,0xE1]; // .doc, and password-protected .docx
+  const startsWith=(b,sig)=>sig.every((v,i)=>b[i]===v);
+  function indexOf(hay,needle){
+    outer:for(let i=0;i<=hay.length-needle.length;i++){
+      for(let j=0;j<needle.length;j++)if(hay[i+j]!==needle[j])continue outer;
+      return i;
+    }
+    return -1;
+  }
+  const extOf=name=>{const m=/\.([^./\\]+)$/.exec(name||'');return m?m[1].toLowerCase():'';};
+  function formatSize(bytes){const kb=bytes/1024;return kb>1024?(kb/1024).toFixed(1)+' MB':Math.max(1,Math.round(kb))+' KB';}
+  const fail=(code,message)=>({ok:false,code,message});
+
+  async function validateFile(file){
+    if(!file)return fail('missing','No file was selected. Choose a '+SUPPORTED+' file.');
+    const name=file.name, q='“'+name+'”', ext=extOf(name), kind=Object.hasOwn(KINDS,ext)?KINDS[ext]:null;
+    if(!kind){
+      if(ext==='doc')return fail('legacy-doc',q+' is an older Word (.doc) file. Open it in Word, save it as .docx, then try again.');
+      return fail('unsupported-type',q+(ext?' is a .'+ext+' file':' has no file extension')+'. Choose a '+SUPPORTED+' file.');
+    }
+    if(file.size===0)return fail('empty',q+' is empty. Choose a file that has some content.');
+    if(file.size>MAX_BYTES)return fail('too-large',q+' is '+formatSize(file.size)+'. Files can be up to 20 MB.');
+
+    // PDF headers may start anywhere in the first 1 KB; a .docx part list can sit anywhere in the zip.
+    let b;
+    try{b=new Uint8Array(await file.slice(0,ext==='pdf'?1024:ext==='docx'?file.size:65536).arrayBuffer());}
+    catch{return fail('unreadable','We couldn’t read '+q+'. It may have been moved or deleted. Choose it again.');}
+
+    const mismatch=fail('content-mismatch',q+' doesn’t look like a real '+kind.noun+', even though it ends in .'+ext+'. It may be damaged or renamed. Try saving or exporting it again.');
+    if(ext==='pdf'&&indexOf(b,PDF_SIG)<0)return mismatch;
+    if(ext==='docx'){
+      if(startsWith(b,OLE_SIG))return fail('protected-docx',q+' looks password-protected or saved in the older .doc format. Remove the password or save it as a regular .docx, then try again.');
+      if(!startsWith(b,ZIP_SIG)||indexOf(b,DOCX_PART)<0)return mismatch;
+    }
+    if(ext==='txt'){
+      const utf16=(b[0]===0xFF&&b[1]===0xFE)||(b[0]===0xFE&&b[1]===0xFF);
+      if(!utf16){
+        if(b.includes(0))return mismatch; // NUL bytes mean binary data, not text
+        if(!/\S/.test(new TextDecoder().decode(b)))return fail('empty',q+' only contains blank space. Choose a file that has some text.');
+      }
+    }
+    return {ok:true,kind:ext,label:kind.label};
+  }
+
+  return {MAX_BYTES,ACCEPT,SUPPORTED,extOf,formatSize,validateFile};
+})();
+</script>
 <script>
 (function(){
   const labels=["Make my lesson","Start learning","Start the project","Upload my animation","Learn something new"];
@@ -517,24 +585,50 @@ h3{font-family:var(--display);font-size:1.1rem;margin:0 0 10px}
     }
     thread.appendChild(reply); box.value='';
   };
-  const fileIn=document.getElementById('fileIn'), up=document.getElementById('upload');
-  function showFile(f){
-    if(!f)return;
-    const hint=document.getElementById('upHint');
-    const isPdf=f.type==='application/pdf'||/\.pdf$/i.test(f.name);
-    if(!isPdf){hint.textContent='That file isn’t a PDF. Please choose a .pdf file.';hint.style.color='#D04A4A';fileIn.value='';return;}
-    hint.textContent='PDF only, up to 20 MB';hint.style.color='';
-    document.getElementById('docName').textContent=f.name;
-    const kb=f.size/1024;
-    document.getElementById('docMeta').textContent='PDF · '+(kb>1024?(kb/1024).toFixed(1)+' MB':Math.max(1,Math.round(kb))+' KB')+' · uploaded just now';
-    const st=document.getElementById('docStatus');
-    st.textContent='Analyzing…';
-    setTimeout(()=>{st.textContent='✓ Analyzed: 4 main ideas found';},1400);
+  const fileIn=document.getElementById('fileIn'), up=document.getElementById('upload'), hint=document.getElementById('upHint');
+  const docName=document.getElementById('docName'), docMeta=document.getElementById('docMeta'), st=document.getElementById('docStatus'), retry=document.getElementById('docRetry');
+  const HINT=hint.textContent;
+  let run=0, current=null; // run: id of the latest selection, so results for an older file are ignored
+  function setHint(msg){hint.textContent=msg||HINT;hint.classList.toggle('err',!!msg);}
+  function setStatus(text,tone,canRetry){
+    st.textContent=text;st.classList.toggle('busy',tone==='busy');st.classList.toggle('err',tone==='err');retry.hidden=!canRetry;
   }
-  fileIn.onchange=()=>showFile(fileIn.files[0]);
-  ['dragenter','dragover'].forEach(ev=>up.addEventListener(ev,e=>{e.preventDefault();up.classList.add('over');}));
-  ['dragleave','drop'].forEach(ev=>up.addEventListener(ev,e=>{e.preventDefault();up.classList.remove('over');}));
-  up.addEventListener('drop',e=>showFile(e.dataTransfer.files[0]));
+  // Stand-in for the real ingestion request. Add #demo-fail to the URL to preview the failure state.
+  function analyze(){
+    return new Promise((ok,no)=>setTimeout(()=>location.hash==='#demo-fail'?no(new Error('Analysis failed')):ok({ideas:4}),1400));
+  }
+  async function runAnalysis(f,id){
+    setHint();setStatus('Analyzing…','busy');
+    try{const r=await analyze(f);if(id===run)setStatus('✓ Analyzed: '+r.ideas+' main ideas found');}
+    catch{if(id===run){setHint('Something went wrong while reading “'+f.name+'”. Try again, or choose a different file.');setStatus('✕ Couldn’t analyze this file','err',true);}}
+  }
+  async function handle(files){
+    if(!files.length)return;
+    if(files.length>1){setHint('Please add one file at a time.');return;}
+    const f=files[0], id=++run, size=SomaUpload.formatSize(f.size);
+    current=null;
+    docName.textContent=f.name;
+    docMeta.textContent=(SomaUpload.extOf(f.name).toUpperCase()||'File')+' · '+size;
+    setHint();setStatus('Checking file…','busy');
+    const v=await SomaUpload.validateFile(f);
+    if(id!==run)return;
+    if(!v.ok){setHint(v.message);setStatus('✕ Not uploaded','err');return;}
+    current=f;
+    docMeta.textContent=v.label+' · '+size+' · uploaded just now';
+    runAnalysis(f,id);
+  }
+  // Copy the files first, then clear the input so picking the same file again still fires change.
+  fileIn.onchange=()=>{const files=[...fileIn.files];fileIn.value='';handle(files);};
+  retry.onclick=()=>{if(current)runAnalysis(current,++run);};
+  const hasFiles=e=>[...(e.dataTransfer?e.dataTransfer.types:[])].includes('Files');
+  ['dragenter','dragover'].forEach(ev=>up.addEventListener(ev,e=>{if(!hasFiles(e))return;e.preventDefault();up.classList.add('over');}));
+  up.addEventListener('dragleave',e=>{if(!up.contains(e.relatedTarget))up.classList.remove('over');});
+  up.addEventListener('drop',e=>{e.preventDefault();up.classList.remove('over');handle([...e.dataTransfer.files]);});
+  // A file dropped just outside the zone would otherwise be opened by the browser, leaving the app.
+  ['dragover','drop'].forEach(ev=>window.addEventListener(ev,e=>{
+    if(!hasFiles(e)||up.contains(e.target))return;
+    e.preventDefault();e.dataTransfer.dropEffect='none';
+  }));
   go(0);
 })();
 </script>
