@@ -3,12 +3,12 @@ import { formatSize } from './format-size.ts'
 import type { UploadState } from './use-document-upload.ts'
 
 const BADGE = {
-  processing: { text: 'Reading your document…', style: 'bg-jac-soft text-jac' },
-  ready: { text: '✓ Ready to explore', style: 'bg-mint-soft text-mint' },
+  processing: { text: 'Reading your document…', style: 'bg-tint text-accent' },
+  ready: { text: '✓ Ready to explore', style: 'bg-success-soft text-success' },
   // Rejected before parsing: the file itself is the problem.
-  invalid: { text: 'Can’t use this file', style: 'bg-rose-soft text-rose' },
+  invalid: { text: 'Can’t use this file', style: 'bg-warn-soft text-warn' },
   // Accepted, but reading it failed.
-  error: { text: 'Couldn’t process', style: 'bg-rose-soft text-rose' },
+  error: { text: 'Couldn’t process', style: 'bg-warn-soft text-warn' },
 }
 
 const KIND_LABEL: Record<DocumentKind, string> = {
@@ -17,7 +17,7 @@ const KIND_LABEL: Record<DocumentKind, string> = {
   text: 'Text',
 }
 
-const ACTION_STYLE = 'ml-3 text-sm text-muted underline hover:text-ink'
+const ACTION_STYLE = 'ml-3 text-sm text-muted underline hover:text-fg'
 
 function describe(state: UploadState): string | null {
   if (state.status !== 'ready') return null
@@ -51,19 +51,19 @@ export default function DocumentCard(props: DocumentCardProps) {
     >
       <div
         aria-hidden="true"
-        className="grid aspect-[16/10] place-items-center rounded-lg bg-jac-soft"
+        className="grid aspect-[16/10] place-items-center rounded-lg bg-tint"
       >
         <svg width="40" height="48" viewBox="0 0 40 48">
           <path
             d="M4 2h22l10 10v32a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"
             fill="var(--surface)"
-            stroke="var(--gold)"
+            stroke="var(--accent)"
             strokeWidth="2"
           />
           <path
             d="M26 2v10h10"
             fill="none"
-            stroke="var(--gold)"
+            stroke="var(--accent)"
             strokeWidth="2"
           />
           <path
@@ -77,7 +77,7 @@ export default function DocumentCard(props: DocumentCardProps) {
       <div className="min-w-0">
         <b className="break-words">{name}</b>
         {summary && <small className="block text-muted">{summary}</small>}
-        {error && <p className="mt-1 text-sm text-rose">{error.message}</p>}
+        {error && <p className="mt-1 text-sm text-warn">{error.message}</p>}
         <span
           className={`mt-1.5 inline-block rounded-full px-2.5 py-0.5 text-xs font-bold ${badge.style}`}
         >

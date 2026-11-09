@@ -54,7 +54,7 @@ describe('UploadZone', () => {
     expect(zone().className).toContain('bg-surface')
 
     fireEvent.dragLeave(zone())
-    expect(zone().className).toContain('bg-jac-soft')
+    expect(zone().className).toContain('bg-tint')
   })
 
   it('is reachable and operable from the keyboard alone', async () => {

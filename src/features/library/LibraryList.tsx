@@ -22,10 +22,10 @@ export default function LibraryList({
               type="button"
               aria-pressed={active}
               onClick={() => onSelect(document.id)}
-              className={`max-w-full truncate rounded-full border px-3.5 py-1.5 text-sm transition-colors focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-gold ${
+              className={`max-w-full truncate rounded-full border px-3.5 py-1.5 text-sm transition-colors focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-accent ${
                 active
-                  ? 'border-jac bg-jac font-bold text-on-jac'
-                  : 'border-line bg-surface hover:border-jac'
+                  ? 'border-accent bg-accent font-bold text-on-accent'
+                  : 'border-edge bg-surface hover:border-accent'
               }`}
             >
               {document.name}

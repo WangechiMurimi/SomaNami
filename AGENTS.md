@@ -25,9 +25,8 @@ The project lives at the repository root. Folders marked *(planned)* don't exist
 ├── public/             # static assets served as-is
 ├── tests/              # e2e tests (planned); unit tests are colocated in src/
 ├── docs/
-│   ├── Design/         # visual mockups (e.g. SomaNami.html)
 │   ├── PRD.md
-│   └── DESIGN.md
+│   └── DESIGN.md       # design tokens and decisions; visuals live on the design canvas
 ├── AGENTS.md           # this file
 ├── CLAUDE.md           # points to AGENTS.md
 ├── index.html
