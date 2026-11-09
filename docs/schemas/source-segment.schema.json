@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://somanami.app/schemas/source-segment.schema.json",
+  "title": "SomaNami Source",
+  "description": "A source and its locatable text segments for document-grounded learning.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "type", "metadata", "segments"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "type": {
+      "type": "string",
+      "enum": ["document", "video"]
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Source-specific metadata such as filename, MIME type, language, or caption provenance."
+    },
+    "segments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/segment"
+      }
+    }
+  },
+  "$defs": {
+    "segment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text", "anchor"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string"
+        },
+        "anchor": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "page"],
+              "properties": {
+                "type": {
+                  "const": "page"
+                },
+                "page": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "start", "duration"],
+              "properties": {
+                "type": {
+                  "const": "time_range"
+                },
+                "start": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "duration": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
