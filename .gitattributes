@@ -1,0 +1,10 @@
+# Normalise line endings to LF in the repository.
+# Prettier on Windows writes CRLF, which otherwise shows every formatted file as
+# modified even when its content is unchanged.
+* text=auto eol=lf
+
+# Binary fixtures must never be line-ending normalised.
+*.png binary
+*.svg text eol=lf
+*.pdf binary
+*.docx binary
