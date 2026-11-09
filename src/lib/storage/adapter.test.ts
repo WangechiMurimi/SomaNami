@@ -154,6 +154,43 @@ describe.each(ADAPTERS)('%s adapter', (_name, makeAdapter) => {
     expect(await adapter.getAll(CONVERSATIONS)).toHaveLength(1)
   })
 
+  it('removes keys across several stores in one call', async () => {
+    await adapter.put(DOCUMENTS, { id: 'd1' })
+    await adapter.put(CONVERSATIONS, { id: 'c1', documentId: 'd1' })
+    await adapter.put(MESSAGES, { id: 'm1', conversationId: 'c1' })
+    await adapter.put(MESSAGES, { id: 'm2', conversationId: 'c2' })
+
+    await adapter.removeMany([
+      { storeName: MESSAGES, key: 'm1' },
+      { storeName: CONVERSATIONS, key: 'c1' },
+      { storeName: DOCUMENTS, key: 'd1' },
+    ])
+
+    expect(await adapter.getAll(DOCUMENTS)).toEqual([])
+    expect(await adapter.getAll(CONVERSATIONS)).toEqual([])
+    expect(await adapter.getAll(MESSAGES)).toEqual([
+      { id: 'm2', conversationId: 'c2' },
+    ])
+  })
+
+  it('removes nothing when one removal in the batch is invalid', async () => {
+    await adapter.put(DOCUMENTS, { id: 'd1' })
+
+    await expect(
+      adapter.removeMany([
+        { storeName: DOCUMENTS, key: 'd1' },
+        // Deliberately not a StoreName: the whole batch must be rejected.
+        { storeName: 'nope' as StoreName, key: 'x' },
+      ]),
+    ).rejects.toThrow()
+
+    expect(await adapter.getAll(DOCUMENTS)).toEqual([{ id: 'd1' }])
+  })
+
+  it('accepts an empty batch', async () => {
+    await expect(adapter.removeMany([])).resolves.toBeUndefined()
+  })
+
   it('keeps stores independent of each other', async () => {
     await adapter.put(DOCUMENTS, { id: 'shared' })
     await adapter.put(CONVERSATIONS, { id: 'shared', documentId: 'd1' })

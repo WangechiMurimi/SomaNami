@@ -1,4 +1,4 @@
-import type { StorageAdapter, StorageRecord } from './adapter.ts'
+import type { Removal, StorageAdapter, StorageRecord } from './adapter.ts'
 import { requireIndexValue } from './index-value.ts'
 import { STORES } from './schema.ts'
 import type { StoreName } from './schema.ts'
@@ -87,6 +87,16 @@ export function createMemoryAdapter(): StorageAdapter {
       const store = entries(storeName)
       for (const record of matching(storeName, indexName, value))
         store.delete(record.id)
+    },
+
+    async removeMany(removals: readonly Removal[]) {
+      // Resolve every store before deleting anything, so an unknown store
+      // rejects the whole batch the way an IndexedDB transaction would.
+      const targets = removals.map(({ storeName, key }) => ({
+        store: entries(storeName),
+        key,
+      }))
+      for (const { store, key } of targets) store.delete(key)
     },
 
     async close() {

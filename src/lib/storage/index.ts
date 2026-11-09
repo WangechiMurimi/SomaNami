@@ -67,7 +67,8 @@ export async function listDocuments(): Promise<StoredDocument[]> {
 
 /**
  * Removes a document together with its conversations and messages; orphaned
- * conversations would cite source references whose document is gone.
+ * conversations would cite source references whose document is gone. The
+ * deletes run as one batch so an interrupted delete cannot leave orphans.
  */
 export async function deleteDocument(id: string): Promise<void> {
   const conversations = await store().getAllByIndex<Conversation>(
@@ -75,11 +76,26 @@ export async function deleteDocument(id: string): Promise<void> {
     'documentId',
     id,
   )
-  for (const conversation of conversations) {
-    await store().removeByIndex(MESSAGES, 'conversationId', conversation.id)
-  }
-  await store().removeByIndex(CONVERSATIONS, 'documentId', id)
-  await store().remove(DOCUMENTS, id)
+  const messageGroups = await Promise.all(
+    conversations.map((conversation) =>
+      store().getAllByIndex<Message>(
+        MESSAGES,
+        'conversationId',
+        conversation.id,
+      ),
+    ),
+  )
+  await store().removeMany([
+    ...messageGroups.flat().map((message) => ({
+      storeName: MESSAGES,
+      key: message.id,
+    })),
+    ...conversations.map((conversation) => ({
+      storeName: CONVERSATIONS,
+      key: conversation.id,
+    })),
+    { storeName: DOCUMENTS, key: id },
+  ])
 }
 
 /** Starts a conversation against a document and returns the stored record. */

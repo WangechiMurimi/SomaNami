@@ -1,4 +1,4 @@
-import type { StorageAdapter, StorageRecord } from './adapter.ts'
+import type { Removal, StorageAdapter, StorageRecord } from './adapter.ts'
 import { requireIndexValue } from './index-value.ts'
 import { DB_NAME, DB_VERSION, STORES } from './schema.ts'
 import type { StoreName } from './schema.ts'
@@ -123,6 +123,25 @@ export function createIndexedDbAdapter(
       await write(storeName, (store) => {
         for (const key of keys) store.delete(key)
       })
+    },
+
+    async removeMany(removals: readonly Removal[]) {
+      if (removals.length === 0) return
+      const database = await db()
+      const storeNames = [...new Set(removals.map((r) => r.storeName))]
+      // One transaction over every store involved: IndexedDB commits all of its
+      // requests together or aborts them all, which is the atomicity we need.
+      // An unknown store name throws here, before anything is deleted.
+      const transaction = database.transaction(storeNames, 'readwrite')
+      const done = new Promise<void>((resolve, reject) => {
+        transaction.oncomplete = () => resolve()
+        transaction.onerror = () => reject(transaction.error)
+        transaction.onabort = () => reject(transaction.error)
+      })
+      for (const { storeName, key } of removals) {
+        transaction.objectStore(storeName).delete(key)
+      }
+      await done
     },
 
     async close() {
