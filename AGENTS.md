@@ -11,14 +11,15 @@ The project lives at the repository root. Folders marked *(planned)* don't exist
 
 ```
 ├── src/
-│   ├── main.jsx        # entry point
-│   ├── App.jsx         # root component
+│   ├── main.tsx        # entry point
+│   ├── App.tsx         # root component
 │   ├── assets/         # images bundled by Vite
 │   ├── components/     # reusable UI (planned)
-│   ├── features/       # feature modules, one folder per feature (planned)
-│   ├── lib/            # shared utilities, API clients (planned)
-│   ├── llm/            # model adapters, prompts, retrieval (planned)
-│   └── types/          # shared types (planned)
+│   ├── features/       # feature modules, one folder per feature
+│   ├── lib/            # shared utilities: storage, retrieval
+│   ├── llm/            # model adapters, prompts (planned)
+│   └── types/          # shared data contracts (contracts.ts)
+├── server/             # Express API (runs as .ts via Node type stripping)
 ├── public/             # static assets served as-is
 ├── tests/              # e2e tests (planned); unit tests are colocated in src/
 ├── docs/
@@ -28,7 +29,8 @@ The project lives at the repository root. Folders marked *(planned)* don't exist
 ├── AGENTS.md           # this file
 ├── CLAUDE.md           # points to AGENTS.md
 ├── index.html
-├── vite.config.js
+├── vite.config.ts
+├── tsconfig.json       # references tsconfig.app.json (src) and tsconfig.node.json (server)
 ├── eslint.config.js
 ├── package.json
 └── README.md
