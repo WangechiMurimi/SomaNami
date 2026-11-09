@@ -61,6 +61,31 @@ def clean_snippet_text(text: str) -> str:
     return " ".join(text.replace("\n", " ").split())
 
 
+def build_video_source(video_id: str, fetched) -> dict:
+    """Convert a fetched transcript to the shared Source/Segment shape."""
+    return {
+        "id": "video:{}".format(video_id),
+        "type": "video",
+        "metadata": {
+            "video_id": video_id,
+            "language": fetched.language_code,
+            "auto_generated": fetched.is_generated,
+        },
+        "segments": [
+            {
+                "id": "video:{}:segment:{}".format(video_id, index),
+                "text": clean_snippet_text(snippet.text),
+                "anchor": {
+                    "type": "time_range",
+                    "start": snippet.start,
+                    "duration": snippet.duration,
+                },
+            }
+            for index, snippet in enumerate(fetched.snippets, start=1)
+        ],
+    }
+
+
 @app.get("/transcript/{video_id}")
 def transcript(video_id: str, format: Literal["json", "text"] = "json"):
     """Return the full English transcript as timed snippets or one text string."""
@@ -76,14 +101,20 @@ def transcript(video_id: str, format: Literal["json", "text"] = "json"):
             "ms": round((time.perf_counter() - start) * 1000),
         }
 
+    source = build_video_source(video_id, fetched)
     if format == "text":
         text = " ".join(clean_snippet_text(s.text) for s in fetched.snippets)
-        return {"video_id": video_id, "text": " ".join(text.split())}
+        return {
+            "video_id": video_id,
+            "text": " ".join(text.split()),
+            "source": source,
+        }
 
     return {
         "video_id": video_id,
         "auto_generated": fetched.is_generated,
         "language": fetched.language_code,
+        "source": source,
         "snippets": [
             {"start": s.start, "duration": s.duration, "text": s.text}
             for s in fetched.snippets

@@ -22,6 +22,24 @@ class TranscriptEndpointTest(unittest.TestCase):
         self.assertEqual(result["video_id"], "B3U1NDUiwSA")
         self.assertFalse(result["auto_generated"])
         self.assertEqual(result["language"], "en")
+        self.assertEqual(result["source"]["id"], "video:B3U1NDUiwSA")
+        self.assertEqual(result["source"]["type"], "video")
+        self.assertEqual(
+            result["source"]["metadata"],
+            {
+                "video_id": "B3U1NDUiwSA",
+                "language": "en",
+                "auto_generated": False,
+            },
+        )
+        self.assertEqual(
+            result["source"]["segments"][0],
+            {
+                "id": "video:B3U1NDUiwSA:segment:1",
+                "text": "A quantum computer uses",
+                "anchor": {"type": "time_range", "start": 0.36, "duration": 5.0},
+            },
+        )
         self.assertEqual(
             result["snippets"][0],
             {"start": 0.36, "duration": 5.0, "text": "A quantum computer \nuses  "},
@@ -32,8 +50,10 @@ class TranscriptEndpointTest(unittest.TestCase):
         with mock.patch.object(index.ytt, "fetch", return_value=FAKE_TRANSCRIPT):
             result = index.transcript("B3U1NDUiwSA", format="text")
         self.assertEqual(
-            result, {"video_id": "B3U1NDUiwSA", "text": "A quantum computer uses quantum mechanics."}
+            result["text"], "A quantum computer uses quantum mechanics."
         )
+        self.assertEqual(result["source"]["type"], "video")
+        self.assertEqual(len(result["source"]["segments"]), 2)
 
     def test_failure_returns_error_shape(self):
         with mock.patch.object(index.ytt, "fetch", side_effect=ValueError("boom")):
