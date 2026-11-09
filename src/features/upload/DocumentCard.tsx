@@ -90,7 +90,8 @@ export default function DocumentCard(props: DocumentCardProps) {
         )}
         {status !== 'processing' && (
           <button type="button" onClick={onClear} className={ACTION_STYLE}>
-            {status === 'error' ? 'Dismiss' : 'Remove'}
+            {/* Clears this status only; the document stays in the library. */}
+            Dismiss
           </button>
         )}
       </div>

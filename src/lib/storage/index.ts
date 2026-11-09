@@ -9,6 +9,7 @@ import type {
 } from '../../types/contracts.ts'
 import type { StorageAdapter } from './adapter.ts'
 import { createIndexedDbAdapter } from './indexeddb-adapter.ts'
+import { createMemoryAdapter } from './memory-adapter.ts'
 import { CONVERSATIONS, DOCUMENTS, MESSAGES } from './schema.ts'
 
 export type { StorageAdapter, StorageRecord } from './adapter.ts'
@@ -33,7 +34,12 @@ export function setStorageAdapter(next: StorageAdapter | null): void {
   adapter = next ?? undefined
 }
 
-const store = (): StorageAdapter => (adapter ??= createIndexedDbAdapter())
+// Some browsers (and private-browsing modes) expose no IndexedDB; the app
+// still works for the session, it just cannot keep documents across reloads.
+const store = (): StorageAdapter =>
+  (adapter ??= globalThis.indexedDB
+    ? createIndexedDbAdapter()
+    : createMemoryAdapter())
 
 const newId = (): string => crypto.randomUUID()
 

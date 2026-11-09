@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { StoredDocument } from '../../types/contracts.ts'
 import { parseDocument, UploadError } from './parse-document.ts'
 import type { UploadStage } from './upload-error.ts'
@@ -40,13 +40,26 @@ function toErrorState(error: unknown): UploadErrorState {
   }
 }
 
+export interface UseDocumentUploadOptions {
+  /**
+   * Runs with each parsed document before it is shown as ready, e.g. to save
+   * it. If it throws, the upload is reported as failed.
+   */
+  onReady?: (document: StoredDocument) => void | Promise<void>
+}
+
 /** Tracks one upload at a time: idle, processing, ready or error. */
-export function useDocumentUpload() {
+export function useDocumentUpload({ onReady }: UseDocumentUploadOptions = {}) {
   const [state, setState] = useState<UploadState>(IDLE)
   // A newer upload supersedes a slow earlier one, so drop stale results.
   const latest = useRef(0)
   // Kept so a failed upload can be retried without re-picking the file.
   const lastFile = useRef<File | null>(null)
+  // Read through a ref so a new callback each render doesn't recreate `upload`.
+  const onReadyRef = useRef(onReady)
+  useEffect(() => {
+    onReadyRef.current = onReady
+  }, [onReady])
 
   const upload = useCallback(async (file: File | null | undefined) => {
     if (!file) return
@@ -60,6 +73,8 @@ export function useDocumentUpload() {
     })
     try {
       const document = await parseDocument(file)
+      if (ticket !== latest.current) return
+      await onReadyRef.current?.(document)
       if (ticket === latest.current) {
         setState({ status: 'ready', document, error: null })
       }
