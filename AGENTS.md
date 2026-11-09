@@ -17,9 +17,11 @@ The project lives at the repository root. Folders marked *(planned)* don't exist
 │   ├── components/     # reusable UI (planned)
 │   ├── features/       # feature modules, one folder per feature
 │   ├── lib/            # shared utilities: storage, retrieval
-│   ├── llm/            # model adapters, prompts (planned)
-│   └── types/          # shared data contracts (contracts.ts)
-├── server/             # Express API (runs as .ts via Node type stripping)
+│   └── types/          # shared data contracts (contracts.ts), also used by server/
+├── server/             # API: Express for local dev (runs as .ts via Node type stripping)
+│   ├── chat/           # transport-neutral route handlers (shared with netlify/)
+│   └── llm/            # Claude adapter and prompts; server-only so the key never reaches the browser
+├── netlify/functions/  # production entry points; thin adapters over server/ handlers
 ├── public/             # static assets served as-is
 ├── tests/              # e2e tests (planned); unit tests are colocated in src/
 ├── docs/
