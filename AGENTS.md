@@ -14,9 +14,11 @@ The project lives at the repository root. Folders marked *(planned)* don't exist
 │   ├── main.tsx        # entry point
 │   ├── App.tsx         # root component
 │   ├── assets/         # images bundled by Vite
-│   ├── components/     # reusable UI (planned)
+│   ├── app/            # app shell: layout, sidebar, routing
+│   ├── pages/          # one component per route
+│   ├── components/     # reusable UI
 │   ├── features/       # feature modules, one folder per feature
-│   ├── lib/            # shared utilities: storage, retrieval
+│   ├── lib/            # shared utilities: storage, retrieval, theme, connectivity
 │   └── types/          # shared data contracts (contracts.ts), also used by server/
 ├── server/             # API: Express for local dev (runs as .ts via Node type stripping)
 │   ├── chat/           # transport-neutral route handlers (shared with netlify/)
