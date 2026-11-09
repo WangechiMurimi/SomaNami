@@ -127,3 +127,71 @@ describe('useChat', () => {
     log.mockRestore()
   })
 })
+
+describe('useChat with a saved conversation', () => {
+  const restored = [
+    { id: 'm1', role: 'user' as const, content: 'Earlier question?' },
+    {
+      id: 'm2',
+      role: 'assistant' as const,
+      content: 'Earlier answer.',
+      answerable: true,
+      citations: [],
+    },
+  ]
+
+  it('starts from the restored transcript and sends it as history', async () => {
+    vi.mocked(askQuestion).mockResolvedValue(answer())
+    const { result } = renderHook(() => useChat({ initialMessages: restored }))
+
+    expect(result.current.messages).toEqual(restored)
+    await act(() => result.current.send('Follow-up?'))
+
+    expect(askQuestion).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        history: [
+          { role: 'user', content: 'Earlier question?' },
+          { role: 'assistant', content: 'Earlier answer.' },
+        ],
+      }),
+    )
+  })
+
+  it('reports each answered exchange so it can be saved', async () => {
+    const reply = answer()
+    vi.mocked(askQuestion).mockResolvedValue(reply)
+    const onAnswered = vi.fn()
+    const { result } = renderHook(() => useChat({ onAnswered }))
+
+    await act(() => result.current.send('Why?'))
+
+    expect(onAnswered).toHaveBeenCalledWith({ question: 'Why?', reply })
+  })
+
+  it('does not report a failed question', async () => {
+    vi.mocked(askQuestion).mockRejectedValue(new ChatError('offline'))
+    const onAnswered = vi.fn()
+    const { result } = renderHook(() => useChat({ onAnswered }))
+
+    await act(() => result.current.send('Why?'))
+
+    expect(onAnswered).not.toHaveBeenCalled()
+  })
+
+  it('keeps a shown answer when saving it fails', async () => {
+    vi.mocked(askQuestion).mockResolvedValue(answer())
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const onAnswered = vi.fn().mockRejectedValue(new Error('quota'))
+    const { result } = renderHook(() => useChat({ onAnswered }))
+
+    await act(() => result.current.send('Why?'))
+
+    expect(result.current.status).toBe('idle')
+    expect(result.current.error).toBeNull()
+    expect(result.current.messages.at(-1)?.content).toBe(
+      'Because light drives it.',
+    )
+    expect(log).toHaveBeenCalled()
+    log.mockRestore()
+  })
+})
