@@ -9,7 +9,7 @@ const makeDocument = (id: string, texts: string[]): StoredDocument => ({
   kind: 'text',
   pageCount: null,
   chunks: texts.map((text, index) => ({
-    id: index,
+    id: `${id}:${index}`,
     text,
     source: { type: 'paragraph', paragraph: index + 1 },
   })),
@@ -28,7 +28,7 @@ describe('buildIndex', () => {
     expect(index.chunkCount).toBe(2)
     expect(index.postings[1]).toMatchObject({
       documentId: 'doc-a',
-      chunkId: 1,
+      chunkId: 'doc-a:1',
       source: { type: 'paragraph', paragraph: 2 },
     })
   })

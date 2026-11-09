@@ -20,7 +20,7 @@ describe('resolveCitations', () => {
   const passages = [
     {
       documentId: 'doc-1',
-      chunkId: 1,
+      chunkId: 'doc-1:1',
       text: 'Photosynthesis converts light.',
       source: { type: 'page' as const, page: 7 },
     },
@@ -30,7 +30,7 @@ describe('resolveCitations', () => {
   it('labels a citation with its document name and location', () => {
     expect(
       resolveCitations(
-        [{ documentId: 'doc-1', chunkId: 1 }],
+        [{ documentId: 'doc-1', chunkId: 'doc-1:1' }],
         passages,
         documents,
       ),
@@ -45,19 +45,19 @@ describe('resolveCitations', () => {
 
   it('shows a repeated citation once', () => {
     const citations = [
-      { documentId: 'doc-1', chunkId: 1 },
-      { documentId: 'doc-1', chunkId: 1 },
+      { documentId: 'doc-1', chunkId: 'doc-1:1' },
+      { documentId: 'doc-1', chunkId: 'doc-1:1' },
     ]
     expect(resolveCitations(citations, passages, documents)).toHaveLength(1)
   })
 
-  it('falls back to the chunk id when the passage is unknown', () => {
+  it('falls back to a generic label when the passage is unknown', () => {
     expect(
       resolveCitations(
-        [{ documentId: 'doc-9', chunkId: 4 }],
+        [{ documentId: 'doc-9', chunkId: 'doc-9:4' }],
         passages,
         documents,
       ),
-    ).toEqual([{ key: 'doc-9:4', label: 'Passage 4', text: undefined }])
+    ).toEqual([{ key: 'doc-9:4', label: 'Unknown passage', text: undefined }])
   })
 })

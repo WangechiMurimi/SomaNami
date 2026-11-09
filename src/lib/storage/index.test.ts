@@ -30,17 +30,17 @@ const makeDocument = (
   pageCount: 3,
   chunks: [
     {
-      id: 0,
+      id: `doc-1:0`,
       text: 'Mitochondria produce ATP.',
       source: { type: 'page', page: 1 },
     },
     {
-      id: 1,
+      id: `doc-1:1`,
       text: 'Ribosomes assemble proteins.',
       source: { type: 'paragraph', paragraph: 4 },
     },
     {
-      id: 2,
+      id: `doc-1:2`,
       text: 'The nucleus holds DNA.',
       source: { type: 'line', startLine: 9, endLine: 12 },
     },
@@ -241,7 +241,7 @@ describe.each(ADAPTERS)(
           conversationId: conversation.id,
           role: 'assistant',
           content: 'Mitochondria do.',
-          citations: [{ documentId: 'doc-1', chunkId: 0 }],
+          citations: [{ documentId: 'doc-1', chunkId: 'doc-1:0' }],
           answerable: true,
           createdAt: 2,
         })
@@ -251,7 +251,7 @@ describe.each(ADAPTERS)(
         expect(answer.role).toBe('assistant')
         const assistant = answer as AssistantMessage
         expect(assistant.citations).toEqual([
-          { documentId: 'doc-1', chunkId: 0 },
+          { documentId: 'doc-1', chunkId: 'doc-1:0' },
         ])
         expect(assistant.answerable).toBe(true)
       })

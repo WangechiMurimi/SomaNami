@@ -13,7 +13,7 @@ vi.mock('./chat-client.ts', async (importOriginal) => ({
 const PASSAGES = [
   {
     documentId: 'doc-1',
-    chunkId: 2,
+    chunkId: 'doc-1:2',
     text: 'Light drives photosynthesis.',
     source: { type: 'page' as const, page: 4 },
   },
@@ -73,7 +73,7 @@ describe('ChatPanel', () => {
 
     settle({
       answer: 'Light drives photosynthesis.',
-      citations: [{ documentId: 'doc-1', chunkId: 2 }],
+      citations: [{ documentId: 'doc-1', chunkId: 'doc-1:2' }],
       answerable: true,
     })
 

@@ -24,7 +24,7 @@ describe('askQuestion', () => {
     const passages: Passage[] = [
       {
         documentId: 'doc-1',
-        chunkId: 1,
+        chunkId: 'doc-1:1',
         text: 'x',
         source: { type: 'page', page: 1 },
       },

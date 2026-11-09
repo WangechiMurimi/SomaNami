@@ -12,7 +12,7 @@ const makeDocument = (
   size: 1000,
   kind: 'text',
   pageCount: null,
-  chunks: chunks.map((chunk, index) => ({ id: index, ...chunk })),
+  chunks: chunks.map((chunk, index) => ({ id: `${id}:${index}`, ...chunk })),
 })
 
 const biology = makeDocument('doc-biology', [
@@ -65,7 +65,10 @@ describe('retrieveChunks', () => {
     )
 
     expect(hits.length).toBeGreaterThan(0)
-    expect(hits[0]).toMatchObject({ documentId: 'doc-biology', chunkId: 0 })
+    expect(hits[0]).toMatchObject({
+      documentId: 'doc-biology',
+      chunkId: 'doc-biology:0',
+    })
   })
 
   it('orders hits by descending score', () => {
@@ -123,7 +126,8 @@ describe('retrieveChunks', () => {
       const document = [biology, astronomy].find(
         (candidate) => candidate.id === hit.documentId,
       )
-      expect(document?.chunks[hit.chunkId]?.text).toBe(hit.text)
+      const chunk = document?.chunks.find(({ id }) => id === hit.chunkId)
+      expect(chunk?.text).toBe(hit.text)
     }
   })
 
