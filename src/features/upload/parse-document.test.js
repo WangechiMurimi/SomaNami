@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { SUPPORTED_EXTENSIONS } from './constants.js'
+import { MAX_FILE_BYTES, SUPPORTED_EXTENSIONS } from './constants.js'
 import { parseDocx } from './parse-docx.js'
 import { parseDocument, PARSERS, UploadError } from './parse-document.js'
 import { parsePdf } from './parse-pdf.js'
@@ -66,9 +66,28 @@ describe('parseDocument', () => {
     expect(parsePdf).not.toHaveBeenCalled()
   })
 
-  it('reports files with no readable text', async () => {
-    const error = await rejection(parseDocument(new File([' \n '], 'a.txt')))
-    expect(error).toMatchObject({ code: 'no-text', stage: 'processing' })
+  it('rejects an oversized file before reading a single byte of it', async () => {
+    const huge = new File(['%PDF-1.7\n'], 'thesis.pdf')
+    // Faked rather than allocated: the limit is 20 MB and the check is on size.
+    Object.defineProperty(huge, 'size', { value: MAX_FILE_BYTES + 1 })
+
+    const error = await rejection(parseDocument(huge))
+
+    expect(error).toMatchObject({ code: 'too-large', stage: 'validation' })
+    expect(error.message).toContain('20 MB')
+    expect(parsePdf).not.toHaveBeenCalled()
+  })
+
+  it('separates an empty file from one whose text we could not extract', async () => {
+    // 0 bytes: nothing was uploaded, so it never reaches a parser.
+    const empty = await rejection(parseDocument(new File([], 'a.txt')))
+    expect(empty).toMatchObject({ code: 'empty', stage: 'validation' })
+    expect(empty.message).toBe('That file is empty.')
+
+    // Has bytes, but no readable text: a parsing outcome, not a bad upload.
+    const blank = await rejection(parseDocument(new File([' \n '], 'a.txt')))
+    expect(blank).toMatchObject({ code: 'no-text', stage: 'processing' })
+    expect(blank.message).toMatch(/no readable text/)
   })
 
   it('maps parser crashes to a friendly error and keeps the cause', async () => {
