@@ -19,6 +19,10 @@ export const PARSERS: Record<DocumentKind, Parser> = {
 const rejectFile = ({ code, message }: FileProblem) =>
   new UploadError(code, message, { stage: 'validation' })
 
+/** Chunk ids embed their document id so they are unique across documents. */
+export const chunkIdFor = (documentId: string, index: number): string =>
+  `${documentId}:${index}`
+
 /** Validates and parses a file into a document with source-referenced chunks; throws `UploadError`. */
 export async function parseDocument(file: File): Promise<StoredDocument> {
   const validation = validateFile(file)
@@ -50,12 +54,16 @@ export async function parseDocument(file: File): Promise<StoredDocument> {
     )
   }
 
+  const id = crypto.randomUUID()
   return {
-    id: crypto.randomUUID(),
+    id,
     name: file.name,
     size: file.size,
     kind: validation.kind,
     pageCount: parsed.pageCount,
-    chunks: parsed.chunks.map((chunk, index) => ({ id: index, ...chunk })),
+    chunks: parsed.chunks.map((chunk, index) => ({
+      id: chunkIdFor(id, index),
+      ...chunk,
+    })),
   }
 }

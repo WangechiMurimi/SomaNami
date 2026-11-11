@@ -10,9 +10,12 @@ export type Source =
   | { type: 'paragraph'; paragraph: number }
   | { type: 'line'; startLine: number; endLine: number }
 
-/** A retrievable passage of a document. `id` is its index within the document. */
+/**
+ * A retrievable passage of a document. `id` is `<documentId>:<index>`, unique
+ * across documents, so a model citing it cannot point at the wrong file.
+ */
 export interface Chunk {
-  id: number
+  id: string
   text: string
   source: Source
 }
@@ -29,13 +32,10 @@ export interface StoredDocument {
   chunks: Chunk[]
 }
 
-/**
- * Identifies one chunk. `chunkId` is only unique within its document, so a
- * citation must always carry both fields.
- */
+/** Identifies one chunk; `documentId` is carried so callers can join to the file. */
 export interface ChunkRef {
   documentId: string
-  chunkId: number
+  chunkId: string
 }
 
 /** A chunk selected for a question, as sent to `POST /api/chat`. */

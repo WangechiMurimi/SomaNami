@@ -52,13 +52,13 @@ describe('useChat', () => {
     const passages = [
       {
         documentId: 'doc-1',
-        chunkId: 2,
+        chunkId: 'doc-1:2',
         text: 'Light drives it.',
         source: { type: 'page' as const, page: 4 },
       },
     ]
     vi.mocked(askQuestion).mockResolvedValue(
-      answer({ citations: [{ documentId: 'doc-1', chunkId: 2 }] }),
+      answer({ citations: [{ documentId: 'doc-1', chunkId: 'doc-1:2' }] }),
     )
     const { result } = renderHook(() =>
       useChat({

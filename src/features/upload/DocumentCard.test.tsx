@@ -12,8 +12,8 @@ const readyDocument: StoredDocument = {
   kind: 'pdf',
   pageCount: 3,
   chunks: [
-    { id: 0, text: 'a', source: { type: 'page', page: 1 } },
-    { id: 1, text: 'b', source: { type: 'page', page: 2 } },
+    { id: 'doc-1:0', text: 'a', source: { type: 'page', page: 1 } },
+    { id: 'doc-1:1', text: 'b', source: { type: 'page', page: 2 } },
   ],
 }
 

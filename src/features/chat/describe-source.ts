@@ -21,8 +21,8 @@ export function describeSource(source: Source): string {
     : `Lines ${source.startLine}–${source.endLine}`
 }
 
-const keyOf = ({ documentId, chunkId }: ChunkRef): string =>
-  `${documentId}:${chunkId}`
+// Chunk ids are unique across documents, so the id alone is a stable key.
+const keyOf = ({ chunkId }: ChunkRef): string => chunkId
 
 /**
  * Turns `{ documentId, chunkId }` citations into labels naming a real document
@@ -45,9 +45,7 @@ export function resolveCitations(
 
     const passage = byKey.get(key)
     const name = names.get(citation.documentId)
-    const where = passage
-      ? describeSource(passage.source)
-      : `Passage ${citation.chunkId}`
+    const where = passage ? describeSource(passage.source) : 'Unknown passage'
     return [
       { key, label: name ? `${name} · ${where}` : where, text: passage?.text },
     ]

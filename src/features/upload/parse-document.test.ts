@@ -38,7 +38,7 @@ describe('parseDocument', () => {
   it('builds a document with ids and source-referenced chunks', async () => {
     const doc = await parseDocument(new File(['hello\n\nworld'], 'notes.txt'))
     expect(doc).toMatchObject({ name: 'notes.txt', kind: 'text' })
-    expect(doc.chunks.map((c) => c.id)).toEqual([0, 1])
+    expect(doc.chunks.map((c) => c.id)).toEqual([`${doc.id}:0`, `${doc.id}:1`])
     expect(doc.chunks[1]!.source).toMatchObject({ type: 'line', startLine: 3 })
   })
 
