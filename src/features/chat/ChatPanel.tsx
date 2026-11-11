@@ -11,7 +11,7 @@ function PendingBubble() {
     <li className="flex items-center gap-2 text-muted">
       <span
         aria-hidden="true"
-        className="size-2 animate-pulse rounded-full bg-jac"
+        className="size-2 animate-pulse rounded-full bg-accent"
       />
       {PENDING_LABEL}
     </li>
@@ -90,14 +90,14 @@ export default function ChatPanel({
       {error && (
         <p
           role="alert"
-          className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-rose-soft px-4 py-2.5 text-sm text-rose"
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-warn-soft px-4 py-2.5 text-sm text-warn"
         >
           {error.message}
           {error.retryable && (
             <button
               type="button"
               onClick={retry}
-              className="font-bold underline hover:text-ink"
+              className="font-bold underline hover:text-fg"
             >
               Try again
             </button>
@@ -107,7 +107,7 @@ export default function ChatPanel({
 
       <form
         onSubmit={submit}
-        className="rounded-xl border border-line bg-paper/40 p-2 focus-within:border-jac sm:flex sm:items-end sm:gap-2"
+        className="rounded-xl border border-edge bg-surface p-2 focus-within:border-accent sm:flex sm:items-end sm:gap-2"
       >
         <label htmlFor="chat-question" className="sr-only">
           Ask a question about your documents
@@ -120,12 +120,12 @@ export default function ChatPanel({
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="What do you want to learn today?"
-          className="w-full flex-1 resize-none bg-transparent px-2 py-1.5 text-ink placeholder:text-muted focus:outline-none"
+          className="w-full flex-1 resize-none bg-transparent px-2 py-1.5 text-fg placeholder:text-muted focus:outline-none"
         />
         <button
           type="submit"
           disabled={!canSend}
-          className="mt-2 w-full rounded-lg bg-jac px-5 py-2 font-bold text-on-jac transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-0 sm:w-auto"
+          className="mt-2 w-full rounded-lg bg-accent px-5 py-2 font-bold text-on-accent transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-0 sm:w-auto"
         >
           {isSending ? 'Asking…' : 'Ask'}
         </button>

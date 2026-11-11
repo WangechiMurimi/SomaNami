@@ -5,6 +5,15 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SomaNami</title>
+    <script>
+      // Apply a saved theme before first paint so the page never flashes the
+      // wrong one. Mirrors readSavedTheme() in src/lib/theme/use-theme.ts.
+      try {
+        var t = localStorage.getItem('somanami-theme')
+        if (t === 'light' || t === 'dark')
+          document.documentElement.dataset.theme = t
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

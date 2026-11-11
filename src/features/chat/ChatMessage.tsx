@@ -14,7 +14,7 @@ function Citations({ citations }: { citations: ResolvedCitation[] }) {
   }
   return (
     <div className="mt-3 border-t border-line pt-2">
-      <h3 className={`${LABEL_STYLE} text-gold`}>From your documents</h3>
+      <h3 className={`${LABEL_STYLE} text-accent`}>From your documents</h3>
       <ul className="mt-1.5 space-y-1.5">
         {citations.map((citation) => (
           <li key={citation.key} className="border-l-2 border-line pl-3">
@@ -31,7 +31,7 @@ function Citations({ citations }: { citations: ResolvedCitation[] }) {
 
 function UnsupportedNotice() {
   return (
-    <p className={`flex items-center gap-1.5 text-rose ${LABEL_STYLE}`}>
+    <p className={`flex items-center gap-1.5 text-warn ${LABEL_STYLE}`}>
       <svg
         width="15"
         height="15"
@@ -56,7 +56,7 @@ export default function ChatMessage({ message }: { message: ChatTurn }) {
   if (message.role === 'user') {
     return (
       <li className="flex justify-end">
-        <p className="max-w-[85%] rounded-2xl rounded-br-sm bg-ink px-4 py-2.5 break-words whitespace-pre-wrap text-paper">
+        <p className="max-w-[85%] rounded-2xl rounded-br-sm bg-fg px-4 py-2.5 break-words whitespace-pre-wrap text-ground">
           <span className="sr-only">You asked: </span>
           {message.content}
         </p>
@@ -70,7 +70,7 @@ export default function ChatMessage({ message }: { message: ChatTurn }) {
       <article
         aria-label={grounded ? 'Answer' : 'Unanswered question'}
         className={`max-w-[90%] rounded-2xl rounded-bl-sm border px-4 py-3 ${
-          grounded ? 'border-line bg-surface' : 'border-rose bg-rose-soft'
+          grounded ? 'border-line bg-surface' : 'border-warn bg-warn-soft'
         }`}
       >
         {!grounded && <UnsupportedNotice />}
@@ -82,7 +82,7 @@ export default function ChatMessage({ message }: { message: ChatTurn }) {
         {grounded ? (
           <Citations citations={message.citations} />
         ) : (
-          <p className="mt-3 border-t border-rose/40 pt-2 text-sm text-muted">
+          <p className="mt-3 border-t border-warn/40 pt-2 text-sm text-muted">
             Your documents don’t say enough to answer this. Try rewording the
             question, or upload the material that covers it.
           </p>

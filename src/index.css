@@ -1,71 +1,112 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manjari:wght@700&display=swap');
 @import 'tailwindcss';
 
-/* Palette and type from docs/Design/SomaNami.html, with the dark variant. */
+/*
+ * Tokens from the final design canvas (see docs/DESIGN.md). `edge`, the status
+ * colours and their soft backgrounds are additions that keep interactive
+ * borders at 3:1 and status text at 4.5:1 in both themes.
+ */
 @theme {
-  --color-paper: var(--paper);
+  --color-ground: var(--ground);
   --color-surface: var(--surface);
-  --color-ink: var(--ink);
+  --color-side: var(--side);
+  --color-fg: var(--fg);
   --color-muted: var(--muted);
-  --color-jac: var(--jac);
-  --color-on-jac: var(--on-jac);
-  --color-jac-soft: var(--jac-soft);
-  --color-gold: var(--gold);
-  --color-mint: var(--mint);
-  --color-mint-soft: var(--mint-soft);
-  --color-rose: var(--rose);
-  --color-rose-soft: var(--rose-soft);
   --color-line: var(--line);
-  --font-display: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
-  --font-body: 'Atkinson Hyperlegible', 'Segoe UI', system-ui, sans-serif;
+  --color-edge: var(--edge);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-tint: var(--tint);
+  --color-tag: var(--tag);
+  --color-tile: var(--tile);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-online: var(--online);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --font-display: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-brand: 'Manjari', 'Inter', system-ui, sans-serif;
 }
 
-:root {
-  --paper: #f7f6fd;
+/* Light is the default; dark follows the system unless a choice was saved. */
+:root,
+:root[data-theme='light'] {
+  --ground: #f8f7f4;
   --surface: #ffffff;
-  --ink: #1b1633;
-  --muted: #5e5a78;
-  --jac: #5b3fd1;
-  --on-jac: #ffffff;
-  --jac-soft: #e9e4ff;
-  --gold: #f2b632;
-  --mint: #1e9e7c;
-  --mint-soft: #d9f5ec;
-  --rose: #b4234a;
-  --rose-soft: #fde4ea;
-  --line: #dcd8ee;
+  --side: #f1f0ec;
+  --fg: #292b35;
+  --muted: #555965;
+  --line: #e5e4df;
+  --edge: #84868f;
+  --accent: #5754a6;
+  --on-accent: #ffffff;
+  --tint: #ebe9f7;
+  --tag: #ece9f8;
+  --tile: #f3f1ea;
+  --success: #2b7350;
+  --success-soft: #e4f1e9;
+  --online: #2f8f5b;
+  --warn: #9a3b26;
+  --warn-soft: #fbede8;
   color-scheme: light;
 }
 
+/* Kept in two places because a media query and an attribute can't share one rule. */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #14112a;
-    --surface: #1f1b3a;
-    --ink: #f1efff;
-    --muted: #b3aed0;
-    --jac: #9c87ff;
-    --on-jac: #14112a;
-    --jac-soft: #2e2660;
-    --gold: #f5c451;
-    --mint: #4fd3ae;
-    --mint-soft: #173a32;
-    --rose: #ff8aa8;
-    --rose-soft: #3d1a27;
-    --line: #353058;
+  :root:not([data-theme='light']) {
+    --ground: #17161c;
+    --surface: #22212b;
+    --side: #1d1c24;
+    --fg: #f1f0f5;
+    --muted: #b4b5c0;
+    --line: #34333e;
+    --edge: #6e6f7c;
+    --accent: #a9a6f0;
+    --on-accent: #17161c;
+    --tint: #2d2b45;
+    --tag: #2f2d48;
+    --tile: #25242e;
+    --success: #7ad6a8;
+    --success-soft: #1e3328;
+    --online: #5fc98c;
+    --warn: #f2a58e;
+    --warn-soft: #3a2420;
     color-scheme: dark;
   }
 }
 
+:root[data-theme='dark'] {
+  --ground: #17161c;
+  --surface: #22212b;
+  --side: #1d1c24;
+  --fg: #f1f0f5;
+  --muted: #b4b5c0;
+  --line: #34333e;
+  --edge: #6e6f7c;
+  --accent: #a9a6f0;
+  --on-accent: #17161c;
+  --tint: #2d2b45;
+  --tag: #2f2d48;
+  --tile: #25242e;
+  --success: #7ad6a8;
+  --success-soft: #1e3328;
+  --online: #5fc98c;
+  --warn: #f2a58e;
+  --warn-soft: #3a2420;
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
-  background: var(--paper);
-  color: var(--ink);
+  background: var(--ground);
+  color: var(--fg);
   font-family: var(--font-body);
   line-height: 1.5;
 }
 
 :focus-visible {
-  outline: 3px solid var(--gold);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 6px;
 }

@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import ThemeToggle from './components/ThemeToggle.tsx'
 import DocumentChat from './features/chat/DocumentChat.tsx'
 import LibraryList from './features/library/LibraryList.tsx'
 import { useLibrary } from './features/library/use-library.ts'
@@ -42,7 +43,10 @@ function App() {
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="font-display text-4xl leading-none font-extrabold tracking-tight">
+      <div className="mb-6 flex justify-end">
+        <ThemeToggle />
+      </div>
+      <h1 className="font-display text-[2.8125rem] leading-[1.25] font-normal tracking-[-0.01em]">
         What did you find today?
       </h1>
       <p className="mt-3 text-muted">
@@ -53,7 +57,7 @@ function App() {
       <DocumentCard {...state} onClear={reset} onRetry={retry} />
 
       {library.status === 'error' && (
-        <p role="alert" className="mt-6 text-sm text-rose">
+        <p role="alert" className="mt-6 text-sm text-warn">
           We couldn’t open the documents saved on this device.
         </p>
       )}
@@ -62,7 +66,7 @@ function App() {
         <section aria-labelledby="ask-heading" className="mt-10 space-y-4">
           <h2
             id="ask-heading"
-            className="font-display text-2xl font-extrabold tracking-tight"
+            className="font-display text-[1.375rem] leading-[1.4] font-normal"
           >
             Ask about your documents
           </h2>

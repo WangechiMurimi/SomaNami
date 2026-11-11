@@ -35,8 +35,8 @@ export default function UploadZone({
       onDragOver={(e) => e.preventDefault()}
       onDragLeave={() => setIsOver(false)}
       onDrop={handleDrop}
-      className={`relative mt-5 flex cursor-pointer flex-col items-center gap-1 rounded-2xl border-2 border-dashed border-jac p-6 text-center transition-colors focus-within:outline-3 focus-within:outline-offset-2 focus-within:outline-gold hover:bg-surface ${
-        isOver ? 'bg-surface' : 'bg-jac-soft'
+      className={`relative mt-5 flex cursor-pointer flex-col items-center gap-1 rounded-2xl border-2 border-dashed border-accent p-6 text-center transition-colors focus-within:outline-3 focus-within:outline-offset-2 focus-within:outline-accent hover:bg-surface ${
+        isOver ? 'bg-surface' : 'bg-tint'
       } ${disabled ? 'cursor-progress opacity-70' : ''}`}
     >
       <input
@@ -57,14 +57,14 @@ export default function UploadZone({
         strokeLinecap="round"
         strokeLinejoin="round"
         aria-hidden="true"
-        className="text-jac"
+        className="text-accent"
       >
         <path d="M12 16V4M7 9l5-5 5 5" />
         <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
       </svg>
       <span>
         <b>Drop a document here</b> or{' '}
-        <span className="text-jac underline">browse your files</span>
+        <span className="text-accent underline">browse your files</span>
       </span>
       <small className="text-muted">{SUPPORTED_LABEL}, up to 20 MB</small>
     </label>
