@@ -8,3 +8,10 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+
+# Client-side routes (/library, /chat/...) are served the app shell. API paths
+# are claimed by Netlify Functions first, so this never shadows /api/*.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

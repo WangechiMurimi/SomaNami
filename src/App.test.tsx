@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.tsx'
@@ -27,7 +27,14 @@ const parsedPdf: ParsedFile = {
 }
 
 // A fresh store per test, so documents saved by one test never leak into the next.
-beforeEach(() => setStorageAdapter(createMemoryAdapter()))
+beforeEach(() => {
+  setStorageAdapter(createMemoryAdapter())
+  // BrowserRouter reads the real URL, which jsdom keeps between tests.
+  window.history.pushState({}, '', '/')
+})
+
+const uploadRegion = () =>
+  within(screen.getByRole('region', { name: 'Upload' }))
 
 describe('document upload', () => {
   beforeEach(() => vi.mocked(parsePdf).mockReset())
@@ -58,7 +65,7 @@ describe('document upload', () => {
     render(<App />)
     await userEvent.upload(input(), pdf())
 
-    const status = await screen.findByRole('status')
+    const status = await uploadRegion().findByRole('status')
     expect(status).toHaveTextContent('week-2.pdf')
     expect(status).toHaveTextContent('Reading your document…')
     expect(input()).toBeDisabled()
@@ -177,9 +184,9 @@ describe('document upload', () => {
     )
 
     expect(screen.queryByText('✓ Ready to explore')).not.toBeInTheDocument()
-    expect(
-      screen.getByRole('heading', { name: 'Ask about your documents' }),
-    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /My library/ })).toHaveTextContent(
+      '1',
+    )
   })
 })
 
@@ -219,10 +226,18 @@ describe('asking about a document', () => {
 
   afterEach(() => vi.restoreAllMocks())
 
+  /** Uploads a file, then follows "Ask about this" into its chat. */
+  const uploadAndOpen = async (file: File) => {
+    await userEvent.upload(input(), file)
+    await userEvent.click(
+      await screen.findByRole('link', { name: 'Ask about this' }),
+    )
+  }
+
   it('answers from the uploaded document and shows where the answer came from', async () => {
     const requests = serveChat(citeFirst)
     render(<App />)
-    await userEvent.upload(input(), notes())
+    await uploadAndOpen(notes())
 
     await ask('What do mitochondria produce?')
 
@@ -241,7 +256,7 @@ describe('asking about a document', () => {
       citations: [],
     }))
     render(<App />)
-    await userEvent.upload(input(), notes())
+    await uploadAndOpen(notes())
 
     await ask('Who won the 1998 World Cup?')
 
@@ -254,7 +269,7 @@ describe('asking about a document', () => {
   it('restores the conversation when the app is opened again', async () => {
     serveChat(citeFirst)
     const { unmount } = render(<App />)
-    await userEvent.upload(input(), notes())
+    await uploadAndOpen(notes())
     await ask('What do mitochondria produce?')
     await screen.findByText('They produce ATP.')
 
@@ -271,7 +286,7 @@ describe('asking about a document', () => {
   it('sends earlier turns as history with a follow-up question', async () => {
     const requests = serveChat(citeFirst)
     render(<App />)
-    await userEvent.upload(input(), notes())
+    await uploadAndOpen(notes())
     await ask('What do mitochondria produce?')
     await screen.findByText('They produce ATP.')
 
@@ -284,22 +299,26 @@ describe('asking about a document', () => {
     ])
   })
 
-  it('switches conversations when another document is chosen', async () => {
+  it('keeps each material’s conversation separate', async () => {
     serveChat(citeFirst)
     render(<App />)
-    await userEvent.upload(input(), notes())
+    await uploadAndOpen(notes())
     await ask('What do mitochondria produce?')
     await screen.findByText('They produce ATP.')
 
-    await userEvent.upload(
-      input(),
+    await userEvent.click(screen.getByRole('link', { name: 'Home' }))
+    await uploadAndOpen(
       new File(['Photosynthesis happens in chloroplasts.'], 'plants.txt'),
     )
-    const plants = await screen.findByRole('button', { name: 'plants.txt' })
-    expect(plants).toHaveAttribute('aria-pressed', 'true')
+    expect(
+      await screen.findByRole('heading', { name: 'plants.txt' }),
+    ).toBeInTheDocument()
     expect(screen.queryByText('They produce ATP.')).not.toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'biology.txt' }))
+    await userEvent.click(screen.getByRole('link', { name: /My library/ }))
+    await userEvent.click(
+      await screen.findByRole('link', { name: 'Ask about this: biology.txt' }),
+    )
     expect(await screen.findByText('They produce ATP.')).toBeInTheDocument()
   })
 
@@ -319,5 +338,87 @@ describe('asking about a document', () => {
     expect(
       screen.getByRole('button', { name: 'Try again' }),
     ).toBeInTheDocument()
+  })
+})
+
+describe('app shell and navigation', () => {
+  it('marks the current screen in the sidebar', async () => {
+    render(<App />)
+
+    expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    await userEvent.click(screen.getByRole('link', { name: /My library/ }))
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'My library' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /My library/ })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+  })
+
+  it('lists stored materials in the library table', async () => {
+    render(<App />)
+    await userEvent.upload(input(), new File(['one\n\ntwo'], 'notes.txt'))
+    await screen.findByText('✓ Ready to explore')
+
+    await userEvent.click(screen.getByRole('link', { name: /My library/ }))
+
+    const table = await screen.findByRole('table', { name: 'Your materials' })
+    const row = within(table).getByRole('row', { name: /notes\.txt/ })
+    expect(row).toHaveTextContent('Text')
+    expect(row).toHaveTextContent('2')
+  })
+
+  it('explains an empty library', async () => {
+    window.history.pushState({}, '', '/library')
+    render(<App />)
+
+    expect(
+      await screen.findByText(
+        'Nothing here yet. Upload a document above to start.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('explains a chat link to a material that is not on this device', async () => {
+    window.history.pushState({}, '', '/chat/missing')
+    render(<App />)
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'We can’t find that material',
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('shows a not-found page for unknown addresses', () => {
+    window.history.pushState({}, '', '/nowhere')
+    render(<App />)
+
+    expect(
+      screen.getByRole('heading', { name: 'Page not found' }),
+    ).toBeInTheDocument()
+  })
+
+  it('opens and closes the menu on small screens', async () => {
+    render(<App />)
+    const open = screen.getByRole('button', { name: 'Open menu' })
+
+    await userEvent.click(open)
+    expect(open).toHaveAttribute('aria-expanded', 'true')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Close menu' }))
+    expect(open).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('shows whether the device is online', () => {
+    render(<App />)
+
+    expect(
+      screen.getByRole('region', { name: 'On this device' }),
+    ).toHaveTextContent('Online')
   })
 })
