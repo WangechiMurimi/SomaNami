@@ -1,0 +1,20 @@
+{
+  "id": "video:B3U1NDUiwSA",
+  "type": "video",
+  "metadata": {
+    "video_id": "B3U1NDUiwSA",
+    "language": "en",
+    "auto_generated": false
+  },
+  "segments": [
+    {
+      "id": "video:B3U1NDUiwSA:segment:1",
+      "text": "A quantum computer uses quantum mechanics.",
+      "anchor": {
+        "type": "time_range",
+        "start": 0.36,
+        "duration": 5.0
+      }
+    }
+  ]
+}
