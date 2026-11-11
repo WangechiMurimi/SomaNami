@@ -122,6 +122,29 @@ describe.each(ADAPTERS)(
         expect(await listMessages(conversation.id)).toEqual([])
       })
 
+      it('keeps the document and its conversations when the delete fails part-way', async () => {
+        const adapter = makeAdapter()
+        setStorageAdapter(adapter)
+        await saveDocument(makeDocument())
+        const conversation = await createConversation({ documentId: 'doc-1' })
+        await appendMessage({
+          conversationId: conversation.id,
+          role: 'user',
+          content: 'Why ATP?',
+        })
+        // Simulates the batch failing (quota, tab closed mid-write): nothing
+        // may be removed one-by-one before it.
+        vi.spyOn(adapter, 'removeMany').mockRejectedValueOnce(
+          new Error('write failed'),
+        )
+
+        await expect(deleteDocument('doc-1')).rejects.toThrow('write failed')
+
+        expect(await getDocument('doc-1')).toBeDefined()
+        expect(await listConversations('doc-1')).toHaveLength(1)
+        expect(await listMessages(conversation.id)).toHaveLength(1)
+      })
+
       it('leaves another document’s conversations alone when one is deleted', async () => {
         await saveDocument(makeDocument())
         await saveDocument(makeDocument({ id: 'doc-2', name: 'Other.pdf' }))

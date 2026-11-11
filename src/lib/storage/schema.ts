@@ -8,9 +8,9 @@ export const DB_NAME = 'somanami'
 /** Bump whenever `STORES` changes so the upgrade path runs. */
 export const DB_VERSION = 1
 
-export const DOCUMENTS = 'documents'
-export const CONVERSATIONS = 'conversations'
-export const MESSAGES = 'messages'
+export const DOCUMENTS = 'documents' as const
+export const CONVERSATIONS = 'conversations' as const
+export const MESSAGES = 'messages' as const
 
 export type StoreName =
   typeof DOCUMENTS | typeof CONVERSATIONS | typeof MESSAGES

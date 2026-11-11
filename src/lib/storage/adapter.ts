@@ -5,6 +5,12 @@ export interface StorageRecord {
   id: string
 }
 
+/** One record to delete, named by store and key. */
+export interface Removal {
+  storeName: StoreName
+  key: string
+}
+
 /**
  * The persistence interface both backends implement. Records go in and come
  * out as copies, matching IndexedDB's structured-clone semantics.
@@ -27,5 +33,10 @@ export interface StorageAdapter {
     indexName: string,
     value: IDBValidKey | null | undefined,
   ): Promise<void>
+  /**
+   * Deletes records from several stores as one unit: either every removal
+   * applies or none does.
+   */
+  removeMany(removals: readonly Removal[]): Promise<void>
   close(): Promise<void>
 }
