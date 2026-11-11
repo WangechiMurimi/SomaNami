@@ -6,5 +6,5 @@
     "lib": ["ES2023"],
     "types": ["node"]
   },
-  "include": ["server", "netlify", "vite.config.ts"]
+  "include": ["server", "netlify", "src/types", "vite.config.ts"]
 }
