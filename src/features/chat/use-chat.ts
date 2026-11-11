@@ -2,7 +2,11 @@ import { useCallback, useRef, useState } from 'react'
 import { askQuestion, ChatError } from './chat-client.ts'
 import { resolveCitations } from './describe-source.ts'
 import type { ResolvedCitation } from './describe-source.ts'
-import type { Passage, StoredDocument } from '../../types/contracts.ts'
+import type {
+  ChatReply,
+  Passage,
+  StoredDocument,
+} from '../../types/contracts.ts'
 
 /** A transcript entry as the UI renders it, with citations already resolved. */
 export type ChatTurn =
@@ -25,6 +29,13 @@ export interface ChatErrorState {
 export interface UseChatOptions {
   documents?: readonly Pick<StoredDocument, 'id' | 'name'>[]
   selectPassages?: (question: string) => Passage[]
+  /** A transcript restored from storage; read once, on first render. */
+  initialMessages?: ChatTurn[]
+  /** Runs after each answered question, e.g. to persist the exchange. */
+  onAnswered?: (exchange: {
+    question: string
+    reply: ChatReply
+  }) => void | Promise<void>
 }
 
 let messageCount = 0
@@ -50,12 +61,14 @@ function toErrorState(error: unknown): ChatErrorState {
 export function useChat({
   documents = [],
   selectPassages,
+  initialMessages = [],
+  onAnswered,
 }: UseChatOptions = {}) {
-  const [messages, setMessages] = useState<ChatTurn[]>([])
+  const [messages, setMessages] = useState<ChatTurn[]>(initialMessages)
   const [status, setStatus] = useState<ChatStatus>('idle')
   const [error, setError] = useState<ChatErrorState | null>(null)
   // Mirrors `messages` so a send can read the history it was started with.
-  const transcript = useRef<ChatTurn[]>([])
+  const transcript = useRef<ChatTurn[]>(messages)
   // The question still awaiting a reply, so `retry` needs no re-typing.
   const unanswered = useRef<string | null>(null)
   const inFlight = useRef(false)
@@ -105,6 +118,13 @@ export function useChat({
         })
         unanswered.current = null
         setStatus('idle')
+        // Saving is best-effort: the answer is already on screen, and a storage
+        // failure must not turn a successful answer into an error.
+        try {
+          await onAnswered?.({ question: trimmed, reply })
+        } catch (saveError) {
+          console.error('Could not save the conversation', saveError)
+        }
       } catch (failure) {
         setError(toErrorState(failure))
         setStatus('error')
@@ -112,7 +132,7 @@ export function useChat({
         inFlight.current = false
       }
     },
-    [append, documents, selectPassages],
+    [append, documents, selectPassages, onAnswered],
   )
 
   const send = useCallback((question: string) => ask(question), [ask])

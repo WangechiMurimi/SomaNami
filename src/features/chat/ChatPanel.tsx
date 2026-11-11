@@ -23,14 +23,10 @@ function PendingBubble() {
  * the in-flight and failure states around a send.
  */
 export default function ChatPanel({
-  documents = [],
-  selectPassages,
   className = '',
+  ...chatOptions
 }: UseChatOptions & { className?: string }) {
-  const { messages, status, error, send, retry } = useChat({
-    documents,
-    selectPassages,
-  })
+  const { messages, status, error, send, retry } = useChat(chatOptions)
   const [draft, setDraft] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const transcriptRef = useRef<HTMLDivElement>(null)

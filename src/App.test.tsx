@@ -1,8 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.tsx'
+import { createMemoryAdapter, setStorageAdapter } from './lib/storage/index.ts'
+import type { StorageAdapter } from './lib/storage/index.ts'
+import type { ChatReply, ChatRequest } from './types/contracts.ts'
 import { parsePdf } from './features/upload/parse-pdf.ts'
 import type { ParsedFile } from './features/upload/parsed-file.ts'
 import { UploadError } from './features/upload/upload-error.ts'
@@ -22,6 +25,9 @@ const parsedPdf: ParsedFile = {
   chunks: [{ text: 'Squash and stretch', source: { type: 'page', page: 1 } }],
   pageCount: 1,
 }
+
+// A fresh store per test, so documents saved by one test never leak into the next.
+beforeEach(() => setStorageAdapter(createMemoryAdapter()))
 
 describe('document upload', () => {
   beforeEach(() => vi.mocked(parsePdf).mockReset())
@@ -163,10 +169,155 @@ describe('document upload', () => {
     )
   })
 
-  it('lets the user remove a processed document', async () => {
+  it('lets the user dismiss the upload status without losing the document', async () => {
     render(<App />)
     await userEvent.upload(input(), new File(['hi'], 'a.txt'))
-    await userEvent.click(await screen.findByRole('button', { name: 'Remove' }))
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Dismiss' }),
+    )
+
+    expect(screen.queryByText('✓ Ready to explore')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Ask about your documents' }),
+    ).toBeInTheDocument()
+  })
+})
+
+describe('asking about a document', () => {
+  const notes = () =>
+    new File(
+      [
+        'Mitochondria produce ATP through cellular respiration.\n\nRibosomes assemble proteins.',
+      ],
+      'biology.txt',
+      { type: 'text/plain' },
+    )
+
+  /** Replies to /api/chat with `reply`, recording each request body sent. */
+  function serveChat(reply: (request: ChatRequest) => ChatReply) {
+    const requests: ChatRequest[] = []
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+      const request = JSON.parse(String(init?.body)) as ChatRequest
+      requests.push(request)
+      return Response.json(reply(request))
+    })
+    return requests
+  }
+
+  const citeFirst = (request: ChatRequest): ChatReply => ({
+    answer: 'They produce ATP.',
+    answerable: true,
+    citations: request.passages.slice(0, 1),
+  })
+
+  const ask = async (question: string) => {
+    await userEvent.type(
+      await screen.findByLabelText('Ask a question about your documents'),
+      `${question}{Enter}`,
+    )
+  }
+
+  afterEach(() => vi.restoreAllMocks())
+
+  it('answers from the uploaded document and shows where the answer came from', async () => {
+    const requests = serveChat(citeFirst)
+    render(<App />)
+    await userEvent.upload(input(), notes())
+
+    await ask('What do mitochondria produce?')
+
+    expect(await screen.findByText('They produce ATP.')).toBeInTheDocument()
+    expect(screen.getByText('biology.txt · Line 1')).toBeInTheDocument()
+    // Retrieval ran in the browser: only the relevant passage was sent.
+    expect(requests[0]?.passages.map((p) => p.text)).toEqual([
+      'Mitochondria produce ATP through cellular respiration.',
+    ])
+  })
+
+  it('sends no passages when the document does not cover the question', async () => {
+    const requests = serveChat(() => ({
+      answer: 'Your documents don’t seem to cover this.',
+      answerable: false,
+      citations: [],
+    }))
+    render(<App />)
+    await userEvent.upload(input(), notes())
+
+    await ask('Who won the 1998 World Cup?')
+
+    expect(
+      await screen.findByText('Not answered from your documents'),
+    ).toBeInTheDocument()
+    expect(requests[0]?.passages).toEqual([])
+  })
+
+  it('restores the conversation when the app is opened again', async () => {
+    serveChat(citeFirst)
+    const { unmount } = render(<App />)
+    await userEvent.upload(input(), notes())
+    await ask('What do mitochondria produce?')
+    await screen.findByText('They produce ATP.')
+
+    unmount()
+    render(<App />)
+
+    expect(await screen.findByText('They produce ATP.')).toBeInTheDocument()
+    expect(
+      screen.getByText('What do mitochondria produce?'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('biology.txt · Line 1')).toBeInTheDocument()
+  })
+
+  it('sends earlier turns as history with a follow-up question', async () => {
+    const requests = serveChat(citeFirst)
+    render(<App />)
+    await userEvent.upload(input(), notes())
+    await ask('What do mitochondria produce?')
+    await screen.findByText('They produce ATP.')
+
+    await ask('How is ATP made by mitochondria?')
+
+    await vi.waitFor(() => expect(requests).toHaveLength(2))
+    expect(requests[1]?.history).toEqual([
+      { role: 'user', content: 'What do mitochondria produce?' },
+      { role: 'assistant', content: 'They produce ATP.' },
+    ])
+  })
+
+  it('switches conversations when another document is chosen', async () => {
+    serveChat(citeFirst)
+    render(<App />)
+    await userEvent.upload(input(), notes())
+    await ask('What do mitochondria produce?')
+    await screen.findByText('They produce ATP.')
+
+    await userEvent.upload(
+      input(),
+      new File(['Photosynthesis happens in chloroplasts.'], 'plants.txt'),
+    )
+    const plants = await screen.findByRole('button', { name: 'plants.txt' })
+    expect(plants).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByText('They produce ATP.')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'biology.txt' }))
+    expect(await screen.findByText('They produce ATP.')).toBeInTheDocument()
+  })
+
+  it('reports a document that was read but could not be saved', async () => {
+    const failing: StorageAdapter = {
+      ...createMemoryAdapter(),
+      put: () => Promise.reject(new Error('QuotaExceededError')),
+    }
+    setStorageAdapter(failing)
+    render(<App />)
+
+    await userEvent.upload(input(), notes())
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'couldn’t save it on this device',
+    )
+    expect(
+      screen.getByRole('button', { name: 'Try again' }),
+    ).toBeInTheDocument()
   })
 })
