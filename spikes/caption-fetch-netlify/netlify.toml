@@ -1,0 +1,8 @@
+# Standalone throwaway site for the #59 spike, deployed from this folder only.
+# It must not share a site with the app: it has no build and no secrets.
+[build]
+  publish = "public"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
