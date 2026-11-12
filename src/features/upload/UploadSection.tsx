@@ -8,15 +8,20 @@ import UploadZone from './UploadZone.tsx'
 import { UploadError } from './upload-error.ts'
 import { useDocumentUpload } from './use-document-upload.ts'
 
-/** Upload, save to the library, then offer to start asking about it. */
-export default function UploadSection() {
+/**
+ * Upload, save to the library, then offer to start asking about it. Saves to
+ * `workspaceId` when given, otherwise to the default workspace.
+ */
+export default function UploadSection({
+  workspaceId,
+}: { workspaceId?: string } = {}) {
   const { add } = useLibraryContext()
 
   const [saved, setSaved] = useState<StoredDocument | null>(null)
   const keepDocument = useCallback(
     async (document: NewDocument) => {
       try {
-        setSaved(await add(document))
+        setSaved(await add(document, workspaceId))
       } catch (cause) {
         // Parsing worked, so tell the user it's the saving that failed.
         throw new UploadError(
@@ -26,7 +31,7 @@ export default function UploadSection() {
         )
       }
     },
-    [add],
+    [add, workspaceId],
   )
 
   const { upload, retry, reset, ...state } = useDocumentUpload({
