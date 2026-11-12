@@ -1,0 +1,185 @@
+/*
+ * The Home cube from the design canvas: 27 blocks drawn as isometric faces
+ * (front, plus ::before side and ::after top), lit by a wave that runs across
+ * the stack. Colours follow the theme the same way the tokens in index.css do.
+ */
+.home-cube {
+  --cube-front: #b8abef;
+  --cube-side: #e4defa;
+  --cube-top: #ccc2f4;
+  --cube-lit: #c3a4ea;
+  --cube-side-lit: #f0d9f1;
+  --cube-top-lit: #d9bdef;
+  --cube-hot: #7a68e3;
+  position: relative;
+  height: 400px;
+  overflow: hidden;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .home-cube {
+    --cube-front: #2f2c52;
+    --cube-side: #4b4780;
+    --cube-top: #3b3769;
+    --cube-lit: #463f86;
+    --cube-side-lit: #6a62be;
+    --cube-top-lit: #554c9c;
+    --cube-hot: #a9a6f0;
+  }
+}
+
+:root[data-theme='dark'] .home-cube {
+  --cube-front: #2f2c52;
+  --cube-side: #4b4780;
+  --cube-top: #3b3769;
+  --cube-lit: #463f86;
+  --cube-side-lit: #6a62be;
+  --cube-top-lit: #554c9c;
+  --cube-hot: #a9a6f0;
+}
+
+.home-cube__anchor {
+  position: absolute;
+  left: calc(50% + 35px);
+  top: 50%;
+  width: 0;
+  height: 0;
+  transform: skewY(-20deg) scale(0.75);
+}
+
+.home-cube__shift {
+  position: absolute;
+  left: -5px;
+  top: -85px;
+  animation: home-cube-drift 8s ease-in-out infinite;
+}
+
+.home-cube__layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  --lp: 0;
+}
+
+.home-cube__layer:nth-child(2) {
+  z-index: 1;
+  translate: -60px -60px;
+  --lp: -120;
+}
+
+.home-cube__layer:nth-child(3) {
+  z-index: 3;
+  translate: 60px 60px;
+  --lp: 120;
+}
+
+.home-cube__col {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  translate: calc(-70px * var(--x)) 0;
+}
+
+.home-cube__block {
+  /* The delay places each block on the wave by layer, column and height. */
+  --wave: calc((var(--lp) + var(--x) * -70 + (3 - var(--i)) * 80) * -0.0083s);
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 50px;
+  z-index: var(--i);
+  background: var(--cube-front);
+  animation: home-cube-front 9s ease-in-out var(--wave) infinite;
+  transition: filter 1.6s ease-out;
+}
+
+.home-cube__block::before {
+  content: '';
+  position: absolute;
+  left: -40px;
+  top: 0;
+  width: 40px;
+  height: 100%;
+  background: var(--cube-side);
+  transform-origin: right;
+  transform: skewY(45deg);
+  animation: home-cube-side 9s ease-in-out var(--wave) infinite;
+}
+
+.home-cube__block::after {
+  content: '';
+  position: absolute;
+  top: -40px;
+  left: 0;
+  width: 100%;
+  height: 40px;
+  background: var(--cube-top);
+  transform-origin: bottom;
+  transform: skewX(45deg);
+  animation: home-cube-top 9s ease-in-out var(--wave) infinite;
+}
+
+/* The glow switches on instantly and fades out slowly as the pointer leaves. */
+.home-cube__block:hover {
+  filter: drop-shadow(0 0 22px var(--cube-hot)) saturate(1.5) brightness(1.08);
+  transition: filter 0s;
+}
+
+@keyframes home-cube-front {
+  0%,
+  100% {
+    background: var(--cube-front);
+  }
+  50% {
+    background: var(--cube-lit);
+  }
+}
+
+@keyframes home-cube-side {
+  0%,
+  100% {
+    background: var(--cube-side);
+  }
+  50% {
+    background: var(--cube-side-lit);
+  }
+}
+
+@keyframes home-cube-top {
+  0%,
+  100% {
+    background: var(--cube-top);
+  }
+  50% {
+    background: var(--cube-top-lit);
+  }
+}
+
+@keyframes home-cube-drift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-cube__shift,
+  .home-cube__block,
+  .home-cube__block::before,
+  .home-cube__block::after {
+    animation: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .home-cube {
+    height: 340px;
+  }
+}
