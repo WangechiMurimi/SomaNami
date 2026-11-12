@@ -1,6 +1,19 @@
-import type { Removal, StorageAdapter, StorageRecord } from './adapter.ts'
+import type {
+  Change,
+  Removal,
+  StorageAdapter,
+  StorageRecord,
+} from './adapter.ts'
 import { requireIndexValue } from './index-value.ts'
-import { DB_NAME, DB_VERSION, STORES } from './schema.ts'
+import {
+  CONVERSATIONS,
+  DB_NAME,
+  DB_VERSION,
+  DEFAULT_WORKSPACE,
+  DOCUMENTS,
+  STORES,
+  WORKSPACES,
+} from './schema.ts'
 import type { StoreName } from './schema.ts'
 
 /** Wraps an IDBRequest so the rest of the layer only ever deals in promises. */
@@ -10,25 +23,76 @@ const promisify = <T>(request: IDBRequest<T>): Promise<T> =>
     request.onerror = () => reject(request.error)
   })
 
-function upgrade(db: IDBDatabase, transaction: IDBTransaction) {
+/** Rewrites every record in a store, inside the version-change transaction. */
+function rewriteAll(
+  store: IDBObjectStore,
+  change: (record: Record<string, unknown>) => Record<string, unknown>,
+) {
+  const request = store.openCursor()
+  request.onsuccess = () => {
+    const cursor = request.result
+    if (!cursor) return
+    cursor.update(change(cursor.value as Record<string, unknown>))
+    cursor.continue()
+  }
+}
+
+/**
+ * v1 to v2 (US-08): files every existing material and chat under the default
+ * workspace, and turns a chat's single `documentId` into `materialIds`.
+ */
+function moveIntoDefaultWorkspace(transaction: IDBTransaction) {
+  const now = Date.now()
+  transaction
+    .objectStore(WORKSPACES)
+    .put({ ...DEFAULT_WORKSPACE, createdAt: now, updatedAt: now })
+  rewriteAll(transaction.objectStore(DOCUMENTS), (document) => ({
+    ...document,
+    workspaceId: DEFAULT_WORKSPACE.id,
+  }))
+  rewriteAll(
+    transaction.objectStore(CONVERSATIONS),
+    ({ documentId, ...conversation }) => ({
+      ...conversation,
+      workspaceId: DEFAULT_WORKSPACE.id,
+      materialIds: typeof documentId === 'string' ? [documentId] : [],
+    }),
+  )
+}
+
+function upgrade(
+  db: IDBDatabase,
+  transaction: IDBTransaction,
+  oldVersion: number,
+) {
   for (const { name, keyPath, indexes } of STORES) {
     const store = db.objectStoreNames.contains(name)
       ? // The version-change transaction is only reachable during an upgrade,
         // which is the only time this function runs.
         transaction.objectStore(name)
       : db.createObjectStore(name, { keyPath })
+    // Drop indexes the schema no longer lists (v1's conversations.documentId).
+    const wanted = new Set(indexes.map((index) => index.name))
+    for (const existing of [...store.indexNames]) {
+      if (!wanted.has(existing)) store.deleteIndex(existing)
+    }
     for (const index of indexes) {
       if (!store.indexNames.contains(index.name))
-        store.createIndex(index.name, index.keyPath)
+        store.createIndex(index.name, index.keyPath, {
+          multiEntry: index.multiEntry ?? false,
+        })
     }
   }
+  // A brand-new database has nothing to move.
+  if (oldVersion === 1) moveIntoDefaultWorkspace(transaction)
 }
 
 function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
   const request = factory.open(DB_NAME, DB_VERSION)
-  request.onupgradeneeded = () => {
+  request.onupgradeneeded = (event) => {
     // Always set during `upgradeneeded`; the DOM typing just can't express it.
-    if (request.transaction) upgrade(request.result, request.transaction)
+    if (request.transaction)
+      upgrade(request.result, request.transaction, event.oldVersion)
   }
   return promisify(request)
 }
@@ -140,6 +204,25 @@ export function createIndexedDbAdapter(
       })
       for (const { storeName, key } of removals) {
         transaction.objectStore(storeName).delete(key)
+      }
+      await done
+    },
+
+    async commit(changes: readonly Change[]) {
+      if (changes.length === 0) return
+      const database = await db()
+      const storeNames = [...new Set(changes.map((c) => c.storeName))]
+      // One transaction over every store, as in removeMany.
+      const transaction = database.transaction(storeNames, 'readwrite')
+      const done = new Promise<void>((resolve, reject) => {
+        transaction.oncomplete = () => resolve()
+        transaction.onerror = () => reject(transaction.error)
+        transaction.onabort = () => reject(transaction.error)
+      })
+      for (const change of changes) {
+        const store = transaction.objectStore(change.storeName)
+        if (change.type === 'put') store.put(change.record)
+        else store.delete(change.key)
       }
       await done
     },

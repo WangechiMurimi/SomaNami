@@ -91,7 +91,8 @@ export function useDocumentConversation(document: StoredDocument) {
     async ({ question, reply }: { question: string; reply: ChatReply }) => {
       if (!conversationId.current) {
         const conversation = await createConversation({
-          documentId: document.id,
+          workspaceId: document.workspaceId,
+          materialIds: [document.id],
           title: titleFrom(question),
         })
         conversationId.current = conversation.id
@@ -115,7 +116,7 @@ export function useDocumentConversation(document: StoredDocument) {
         createdAt: asked + 1,
       })
     },
-    [document.id],
+    [document.id, document.workspaceId],
   )
 
   return { status, initialMessages, record }

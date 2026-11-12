@@ -5,9 +5,11 @@ import {
   CONVERSATIONS,
   DB_NAME,
   DB_VERSION,
+  DEFAULT_WORKSPACE,
   DOCUMENTS,
   MESSAGES,
   STORES,
+  WORKSPACES,
 } from './schema.ts'
 
 /** Opens the database directly, to inspect what the upgrade actually created. */
@@ -57,13 +59,22 @@ describe('createIndexedDbAdapter', () => {
       db.close()
     })
 
-    it('creates the documentId and conversationId indexes', async () => {
+    it('creates the workspace, material and conversation indexes', async () => {
       const db = await openRaw(factory)
-      const transaction = db.transaction([CONVERSATIONS, MESSAGES], 'readonly')
+      const transaction = db.transaction(
+        [DOCUMENTS, CONVERSATIONS, MESSAGES],
+        'readonly',
+      )
+
+      const documents = transaction.objectStore(DOCUMENTS)
+      expect([...documents.indexNames]).toEqual(['workspaceId'])
 
       const conversations = transaction.objectStore(CONVERSATIONS)
-      expect([...conversations.indexNames]).toEqual(['documentId'])
-      expect(conversations.index('documentId').keyPath).toBe('documentId')
+      expect([...conversations.indexNames]).toEqual([
+        'materialIds',
+        'workspaceId',
+      ])
+      expect(conversations.index('materialIds').multiEntry).toBe(true)
 
       const messages = transaction.objectStore(MESSAGES)
       expect([...messages.indexNames]).toEqual(['conversationId'])
@@ -72,13 +83,13 @@ describe('createIndexedDbAdapter', () => {
       db.close()
     })
 
-    it('leaves documents without indexes, as the schema declares', async () => {
+    it('leaves workspaces without indexes, as the schema declares', async () => {
       const db = await openRaw(factory)
-      const documents = db
-        .transaction(DOCUMENTS, 'readonly')
-        .objectStore(DOCUMENTS)
+      const workspaces = db
+        .transaction(WORKSPACES, 'readonly')
+        .objectStore(WORKSPACES)
 
-      expect([...documents.indexNames]).toEqual([])
+      expect([...workspaces.indexNames]).toEqual([])
       db.close()
     })
 
@@ -93,6 +104,76 @@ describe('createIndexedDbAdapter', () => {
         id: 'd1',
         name: 'kept',
       })
+    })
+  })
+
+  describe('upgrading a v1 database (US-08)', () => {
+    // Builds the database exactly as v1 shipped it, with one material and one
+    // conversation, so the upgrade runs against real saved data.
+    const seedVersionOne = (v1: IDBFactory) =>
+      new Promise<void>((resolve, reject) => {
+        const request = v1.open(DB_NAME, 1)
+        request.onupgradeneeded = () => {
+          const db = request.result
+          db.createObjectStore(DOCUMENTS, { keyPath: 'id' }).put({
+            id: 'd1',
+            name: 'Cells.pdf',
+          })
+          const conversations = db.createObjectStore(CONVERSATIONS, {
+            keyPath: 'id',
+          })
+          conversations.createIndex('documentId', 'documentId')
+          conversations.put({ id: 'c1', documentId: 'd1', title: 'Why?' })
+          db.createObjectStore(MESSAGES, { keyPath: 'id' }).createIndex(
+            'conversationId',
+            'conversationId',
+          )
+        }
+        request.onsuccess = () => {
+          request.result.close()
+          resolve()
+        }
+        request.onerror = () => reject(request.error)
+      })
+
+    it('moves existing materials and chats into the default workspace', async () => {
+      await seedVersionOne(factory)
+      const adapter = createIndexedDbAdapter(factory)
+
+      expect(await adapter.get(WORKSPACES, DEFAULT_WORKSPACE.id)).toMatchObject(
+        { name: DEFAULT_WORKSPACE.name },
+      )
+      expect(await adapter.get(DOCUMENTS, 'd1')).toEqual({
+        id: 'd1',
+        name: 'Cells.pdf',
+        workspaceId: DEFAULT_WORKSPACE.id,
+      })
+      expect(await adapter.get(CONVERSATIONS, 'c1')).toEqual({
+        id: 'c1',
+        title: 'Why?',
+        workspaceId: DEFAULT_WORKSPACE.id,
+        materialIds: ['d1'],
+      })
+      expect(
+        await adapter.getAllByIndex(CONVERSATIONS, 'materialIds', 'd1'),
+      ).toHaveLength(1)
+    })
+
+    it('drops the v1 documentId index', async () => {
+      await seedVersionOne(factory)
+      await createIndexedDbAdapter(factory).getAll(DOCUMENTS)
+
+      const db = await openRaw(factory)
+      const conversations = db
+        .transaction(CONVERSATIONS, 'readonly')
+        .objectStore(CONVERSATIONS)
+      expect([...conversations.indexNames]).not.toContain('documentId')
+      db.close()
+    })
+
+    it('creates no workspace in a brand-new database', async () => {
+      const adapter = createIndexedDbAdapter(factory)
+      expect(await adapter.getAll(WORKSPACES)).toEqual([])
     })
   })
 

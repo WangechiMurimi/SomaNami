@@ -135,28 +135,28 @@ describe.each(ADAPTERS)('%s adapter', (_name, makeAdapter) => {
   })
 
   it('removes a whole index match in one call', async () => {
-    await adapter.put(CONVERSATIONS, { id: 'c1', documentId: 'd1' })
-    await adapter.put(CONVERSATIONS, { id: 'c2', documentId: 'd1' })
-    await adapter.put(CONVERSATIONS, { id: 'c3', documentId: 'd2' })
+    await adapter.put(CONVERSATIONS, { id: 'c1', workspaceId: 'w1' })
+    await adapter.put(CONVERSATIONS, { id: 'c2', workspaceId: 'w1' })
+    await adapter.put(CONVERSATIONS, { id: 'c3', workspaceId: 'w2' })
 
-    await adapter.removeByIndex(CONVERSATIONS, 'documentId', 'd1')
+    await adapter.removeByIndex(CONVERSATIONS, 'workspaceId', 'w1')
 
     expect(await adapter.getAll(CONVERSATIONS)).toEqual([
-      { id: 'c3', documentId: 'd2' },
+      { id: 'c3', workspaceId: 'w2' },
     ])
   })
 
   it('ignores removing an index value nothing matches', async () => {
-    await adapter.put(CONVERSATIONS, { id: 'c1', documentId: 'd1' })
+    await adapter.put(CONVERSATIONS, { id: 'c1', workspaceId: 'w1' })
 
-    await adapter.removeByIndex(CONVERSATIONS, 'documentId', 'nobody')
+    await adapter.removeByIndex(CONVERSATIONS, 'workspaceId', 'nobody')
 
     expect(await adapter.getAll(CONVERSATIONS)).toHaveLength(1)
   })
 
   it('removes keys across several stores in one call', async () => {
     await adapter.put(DOCUMENTS, { id: 'd1' })
-    await adapter.put(CONVERSATIONS, { id: 'c1', documentId: 'd1' })
+    await adapter.put(CONVERSATIONS, { id: 'c1', workspaceId: 'w1' })
     await adapter.put(MESSAGES, { id: 'm1', conversationId: 'c1' })
     await adapter.put(MESSAGES, { id: 'm2', conversationId: 'c2' })
 
@@ -189,11 +189,57 @@ describe.each(ADAPTERS)('%s adapter', (_name, makeAdapter) => {
 
   it('accepts an empty batch', async () => {
     await expect(adapter.removeMany([])).resolves.toBeUndefined()
+    await expect(adapter.commit([])).resolves.toBeUndefined()
+  })
+
+  it('commits puts and removals across stores together', async () => {
+    await adapter.put(DOCUMENTS, { id: 'd1' })
+    await adapter.put(CONVERSATIONS, { id: 'c1', workspaceId: 'w1' })
+
+    const moved = { id: 'c1', workspaceId: 'w2' }
+    await adapter.commit([
+      { type: 'remove', storeName: DOCUMENTS, key: 'd1' },
+      { type: 'put', storeName: CONVERSATIONS, record: moved },
+    ])
+
+    expect(await adapter.getAll(DOCUMENTS)).toEqual([])
+    expect(await adapter.get(CONVERSATIONS, 'c1')).toEqual({
+      id: 'c1',
+      workspaceId: 'w2',
+    })
+  })
+
+  it('commits nothing when one change in the batch is invalid', async () => {
+    await adapter.put(DOCUMENTS, { id: 'd1' })
+
+    await expect(
+      adapter.commit([
+        { type: 'remove', storeName: DOCUMENTS, key: 'd1' },
+        // Deliberately not a StoreName: the whole batch must be rejected.
+        { type: 'put', storeName: 'nope' as StoreName, record: { id: 'x' } },
+      ]),
+    ).rejects.toThrow()
+
+    expect(await adapter.getAll(DOCUMENTS)).toEqual([{ id: 'd1' }])
+  })
+
+  it('matches any element of a multi-entry index', async () => {
+    await adapter.put(CONVERSATIONS, { id: 'c1', materialIds: ['d1', 'd2'] })
+    await adapter.put(CONVERSATIONS, { id: 'c2', materialIds: ['d2'] })
+    await adapter.put(CONVERSATIONS, { id: 'c3', materialIds: ['d3'] })
+
+    const ids = async (material: string) =>
+      (await adapter.getAllByIndex(CONVERSATIONS, 'materialIds', material)).map(
+        ({ id }) => id,
+      )
+    expect(await ids('d2')).toEqual(['c1', 'c2'])
+    expect(await ids('d1')).toEqual(['c1'])
+    expect(await ids('nobody')).toEqual([])
   })
 
   it('keeps stores independent of each other', async () => {
     await adapter.put(DOCUMENTS, { id: 'shared' })
-    await adapter.put(CONVERSATIONS, { id: 'shared', documentId: 'd1' })
+    await adapter.put(CONVERSATIONS, { id: 'shared', workspaceId: 'w1' })
 
     await adapter.remove(DOCUMENTS, 'shared')
 

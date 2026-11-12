@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import { chatPath } from '../features/chat/chat-path.ts'
 import { useRecentConversations } from '../features/chat/use-recent-conversations.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
 import { H1, LEDE } from './page-heading.ts'
@@ -12,7 +13,7 @@ const DATE = new Intl.DateTimeFormat(undefined, {
 export default function ConversationsPage() {
   const { conversations, status } = useRecentConversations()
   const { documents } = useLibraryContext()
-  const nameOf = (id: string) =>
+  const nameOf = (id: string | undefined) =>
     documents.find((document) => document.id === id)?.name
 
   return (
@@ -45,14 +46,15 @@ export default function ConversationsPage() {
           {conversations.map((conversation) => (
             <li key={conversation.id}>
               <Link
-                to={`/chat/${conversation.documentId}`}
+                to={chatPath(conversation)}
                 className="flex flex-col gap-1 px-5 py-4 hover:bg-tint/50"
               >
                 <span className="font-medium text-fg">
                   {conversation.title}
                 </span>
                 <span className="text-[13px] text-muted">
-                  {nameOf(conversation.documentId) ?? 'Material not found'} ·{' '}
+                  {nameOf(conversation.materialIds[0]) ?? 'Material not found'}{' '}
+                  ·{' '}
                   <time
                     dateTime={new Date(conversation.updatedAt).toISOString()}
                   >

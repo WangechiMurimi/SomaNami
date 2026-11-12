@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { Link } from 'react-router'
-import type { StoredDocument } from '../../types/contracts.ts'
+import type { NewDocument } from '../../types/contracts.ts'
 import { useLibraryContext } from '../library/library-context.ts'
 import DocumentCard from './DocumentCard.tsx'
 import UploadZone from './UploadZone.tsx'
@@ -12,7 +12,7 @@ export default function UploadSection() {
   const { add } = useLibraryContext()
 
   const keepDocument = useCallback(
-    async (document: StoredDocument) => {
+    async (document: NewDocument) => {
       try {
         await add(document)
       } catch (cause) {
