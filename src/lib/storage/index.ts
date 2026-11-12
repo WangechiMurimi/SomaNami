@@ -53,23 +53,36 @@ const store = (): StorageAdapter =>
 
 const newId = (): string => crypto.randomUUID()
 
-const conversationListeners = new Set<() => void>()
+/** A set of listeners notified after a kind of record changes. */
+function createSignal() {
+  const listeners = new Set<() => void>()
+  return {
+    subscribe(listener: () => void): () => void {
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+      }
+    },
+    notify(): void {
+      for (const listener of listeners) listener()
+    },
+  }
+}
+
+const conversationSignal = createSignal()
+const workspaceSignal = createSignal()
+const notifyConversations = conversationSignal.notify
+const notifyWorkspaces = workspaceSignal.notify
 
 /**
  * Calls `listener` after any conversation is created, changed or removed, so
  * lists such as the sidebar's recent chats stay current without polling.
  * Returns the unsubscribe function.
  */
-export function subscribeToConversations(listener: () => void): () => void {
-  conversationListeners.add(listener)
-  return () => {
-    conversationListeners.delete(listener)
-  }
-}
+export const subscribeToConversations = conversationSignal.subscribe
 
-const notifyConversations = (): void => {
-  for (const listener of conversationListeners) listener()
-}
+/** As `subscribeToConversations`, for workspaces. */
+export const subscribeToWorkspaces = workspaceSignal.subscribe
 
 // Types guard compile-time callers; these guard data that arrives untyped at
 // runtime, where a missing id would otherwise corrupt an index lookup.
@@ -107,6 +120,7 @@ export async function createWorkspace({
     updatedAt: now,
   }
   await store().put(WORKSPACES, workspace)
+  notifyWorkspaces()
   return workspace
 }
 
@@ -138,6 +152,7 @@ export async function updateWorkspace(
     updatedAt: Date.now(),
   }
   await store().put(WORKSPACES, updated)
+  notifyWorkspaces()
   return updated
 }
 
@@ -155,6 +170,7 @@ export async function ensureDefaultWorkspace(): Promise<Workspace> {
     updatedAt: now,
   }
   await store().put(WORKSPACES, workspace)
+  notifyWorkspaces()
   return workspace
 }
 
@@ -175,6 +191,7 @@ export async function deleteWorkspace(id: string): Promise<void> {
     ...documents.map(remove(DOCUMENTS)),
     { type: 'remove', storeName: WORKSPACES, key: id },
   ])
+  notifyWorkspaces()
   if (conversations.length > 0) notifyConversations()
 }
 

@@ -234,9 +234,8 @@ export default function Sidebar() {
           >
             My library
             <span className="text-xs font-normal text-muted">
-              <span className="sr-only">, </span>
-              {documents.length}
-              <span className="sr-only"> materials</span>
+              <span className="sr-only">,</span> {documents.length}{' '}
+              <span className="sr-only">materials</span>
             </span>
           </NavItem>
           <NavItem
