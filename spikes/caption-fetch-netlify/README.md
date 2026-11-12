@@ -65,10 +65,31 @@ Same five videos as `../caption-fetch/videos.txt`.
 | ----------------------------- | ---------- | ------ | ------- | ----------------------------------------- |
 | Laptop (Node 26, this port)   | 2026-11-12 | 5/5    | 0       | Auto/creator flags match the Python run   |
 | Laptop, `netlify dev`         | 2026-11-12 | 5/5    | 0       | Routing and bundling confirmed, ~0.9 s each |
-| Netlify Function              |            |        |         |                                           |
+| Netlify Function, run 1       | 2026-11-12 22:03Z | 0/5 | 5     | All `RequestBlocked`, ~1.1 s each         |
+| Netlify Function, run 2       | 2026-11-12 22:08Z | 0/5 | 5     | All `RequestBlocked`, ~1.1 s each         |
+| Laptop control                | 2026-11-12 22:09Z | 5/5 | 0     | Same code, same minute as run 2           |
+
+The function ran in AWS `us-east-2` on Node 24 (Netlify's default). YouTube
+served the watch page normally; the Innertube player then answered every
+video with `LOGIN_REQUIRED` and "Sign in to confirm you’re not a bot". The same
+code passed from the laptop a minute later, so the block depends on the host's
+IP address, not on the code or the videos.
 
 ## Decision
 
-_Pending the Netlify runs._ Proceed with automatic caption fetching (#62) only if
-the deployed host passes consistently; otherwise make paste-transcript the main
-path and treat fetching as a bonus.
+**Automatic caption fetching from our host is not viable. Paste-transcript
+becomes the main path for #62**, not a fallback. The #58 acceptance criteria
+need updating to match.
+
+Ways around the block, and why none is worth it now:
+
+- **Proxy through residential IPs:** paid, against YouTube's terms, and it
+  breaks whenever the proxy pool gets flagged.
+- **Fetch from the learner's browser:** YouTube doesn't allow cross-origin
+  requests to these endpoints, so a normal web page can't make them.
+- **YouTube Data API `captions.download`:** only works with OAuth as the
+  video's owner, not for arbitrary public videos.
+
+Still untested from Netlify: video metadata (title, duration, thumbnail) via
+oEmbed or the Data API for #61. That's a separate request type and may not be
+blocked. Check it before #61 relies on it.
