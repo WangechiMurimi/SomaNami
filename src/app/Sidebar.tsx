@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link, NavLink } from 'react-router'
-import { chatPath } from '../features/chat/chat-path.ts'
+import { chatPath } from '../features/chat/conversation-materials.ts'
 import { useRecentConversations } from '../features/chat/use-recent-conversations.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
 import { useOnline } from '../lib/connectivity/use-online.ts'

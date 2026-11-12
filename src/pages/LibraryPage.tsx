@@ -1,14 +1,9 @@
 import { Link } from 'react-router'
+import { newChatPath } from '../features/chat/conversation-materials.ts'
+import { KIND_LABEL } from '../features/library/kind-label.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
 import UploadSection from '../features/upload/UploadSection.tsx'
-import type { DocumentKind } from '../types/contracts.ts'
 import { H1, H2, LEDE } from './page-heading.ts'
-
-const KIND_LABEL: Record<DocumentKind, string> = {
-  pdf: 'PDF',
-  docx: 'Word document',
-  text: 'Text',
-}
 
 const HEADER =
   'px-5 py-3 text-left text-xs font-medium tracking-[0.06em] text-muted uppercase'
@@ -78,7 +73,7 @@ export default function LibraryPage() {
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <Link
-                        to={`/chat/${document.id}`}
+                        to={newChatPath(document.workspaceId, document.id)}
                         className="text-[13px] font-semibold text-accent hover:underline"
                       >
                         Ask about this

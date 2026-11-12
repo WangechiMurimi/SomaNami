@@ -223,9 +223,12 @@ describe('asking about a document', () => {
     citations: request.passages.slice(0, 1),
   })
 
+  // The first question goes in on New chat, follow-ups in the chat itself.
   const ask = async (question: string) => {
     await userEvent.type(
-      await screen.findByLabelText('Ask a question about your documents'),
+      await screen.findByLabelText(
+        /^Ask a question about your (documents|materials)$/,
+      ),
       `${question}{Enter}`,
     )
   }
@@ -284,7 +287,7 @@ describe('asking about a document', () => {
 
     expect(await screen.findByText('They produce ATP.')).toBeInTheDocument()
     expect(
-      within(screen.getByRole('main')).getByText(
+      within(screen.getByLabelText('Conversation')).getByText(
         'What do mitochondria produce?',
       ),
     ).toBeInTheDocument()
@@ -318,14 +321,26 @@ describe('asking about a document', () => {
     await uploadAndOpen(
       new File(['Photosynthesis happens in chloroplasts.'], 'plants.txt'),
     )
-    expect(
-      await screen.findByRole('heading', { name: 'plants.txt' }),
-    ).toBeInTheDocument()
+    // A new chat about the new material starts empty, with only it chosen.
+    const picker = within(
+      await screen.findByRole('group', { name: 'Materials for this chat' }),
+    )
+    expect(picker.getByRole('button', { name: 'plants.txt' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(picker.getByRole('button', { name: 'biology.txt' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
     expect(screen.queryByText('They produce ATP.')).not.toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('link', { name: /My library/ }))
+    // The earlier chat is still there to continue.
     await userEvent.click(
-      await screen.findByRole('link', { name: 'Ask about this: biology.txt' }),
+      within(screen.getByRole('region', { name: 'Recent chats' })).getByRole(
+        'link',
+        { name: 'What do mitochondria produce?' },
+      ),
     )
     expect(await screen.findByText('They produce ATP.')).toBeInTheDocument()
   })
@@ -495,7 +510,7 @@ describe('app shell and navigation', () => {
 
     await userEvent.click(links[0]!)
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Cells.txt' }),
+      await screen.findByRole('heading', { level: 1, name: 'Why mitosis?' }),
     ).toBeInTheDocument()
   })
 
