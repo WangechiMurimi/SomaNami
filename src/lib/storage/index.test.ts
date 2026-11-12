@@ -9,9 +9,11 @@ import {
   listConversations,
   listDocuments,
   listMessages,
+  listRecentConversations,
   renameConversation,
   saveDocument,
   setStorageAdapter,
+  subscribeToConversations,
 } from './index.ts'
 import { ADAPTERS } from './test-adapters.ts'
 import type {
@@ -214,6 +216,41 @@ describe.each(ADAPTERS)(
         )
         expect(titles).toEqual(['Newer still', 'Older'])
         expect(await getConversation(older.id)).toEqual(older)
+      })
+
+      it('lists recent conversations across documents, newest first', async () => {
+        const now = vi.spyOn(Date, 'now')
+        now.mockReturnValue(1000)
+        await createConversation({ documentId: 'doc-1', title: 'First' })
+        now.mockReturnValue(2000)
+        await createConversation({ documentId: 'doc-2', title: 'Second' })
+        now.mockReturnValue(3000)
+        await createConversation({ documentId: 'doc-1', title: 'Third' })
+        now.mockRestore()
+
+        const titles = async (limit?: number) =>
+          (await listRecentConversations(limit)).map(({ title }) => title)
+        expect(await titles()).toEqual(['Third', 'Second', 'First'])
+        expect(await titles(2)).toEqual(['Third', 'Second'])
+      })
+
+      it('tells subscribers when conversations change, until they unsubscribe', async () => {
+        const listener = vi.fn()
+        const unsubscribe = subscribeToConversations(listener)
+
+        const conversation = await createConversation({ documentId: 'doc-1' })
+        await appendMessage({
+          conversationId: conversation.id,
+          role: 'user',
+          content: 'Why?',
+        })
+        await renameConversation(conversation.id, 'Renamed')
+        await deleteConversation(conversation.id)
+        expect(listener).toHaveBeenCalledTimes(4)
+
+        unsubscribe()
+        await createConversation({ documentId: 'doc-1' })
+        expect(listener).toHaveBeenCalledTimes(4)
       })
 
       it('rejects renaming a conversation that does not exist', async () => {

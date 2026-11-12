@@ -3,7 +3,12 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.tsx'
-import { createMemoryAdapter, setStorageAdapter } from './lib/storage/index.ts'
+import {
+  createConversation,
+  createMemoryAdapter,
+  saveDocument,
+  setStorageAdapter,
+} from './lib/storage/index.ts'
 import type { StorageAdapter } from './lib/storage/index.ts'
 import type { ChatReply, ChatRequest } from './types/contracts.ts'
 import { parsePdf } from './features/upload/parse-pdf.ts'
@@ -278,7 +283,9 @@ describe('asking about a document', () => {
 
     expect(await screen.findByText('They produce ATP.')).toBeInTheDocument()
     expect(
-      screen.getByText('What do mitochondria produce?'),
+      within(screen.getByRole('main')).getByText(
+        'What do mitochondria produce?',
+      ),
     ).toBeInTheDocument()
     expect(screen.getByText('biology.txt · Line 1')).toBeInTheDocument()
   })
@@ -420,5 +427,81 @@ describe('app shell and navigation', () => {
     expect(
       screen.getByRole('region', { name: 'On this device' }),
     ).toHaveTextContent('Online')
+  })
+
+  it('links to every screen from the sidebar', () => {
+    render(<App />)
+    const nav = within(screen.getByRole('navigation', { name: 'Main' }))
+
+    for (const name of [
+      'Home',
+      'Workspaces',
+      /My library/,
+      'Saved conversations',
+    ]) {
+      expect(nav.getByRole('link', { name })).toBeInTheDocument()
+    }
+    expect(screen.getByRole('link', { name: 'New workspace' })).toHaveAttribute(
+      'href',
+      '/workspaces/new',
+    )
+  })
+
+  it('says where recent chats will appear before there are any', async () => {
+    render(<App />)
+
+    expect(
+      await screen.findByText('Chats you start will appear here.'),
+    ).toBeInTheDocument()
+  })
+
+  it('lists recent chats, newest first, and opens one', async () => {
+    await saveDocument({
+      id: 'doc-1',
+      name: 'Cells.txt',
+      size: 10,
+      kind: 'text',
+      pageCount: null,
+      chunks: [],
+    })
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(1000)
+    await createConversation({ documentId: 'doc-1', title: 'What is a cell?' })
+    now.mockReturnValue(2000)
+    await createConversation({ documentId: 'doc-1', title: 'Why mitosis?' })
+    now.mockRestore()
+    render(<App />)
+
+    const recent = within(screen.getByRole('region', { name: 'Recent chats' }))
+    const links = await recent.findAllByRole('link', { name: /\?$/ })
+    expect(links.map((link) => link.textContent)).toEqual([
+      'Why mitosis?',
+      'What is a cell?',
+    ])
+
+    await userEvent.click(links[0]!)
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Cells.txt' }),
+    ).toBeInTheDocument()
+  })
+
+  it('lists saved conversations with their material', async () => {
+    await createConversation({ documentId: 'gone', title: 'Old question' })
+    window.history.pushState({}, '', '/conversations')
+    render(<App />)
+
+    const item = await within(screen.getByRole('main')).findByRole('link', {
+      name: /Old question/,
+    })
+    expect(item).toHaveTextContent('Material not found')
+  })
+
+  it('opens the help page from the top bar', async () => {
+    render(<App />)
+
+    await userEvent.click(screen.getByRole('link', { name: 'Help' }))
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'How SomaNami works' }),
+    ).toBeInTheDocument()
   })
 })
