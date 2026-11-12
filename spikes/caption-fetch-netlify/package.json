@@ -1,0 +1,6 @@
+{
+  "name": "somanami-caption-spike",
+  "private": true,
+  "description": "Throwaway Netlify site for #59; no dependencies, deployed on its own.",
+  "type": "module"
+}

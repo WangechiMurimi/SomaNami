@@ -3,6 +3,12 @@
 [build]
   publish = "public"
 
+# Without this, `netlify dev` detects the app's Vite setup in the parent folder
+# and stops to ask which framework to run.
+[dev]
+  framework = "#static"
+  port = 8888
+
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"

@@ -28,19 +28,30 @@ Tests (fixtures only, no network), from the repository root:
 npx vitest run spikes/caption-fetch-netlify
 ```
 
-Locally, from this folder:
+The Netlify CLI treats the nearest git repository as the project, so run it
+from a copy **outside the repo**. From inside, it picks up the app's
+`netlify.toml` and functions, and edits the repo's `.gitignore`:
 
 ```bash
-npx netlify-cli dev            # serves http://localhost:8888
-python ../caption-fetch/run_batch.py ../caption-fetch/videos.txt --base-url http://localhost:8888
+SPIKE=$(mktemp -d)/caption-spike
+rsync -a --exclude .netlify --exclude '*.test.ts' spikes/caption-fetch-netlify/ "$SPIKE/"
+cd "$SPIKE"
+npx netlify-cli dev --offline   # serves http://localhost:8888
 ```
 
-Deploy to the **throwaway** spike site (never the app's site), from this folder:
+In another terminal, from `spikes/caption-fetch`:
+
+```bash
+python3 run_batch.py videos.txt --base-url http://localhost:8888
+```
+
+Deploy to a **new, throwaway** site (never the app's site), from the copy:
 
 ```bash
 npx netlify-cli login
-npx netlify-cli deploy --prod  # first run: create a new site, not the team's
-python ../caption-fetch/run_batch.py ../caption-fetch/videos.txt --base-url https://<spike-site>.netlify.app
+npx netlify-cli sites:create --name somanami-caption-spike-<suffix>
+npx netlify-cli deploy --prod
+python3 run_batch.py videos.txt --base-url https://somanami-caption-spike-<suffix>.netlify.app
 ```
 
 Run the batch at least twice, some minutes apart: blocking is often
@@ -53,6 +64,7 @@ Same five videos as `../caption-fetch/videos.txt`.
 | Host                          | Date       | Passed | Blocked | Notes                                     |
 | ----------------------------- | ---------- | ------ | ------- | ----------------------------------------- |
 | Laptop (Node 26, this port)   | 2026-11-12 | 5/5    | 0       | Auto/creator flags match the Python run   |
+| Laptop, `netlify dev`         | 2026-11-12 | 5/5    | 0       | Routing and bundling confirmed, ~0.9 s each |
 | Netlify Function              |            |        |         |                                           |
 
 ## Decision
