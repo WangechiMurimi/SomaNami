@@ -207,6 +207,29 @@ describe('New chat', () => {
   })
 })
 
+describe('Chat', () => {
+  it('offers to add material when a question goes unanswered', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      Response.json({
+        answer: 'Your materials don’t cover this.',
+        answerable: false,
+        citations: [],
+      } satisfies ChatReply),
+    )
+    open(`/workspaces/${workspace.id}/chats/new?material=cells`)
+    await picker()
+
+    await userEvent.type(question(), 'Who discovered ATP?{Enter}')
+
+    const reply = await screen.findByRole('article', {
+      name: 'Not answered from your materials',
+    })
+    expect(
+      within(reply).getByRole('link', { name: 'add material that covers it' }),
+    ).toHaveAttribute('href', `/workspaces/${workspace.id}`)
+  })
+})
+
 describe('Chat addresses', () => {
   it('says when a chat is not on this device', async () => {
     open('/chats/nope')

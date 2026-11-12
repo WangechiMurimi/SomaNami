@@ -1,5 +1,5 @@
 import { useId, useRef } from 'react'
-import type { FormEvent, KeyboardEvent, ReactNode } from 'react'
+import type { FormEvent, KeyboardEvent, ReactNode, Ref } from 'react'
 import { ACCEPT_ATTRIBUTE } from '../features/upload/constants.ts'
 import { Clipboard, LinkIcon } from './icons.tsx'
 import './composer.css'
@@ -22,6 +22,7 @@ export default function Composer({
   onUpload,
   onPaste,
   extra,
+  inputRef,
 }: {
   label: string
   placeholder: string
@@ -35,6 +36,7 @@ export default function Composer({
   onPaste?: () => void
   /** Shown beside the add buttons, e.g. how many materials a chat uses. */
   extra?: ReactNode
+  inputRef?: Ref<HTMLTextAreaElement>
 }) {
   const id = useId()
   const fileInput = useRef<HTMLInputElement>(null)
@@ -54,6 +56,7 @@ export default function Composer({
         {label}
       </label>
       <textarea
+        ref={inputRef}
         id={`${id}-question`}
         rows={2}
         value={value}
@@ -101,18 +104,22 @@ export default function Composer({
               />
             </>
           )}
-          <button
-            type="button"
-            disabled
-            aria-describedby={`${id}-link-soon`}
-            className={TOOL}
-          >
-            <LinkIcon size={20} strokeWidth={1.8} />
-            <span className="sr-only">Add a link</span>
-          </button>
-          <span id={`${id}-link-soon`} hidden>
-            Links are coming soon.
-          </span>
+          {(onUpload || onPaste) && (
+            <>
+              <button
+                type="button"
+                disabled
+                aria-describedby={`${id}-link-soon`}
+                className={TOOL}
+              >
+                <LinkIcon size={20} strokeWidth={1.8} />
+                <span className="sr-only">Add a link</span>
+              </button>
+              <span id={`${id}-link-soon`} hidden>
+                Links are coming soon.
+              </span>
+            </>
+          )}
           {onPaste && (
             <button type="button" onClick={onPaste} className={TOOL}>
               <Clipboard size={20} strokeWidth={1.8} />

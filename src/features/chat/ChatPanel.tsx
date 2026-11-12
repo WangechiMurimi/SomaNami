@@ -1,19 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { FormEvent, KeyboardEvent } from 'react'
+import Composer from '../../components/Composer.tsx'
 import ChatMessage from './ChatMessage.tsx'
 import { useChat } from './use-chat.ts'
 import type { UseChatOptions } from './use-chat.ts'
 
-const PENDING_LABEL = 'Reading your documents…'
-
 function PendingBubble() {
   return (
-    <li className="flex items-center gap-2 text-muted">
+    <li role="status" className="flex items-center gap-2.5 text-sm text-muted">
       <span
         aria-hidden="true"
-        className="size-2 animate-pulse rounded-full bg-accent"
+        className="size-2 flex-none animate-pulse rounded-full bg-accent motion-reduce:animate-none"
       />
-      {PENDING_LABEL}
+      Reading your materials…
     </li>
   )
 }
@@ -25,8 +23,14 @@ function PendingBubble() {
 export default function ChatPanel({
   className = '',
   initialQuestion,
+  addMaterialTo,
   ...chatOptions
-}: UseChatOptions & { className?: string; initialQuestion?: string }) {
+}: UseChatOptions & {
+  className?: string
+  initialQuestion?: string
+  /** Where to add material when a question goes unanswered. */
+  addMaterialTo?: string
+}) {
   const { messages, status, error, send, retry } = useChat(chatOptions)
   const askedInitial = useRef(false)
 
@@ -39,15 +43,14 @@ export default function ChatPanel({
   }, [initialQuestion, send])
   const [draft, setDraft] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
-  const transcriptRef = useRef<HTMLDivElement>(null)
+  const endRef = useRef<HTMLDivElement>(null)
 
   const isSending = status === 'sending'
   const canSend = draft.trim().length > 0 && !isSending
 
   useLayoutEffect(() => {
-    // New turns arrive at the bottom; keep them in view without hiding history.
-    const node = transcriptRef.current
-    if (node) node.scrollTop = node.scrollHeight
+    // New turns arrive at the bottom; bring them into view as they land.
+    endRef.current?.scrollIntoView?.({ block: 'nearest' })
   }, [messages, isSending])
 
   useEffect(() => {
@@ -55,96 +58,69 @@ export default function ChatPanel({
     if (status === 'error') inputRef.current?.focus()
   }, [status])
 
-  const submit = (event: FormEvent) => {
-    event.preventDefault()
+  const submit = () => {
     if (!canSend) return
     send(draft)
     setDraft('')
     inputRef.current?.focus()
   }
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Enter sends; Shift+Enter keeps the newline for multi-part questions.
-    if (event.key === 'Enter' && !event.shiftKey) submit(event)
-  }
-
   return (
-    <section
-      aria-label="Ask about your documents"
-      className={`flex min-h-0 flex-col gap-3 ${className}`}
-    >
-      <div
-        ref={transcriptRef}
-        role="log"
-        tabIndex={0}
-        aria-label="Conversation"
-        aria-live="polite"
-        aria-busy={isSending}
-        className="max-h-[28rem] min-h-40 flex-1 overflow-y-auto rounded-xl border border-line bg-surface/60 p-4 sm:p-5"
-      >
+    <div className={`flex flex-col gap-6 ${className}`}>
+      <section aria-label="Conversation" aria-busy={isSending}>
         {messages.length === 0 && !isSending ? (
           <p className="text-muted">
-            Ask a question about your documents and the answer will appear here,
-            with the passages it came from.
+            Ask a question and the answer will appear here, with the passages it
+            came from.
           </p>
         ) : (
-          <ol className="space-y-4">
+          <ol aria-live="polite" className="flex flex-col gap-6">
             {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} />
+              <ChatMessage
+                key={message.id}
+                message={message}
+                addMaterialTo={addMaterialTo}
+              />
             ))}
             {isSending && <PendingBubble />}
           </ol>
         )}
-      </div>
+        <div ref={endRef} />
+      </section>
 
       {error && (
-        <p
+        <div
           role="alert"
-          className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-warn-soft px-4 py-2.5 text-sm text-warn"
+          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5 rounded-xl border border-warn bg-warn-soft px-4 py-3"
         >
-          {error.message}
+          <span className="text-sm leading-[1.5]">{error.message}</span>
           {error.retryable && (
             <button
               type="button"
               onClick={retry}
-              className="font-bold underline hover:text-fg"
+              className="inline-flex h-11 items-center rounded-[10px] border border-warn px-4 text-sm font-semibold text-warn hover:bg-warn/10"
             >
               Try again
             </button>
           )}
-        </p>
+        </div>
       )}
 
-      <form
-        onSubmit={submit}
-        className="rounded-xl border border-edge bg-surface p-2 focus-within:border-accent sm:flex sm:items-end sm:gap-2"
-      >
-        <label htmlFor="chat-question" className="sr-only">
-          Ask a question about your documents
-        </label>
-        <textarea
-          id="chat-question"
-          ref={inputRef}
-          rows={2}
+      <div className="flex flex-col gap-2.5">
+        <Composer
+          label="Ask a follow-up about your materials"
+          placeholder="Ask a follow-up about your materials"
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="What do you want to learn today?"
-          className="w-full flex-1 resize-none bg-transparent px-2 py-1.5 text-fg placeholder:text-muted focus:outline-none"
+          onChange={setDraft}
+          onSubmit={submit}
+          canSend={canSend}
+          inputRef={inputRef}
         />
-        <button
-          type="submit"
-          disabled={!canSend}
-          className="mt-2 w-full rounded-lg bg-accent px-5 py-2 font-bold text-on-accent transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-0 sm:w-auto"
-        >
-          {isSending ? 'Asking…' : 'Ask'}
-        </button>
-      </form>
-
-      <p className="text-center text-sm text-muted">
-        This is a simplified overview to get you started. For accuracy and
-        depth, always refer to the original source.
-      </p>
-    </section>
+        <p className="text-center text-[13px] leading-[1.5] text-muted">
+          This is a simplified overview to get you started. For accuracy and
+          depth, always refer to the original source.
+        </p>
+      </div>
+    </div>
   )
 }
