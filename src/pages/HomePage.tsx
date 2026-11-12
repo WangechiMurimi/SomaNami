@@ -1,6 +1,6 @@
 import HomeCube from '../features/home/HomeCube.tsx'
 import HowItWorks from '../features/home/HowItWorks.tsx'
-import UploadSection from '../features/upload/UploadSection.tsx'
+import QuickStart from '../features/home/QuickStart.tsx'
 import { H1 } from './page-heading.ts'
 
 /** Landing screen: what SomaNami does, how to use it, and where to start. */
@@ -17,13 +17,10 @@ export default function HomePage() {
 
       <div className="grid items-center gap-5 md:grid-cols-2">
         <HomeCube />
-        <HowItWorks uploadTo="#upload" />
+        <HowItWorks uploadTo="#start" />
       </div>
 
-      {/* TODO(#104): replaced by the quick-start composer. */}
-      <div id="upload" className="max-w-3xl scroll-mt-8">
-        <UploadSection />
-      </div>
+      <QuickStart id="start" />
     </div>
   )
 }

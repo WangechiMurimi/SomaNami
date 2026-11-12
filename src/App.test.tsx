@@ -42,8 +42,14 @@ beforeEach(() => {
 const uploadRegion = () =>
   within(screen.getByRole('region', { name: 'Upload' }))
 
+// The upload area lives on My library; Home adds materials through its composer.
+const startInLibrary = () => window.history.pushState({}, '', '/library')
+
 describe('document upload', () => {
-  beforeEach(() => vi.mocked(parsePdf).mockReset())
+  beforeEach(() => {
+    vi.mocked(parsePdf).mockReset()
+    startInLibrary()
+  })
 
   it('lists DOCX among the supported formats', () => {
     render(<App />)
@@ -61,7 +67,8 @@ describe('document upload', () => {
     await userEvent.upload(input(), file)
 
     expect(await screen.findByText('✓ Ready to explore')).toBeInTheDocument()
-    expect(screen.getByText('class-notes.txt')).toBeInTheDocument()
+    // The library table lists it too; check the upload's own status.
+    expect(uploadRegion().getByText('class-notes.txt')).toBeInTheDocument()
     expect(screen.getByText(/2 passages indexed/)).toBeInTheDocument()
   })
 
@@ -197,6 +204,7 @@ describe('document upload', () => {
 })
 
 describe('asking about a document', () => {
+  beforeEach(startInLibrary)
   const notes = () =>
     new File(
       [
@@ -317,7 +325,7 @@ describe('asking about a document', () => {
     await ask('What do mitochondria produce?')
     await screen.findByText('They produce ATP.')
 
-    await userEvent.click(screen.getByRole('link', { name: 'Home' }))
+    await userEvent.click(screen.getByRole('link', { name: /My library/ }))
     await uploadAndOpen(
       new File(['Photosynthesis happens in chloroplasts.'], 'plants.txt'),
     )
@@ -400,6 +408,7 @@ describe('app shell and navigation', () => {
   })
 
   it('lists stored materials in the library table', async () => {
+    startInLibrary()
     render(<App />)
     await userEvent.upload(input(), new File(['one\n\ntwo'], 'notes.txt'))
     await screen.findByText('✓ Ready to explore')
