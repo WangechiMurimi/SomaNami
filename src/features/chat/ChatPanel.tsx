@@ -24,9 +24,19 @@ function PendingBubble() {
  */
 export default function ChatPanel({
   className = '',
+  initialQuestion,
   ...chatOptions
-}: UseChatOptions & { className?: string }) {
+}: UseChatOptions & { className?: string; initialQuestion?: string }) {
   const { messages, status, error, send, retry } = useChat(chatOptions)
+  const askedInitial = useRef(false)
+
+  useEffect(() => {
+    // A chat started from New chat arrives with its first question; ask it
+    // once, even when React runs effects twice in development.
+    if (!initialQuestion || askedInitial.current) return
+    askedInitial.current = true
+    send(initialQuestion)
+  }, [initialQuestion, send])
   const [draft, setDraft] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const transcriptRef = useRef<HTMLDivElement>(null)

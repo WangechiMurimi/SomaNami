@@ -1,6 +1,7 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { Link } from 'react-router'
-import type { NewDocument } from '../../types/contracts.ts'
+import type { NewDocument, StoredDocument } from '../../types/contracts.ts'
+import { newChatPath } from '../chat/conversation-materials.ts'
 import { useLibraryContext } from '../library/library-context.ts'
 import DocumentCard from './DocumentCard.tsx'
 import UploadZone from './UploadZone.tsx'
@@ -11,10 +12,11 @@ import { useDocumentUpload } from './use-document-upload.ts'
 export default function UploadSection() {
   const { add } = useLibraryContext()
 
+  const [saved, setSaved] = useState<StoredDocument | null>(null)
   const keepDocument = useCallback(
     async (document: NewDocument) => {
       try {
-        await add(document)
+        setSaved(await add(document))
       } catch (cause) {
         // Parsing worked, so tell the user it's the saving that failed.
         throw new UploadError(
@@ -35,9 +37,9 @@ export default function UploadSection() {
     <section aria-label="Upload">
       <UploadZone onFile={upload} disabled={state.status === 'processing'} />
       <DocumentCard {...state} onClear={reset} onRetry={retry} />
-      {state.status === 'ready' && (
+      {state.status === 'ready' && saved?.id === state.document.id && (
         <Link
-          to={`/chat/${state.document.id}`}
+          to={newChatPath(saved.workspaceId, saved.id)}
           className="mt-4 inline-flex h-11 items-center gap-2 rounded-[10px] bg-accent px-[18px] text-sm font-medium text-on-accent transition-opacity hover:opacity-90"
         >
           Ask about this
