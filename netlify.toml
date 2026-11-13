@@ -15,3 +15,41 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Security headers for every static response. Netlify does not add these to
+# Function responses (/api/*); those set their own.
+#
+# CSP notes, one per non-'self' source:
+# - challenges.cloudflare.com: Turnstile's script and its challenge iframe.
+# - fonts.googleapis.com / fonts.gstatic.com: the Inter and Manjari webfonts
+#   imported at the top of src/index.css.
+# - img-src data: blob:: the MFA enrolment QR code is a data: URI.
+# - *.supabase.co: Supabase Auth over HTTPS.
+# - worker-src 'self' blob:: the pdf.js worker is a same-origin file; blob:
+#   covers libraries that start workers from generated code.
+# - No 'unsafe-inline' anywhere. The theme script is public/theme-init.js, Vite
+#   emits CSS as files, and React and pdf.js set styles through the CSSOM,
+#   which style-src does not restrict.
+# The value is one line: each line below ends in "\", which TOML joins.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = """\
+      default-src 'self'; \
+      script-src 'self' https://challenges.cloudflare.com; \
+      style-src 'self' https://fonts.googleapis.com; \
+      font-src 'self' https://fonts.gstatic.com; \
+      img-src 'self' data: blob:; \
+      connect-src 'self' https://*.supabase.co; \
+      frame-src https://challenges.cloudflare.com; \
+      worker-src 'self' blob:; \
+      object-src 'none'; \
+      base-uri 'self'; \
+      form-action 'self'; \
+      frame-ancestors 'none'\
+      """
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Cross-Origin-Opener-Policy = "same-origin"
