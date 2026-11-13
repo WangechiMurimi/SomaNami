@@ -2,6 +2,7 @@
 import request from 'supertest'
 import { describe, expect, it, vi } from 'vitest'
 import { createApp } from './app.ts'
+import type { Authenticate } from './auth/types.ts'
 import type { Answerer } from './llm/claude-answerer.ts'
 
 const passage = {
@@ -10,6 +11,15 @@ const passage = {
   text: 'Mitochondria produce ATP.',
   source: { type: 'page', page: 1 },
 }
+
+const allow = () =>
+  vi.fn<Authenticate>().mockResolvedValue({
+    ok: true,
+    user: { id: 'user-1', aal: 'aal1' },
+  })
+
+const deny = () =>
+  vi.fn<Authenticate>().mockResolvedValue({ ok: false, reason: 'missing' })
 
 describe('createApp', () => {
   it('reports health as ok', async () => {
@@ -32,8 +42,9 @@ describe('createApp', () => {
       answer: { answer: 'ATP.', answerable: true, citations: ['doc-1:0'] },
     })
 
-    const response = await request(createApp({ answer }))
+    const response = await request(createApp({ answer, authenticate: allow() }))
       .post('/api/chat')
+      .set('Authorization', 'Bearer token')
       .send({ question: 'Why ATP?', passages: [passage] })
 
     expect(response.status).toBe(200)
@@ -55,11 +66,84 @@ describe('createApp', () => {
   })
 
   it('reports a server without credentials as not configured', async () => {
-    const response = await request(createApp())
+    const response = await request(createApp({ authenticate: allow() }))
       .post('/api/chat')
       .send({ question: 'Why ATP?', passages: [passage] })
 
     expect(response.status).toBe(503)
     expect(response.body).toEqual({ error: 'not-configured' })
+  })
+
+  describe('authentication', () => {
+    it('passes the Authorization header to the authenticator', async () => {
+      const authenticate = allow()
+
+      await request(createApp({ authenticate }))
+        .post('/api/chat')
+        .set('Authorization', 'Bearer abc.def.ghi')
+        .send({ question: 'Why ATP?', passages: [] })
+
+      expect(authenticate).toHaveBeenCalledWith('Bearer abc.def.ghi')
+    })
+
+    it('answers 401 without spending a model call', async () => {
+      const answer = vi.fn<Answerer>()
+
+      const response = await request(
+        createApp({ answer, authenticate: deny() }),
+      )
+        .post('/api/chat')
+        .send({ question: 'Why ATP?', passages: [passage] })
+
+      expect(response.status).toBe(401)
+      expect(response.body).toEqual({ error: 'unauthenticated' })
+      expect(answer).not.toHaveBeenCalled()
+    })
+
+    it('refuses every chat when no authenticator is wired in', async () => {
+      const answer = vi.fn<Answerer>()
+
+      const response = await request(createApp({ answer }))
+        .post('/api/chat')
+        .set('Authorization', 'Bearer looks-real')
+        .send({ question: 'Why ATP?', passages: [passage] })
+
+      expect(response.status).toBeGreaterThanOrEqual(400)
+      expect(answer).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('rate limiting', () => {
+    it('answers JSON 429 once a client exceeds the chat limit', async () => {
+      const app = createApp({ authenticate: deny() })
+
+      for (let index = 0; index < 20; index++) {
+        const response = await request(app).post('/api/chat').send({})
+        expect(response.status).toBe(401)
+      }
+      const limited = await request(app).post('/api/chat').send({})
+
+      expect(limited.status).toBe(429)
+      expect(limited.body).toEqual({ error: 'rate-limited' })
+      expect(limited.headers['retry-after']).toBeDefined()
+    })
+
+    it('sends standard rate-limit headers', async () => {
+      const response = await request(createApp({ authenticate: deny() }))
+        .post('/api/chat')
+        .send({})
+
+      expect(response.headers['ratelimit-policy']).toBeDefined()
+      expect(response.headers['x-ratelimit-limit']).toBeUndefined()
+    })
+
+    it('leaves health public and unlimited', async () => {
+      const app = createApp({ authenticate: deny() })
+
+      for (let index = 0; index < 25; index++) {
+        const response = await request(app).get('/api/health')
+        expect(response.status).toBe(200)
+      }
+    })
   })
 })
