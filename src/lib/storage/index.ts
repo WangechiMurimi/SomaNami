@@ -36,6 +36,8 @@ let injected: StorageAdapter | undefined
 interface UserStore {
   userId: string
   adapter: StorageAdapter
+  /** Set once the database has actually opened. */
+  open?: boolean
 }
 
 let current: UserStore | undefined
@@ -80,9 +82,18 @@ export async function openUserStore(userId: string): Promise<void> {
   // Open now, so a database that won't open fails here, at the gate, rather
   // than on the first screen that reads it.
   await opening.adapter.get(DOCUMENTS, '')
+  opening.open = true
   // Closed or switched while it was opening: don't keep a connection that
   // would block deleting this user's database.
   if (current !== opening) await opening.adapter.close()
+}
+
+/**
+ * Whether storage calls for this user would succeed right now, without
+ * waiting: their store is open, or a test injected an adapter.
+ */
+export function isUserStoreOpen(userId: string): boolean {
+  return Boolean(injected) || (current?.userId === userId && !!current.open)
 }
 
 /** Closes the current user's store on sign-out or user switch. */

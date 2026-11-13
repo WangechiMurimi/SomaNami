@@ -8,6 +8,7 @@ import {
   DOCUMENTS,
   getDocument,
   importLegacyMaterials,
+  isUserStoreOpen,
   listDocuments,
   openUserStore,
   removeUserStore,
@@ -191,5 +192,29 @@ describe('importLegacyMaterials', () => {
     await expect(importLegacyMaterials()).rejects.toThrow(
       /no user store is open/i,
     )
+  })
+})
+
+describe('isUserStoreOpen', () => {
+  afterEach(() => {
+    closeUserStore()
+    setStorageAdapter(null)
+    vi.unstubAllGlobals()
+  })
+
+  it('is true only for the user whose store has finished opening', async () => {
+    vi.stubGlobal('indexedDB', new IDBFactory())
+    const opening = openUserStore('ada')
+    expect(isUserStoreOpen('ada')).toBe(false)
+    await opening
+    expect(isUserStoreOpen('ada')).toBe(true)
+    expect(isUserStoreOpen('ben')).toBe(false)
+    closeUserStore()
+    expect(isUserStoreOpen('ada')).toBe(false)
+  })
+
+  it('is true for anyone while a test adapter is injected', () => {
+    setStorageAdapter(createMemoryAdapter())
+    expect(isUserStoreOpen('ada')).toBe(true)
   })
 })
