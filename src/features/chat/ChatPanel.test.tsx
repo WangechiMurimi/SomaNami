@@ -209,7 +209,7 @@ describe('ChatPanel', () => {
     it('keeps the saved conversation readable', () => {
       setup({ status: 'signed-in-offline', initialMessages: saved })
 
-      const log = screen.getByRole('log', { name: 'Conversation' })
+      const log = screen.getByRole('region', { name: 'Conversation' })
       expect(within(log).getByText('What is ATP?')).toBeVisible()
       expect(within(log).getByText('The cell’s energy currency.')).toBeVisible()
     })
@@ -217,11 +217,11 @@ describe('ChatPanel', () => {
     it('explains that asking needs a connection, and blocks sending', async () => {
       const { user, box, send } = setup({ status: 'signed-in-offline' })
 
-      expect(
-        screen.getByText('You’re offline. Reconnect to ask questions.'),
-      ).toBeVisible()
-      expect(box).toBeDisabled()
+      const offline = 'You’re offline. Reconnect to ask questions.'
+      expect(screen.getByRole('status')).toHaveTextContent(offline)
+      // Typing a draft stays possible; Send says why it's unavailable.
       expect(send).toBeDisabled()
+      expect(send).toHaveAccessibleDescription(offline)
 
       await user.type(box, 'Why?{Enter}')
       expect(askQuestion).not.toHaveBeenCalled()
@@ -239,7 +239,7 @@ describe('ChatPanel', () => {
       )
       const { rerender } = render(panel('signed-in'))
       await user.type(
-        screen.getByLabelText('Ask a question about your documents'),
+        screen.getByLabelText('Ask a follow-up about your materials'),
         'Why?{Enter}',
       )
       const alert = await screen.findByRole('alert')
