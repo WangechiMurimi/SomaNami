@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Outlet, useLocation } from 'react-router'
 import ThemeToggle from '../components/ThemeToggle.tsx'
+import AccountMenu from '../features/auth/AccountMenu.tsx'
 import Sidebar from './Sidebar.tsx'
 
 /**
@@ -58,7 +59,10 @@ export default function AppShell() {
               <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>
           </button>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <AccountMenu />
+          </div>
         </header>
         <main className="mx-auto w-full max-w-[1376px] px-4 pt-8 pb-24 md:px-12 md:pt-16">
           <Outlet />
