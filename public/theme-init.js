@@ -1,4 +1,3 @@
-/* global document */
 // Apply a saved theme before first paint so the page never flashes the wrong
 // one. Mirrors readSavedTheme() in src/lib/theme/use-theme.ts. It is a separate
 // file, not inline in index.html, so the Content Security Policy can forbid

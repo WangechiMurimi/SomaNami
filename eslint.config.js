@@ -26,5 +26,10 @@ export default defineConfig([
     extends: [js.configs.recommended],
     languageOptions: { globals: globals.node },
   },
+  {
+    // Classic scripts served as-is to the browser (e.g. theme-init.js).
+    files: ['public/**/*.js'],
+    languageOptions: { globals: globals.browser },
+  },
   prettier,
 ])
