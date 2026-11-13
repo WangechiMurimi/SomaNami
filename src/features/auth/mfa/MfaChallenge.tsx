@@ -63,7 +63,7 @@ function ChallengeForm() {
           <FormAlert>{factors.message}</FormAlert>
           <button
             type="button"
-            onClick={factors.reload}
+            onClick={() => void factors.reload()}
             className={SECONDARY_BUTTON}
           >
             Try again
