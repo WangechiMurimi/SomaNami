@@ -87,15 +87,21 @@ describe('public/theme-init.js', () => {
 })
 
 describe('index.html', () => {
-  const head = INDEX_HTML.slice(0, INDEX_HTML.indexOf('</head>'))
+  // Parse rather than pattern-match: regexes miss valid HTML variants.
+  const page = new DOMParser().parseFromString(INDEX_HTML, 'text/html')
 
-  it('loads the theme script as a blocking script in <head>', () => {
+  it('loads the theme script first, as a blocking script in <head>', () => {
+    const first = page.head.querySelector('script')
+    expect(first?.getAttribute('src')).toBe('/theme-init.js')
     // async, defer and type="module" would all run it after first paint.
-    expect(head).toMatch(/<script src="\/theme-init\.js"><\/script>/)
+    expect(first?.hasAttribute('async')).toBe(false)
+    expect(first?.hasAttribute('defer')).toBe(false)
+    expect(first?.getAttribute('type')).not.toBe('module')
   })
 
   it('has no inline scripts, which the CSP would block', () => {
-    const scripts = INDEX_HTML.match(/<script\b[^>]*>/g) ?? []
-    for (const tag of scripts) expect(tag).toMatch(/\bsrc=/)
+    const scripts = [...page.querySelectorAll('script')]
+    expect(scripts.length).toBeGreaterThan(0)
+    for (const script of scripts) expect(script.hasAttribute('src')).toBe(true)
   })
 })
