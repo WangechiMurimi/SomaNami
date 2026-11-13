@@ -9,7 +9,7 @@ import Turnstile from '../features/auth/Turnstile.tsx'
 import { useAuth } from '../features/auth/auth-context.ts'
 import { authErrorMessage } from '../features/auth/auth-errors.ts'
 import { PRIMARY_BUTTON, TEXT_LINK } from '../features/auth/auth-ui.ts'
-import { safeNextPath } from '../features/auth/safe-next.ts'
+import { safeNextPath, verifyPathFor } from '../features/auth/safe-next.ts'
 import { useCaptcha } from '../features/auth/use-captcha.ts'
 import { useFocusFirstError } from '../features/auth/use-focus-first-error.ts'
 import { isAuthConfigured } from '../lib/auth/is-configured.ts'
@@ -36,11 +36,7 @@ export default function SignInPage() {
     return <Navigate to={next} replace />
   }
   if (status === 'needs-mfa') {
-    const verify =
-      next === '/'
-        ? '/sign-in/verify'
-        : `/sign-in/verify?next=${encodeURIComponent(next)}`
-    return <Navigate to={verify} replace />
+    return <Navigate to={verifyPathFor(next)} replace />
   }
 
   const configured = isAuthConfigured()

@@ -34,17 +34,18 @@ export function loadTurnstile(): Promise<TurnstileApi> {
     script.src = TURNSTILE_SCRIPT
     script.async = true
     script.dataset.turnstile = ''
+    // Let a later form try again, e.g. after reconnecting or unblocking.
+    const fail = (message: string) => {
+      loading = null
+      script.remove()
+      reject(new Error(message))
+    }
     script.addEventListener('load', () =>
       window.turnstile
         ? resolve(window.turnstile)
-        : reject(new Error('Turnstile did not start')),
+        : fail('Turnstile did not start'),
     )
-    script.addEventListener('error', () => {
-      // Let a later form try again, e.g. after reconnecting.
-      loading = null
-      script.remove()
-      reject(new Error('Turnstile failed to load'))
-    })
+    script.addEventListener('error', () => fail('Turnstile failed to load'))
     document.head.append(script)
   })
   return loading

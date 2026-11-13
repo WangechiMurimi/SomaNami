@@ -81,6 +81,22 @@ describe('Turnstile', () => {
     expect(api.remove).toHaveBeenCalledWith('widget-1')
   })
 
+  it('lets a later form retry after the script loads without its API', async () => {
+    const { loadTurnstile } = await import('./turnstile-script.ts')
+    const first = loadTurnstile()
+    const script = document.head.querySelector('script[data-turnstile]')
+    script?.dispatchEvent(new Event('load'))
+    await expect(first).rejects.toThrow()
+    expect(document.head.querySelector('script[data-turnstile]')).toBeNull()
+
+    const second = loadTurnstile()
+    expect(second).not.toBe(first)
+    document.head
+      .querySelector('script[data-turnstile]')
+      ?.dispatchEvent(new Event('error'))
+    await expect(second).rejects.toThrow()
+  })
+
   it('reports an empty token when no site key is configured', () => {
     vi.stubEnv('VITE_TURNSTILE_SITE_KEY', '')
     const onToken = vi.fn()

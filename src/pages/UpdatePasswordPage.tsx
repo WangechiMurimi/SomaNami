@@ -6,10 +6,13 @@ import FormAlert from '../features/auth/FormAlert.tsx'
 import PasswordField from '../features/auth/PasswordField.tsx'
 import { useAuth } from '../features/auth/auth-context.ts'
 import { authErrorMessage } from '../features/auth/auth-errors.ts'
-import { PRIMARY_BUTTON, TEXT_LINK } from '../features/auth/auth-ui.ts'
+import {
+  MIN_PASSWORD,
+  PRIMARY_BUTTON,
+  TEXT_LINK,
+} from '../features/auth/auth-ui.ts'
+import { verifyPathFor } from '../features/auth/safe-next.ts'
 import { useFocusFirstError } from '../features/auth/use-focus-first-error.ts'
-
-const MIN_PASSWORD = 10
 
 /**
  * Target of the reset email's link. Supabase reads the link and signs the
@@ -35,12 +38,7 @@ export default function UpdatePasswordPage() {
   }
   if (status === 'needs-mfa') {
     // Accounts with an authenticator prove it before changing the password.
-    return (
-      <Navigate
-        to={`/sign-in/verify?next=${encodeURIComponent('/update-password')}`}
-        replace
-      />
-    )
+    return <Navigate to={verifyPathFor('/update-password')} replace />
   }
   if (status === 'signed-out') {
     return (
@@ -51,6 +49,14 @@ export default function UpdatePasswordPage() {
         <Link to="/forgot-password" className={TEXT_LINK}>
           Request a new link
         </Link>
+      </AuthLayout>
+    )
+  }
+
+  if (status === 'signed-in-offline') {
+    return (
+      <AuthLayout title="Choose a new password">
+        <FormAlert>{authErrorMessage('offline')}</FormAlert>
       </AuthLayout>
     )
   }

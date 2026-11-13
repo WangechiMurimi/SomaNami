@@ -1,3 +1,6 @@
+/** Minimum password length; must match Supabase Auth > Providers > Email. */
+export const MIN_PASSWORD = 10
+
 /** Shared classes for the account screens (DESIGN.md: 48px inputs, 44px buttons). */
 export const LABEL = 'block text-[15px] leading-[1.5] font-medium text-fg'
 export const HINT = 'mt-1 text-[13px] leading-[1.5] text-muted'

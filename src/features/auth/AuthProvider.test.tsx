@@ -139,6 +139,62 @@ describe('network errors never sign the user out', () => {
   })
 })
 
+describe('stale session checks', () => {
+  it('ignores a session check that finishes after sign-out', async () => {
+    const { auth, emit } = installFakeSupabase({ session: fakeSession() })
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.status).toBe('signed-in'))
+
+    // A refresh starts evaluating the session, then stalls on the MFA check.
+    let release: () => void = () => {}
+    auth.mfa.getAuthenticatorAssuranceLevel.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = () =>
+            resolve({
+              data: {
+                currentLevel: 'aal1',
+                nextLevel: 'aal1',
+                currentAuthenticationMethods: [],
+              },
+              error: null,
+            })
+        }) as never,
+    )
+    act(() => emit('TOKEN_REFRESHED', fakeSession()))
+    await waitFor(() =>
+      expect(auth.mfa.getAuthenticatorAssuranceLevel).toHaveBeenCalledTimes(2),
+    )
+
+    await act(() => result.current.signOut())
+    expect(result.current.status).toBe('signed-out')
+    await act(async () => release())
+    expect(result.current.status).toBe('signed-out')
+    expect(readLastUser()).toBeNull()
+  })
+
+  it('keeps the same user object across token refreshes', async () => {
+    const { emit } = installFakeSupabase({ session: fakeSession() })
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.status).toBe('signed-in'))
+    const before = result.current.user
+
+    act(() => emit('TOKEN_REFRESHED', fakeSession()))
+    await act(() => new Promise((r) => setTimeout(r, 10)))
+    expect(result.current.user).toBe(before)
+  })
+
+  it('signs this device out even when Supabase throws', async () => {
+    const { auth } = installFakeSupabase({ session: fakeSession() })
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.status).toBe('signed-in'))
+
+    auth.signOut.mockRejectedValueOnce(new Error('listener failed'))
+    await act(() => result.current.signOut())
+    expect(result.current.status).toBe('signed-out')
+  })
+})
+
 describe('MFA', () => {
   it('needs a code when the account has a verified authenticator', async () => {
     installFakeSupabase({ session: fakeSession({ mfa: true }) })

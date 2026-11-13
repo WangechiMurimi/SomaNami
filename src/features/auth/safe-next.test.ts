@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { safeNextPath, signInPathFor } from './safe-next.ts'
+import { safeNextPath, signInPathFor, verifyPathFor } from './safe-next.ts'
 
 describe('safeNextPath', () => {
   it.each(['/', '/library', '/chat/abc?x=1#top', '/account'])(
@@ -23,6 +23,20 @@ describe('safeNextPath', () => {
     '/sign-in?next=/x',
   ])('falls back to home for %j', (input) => {
     expect(safeNextPath(input)).toBe('/')
+  })
+})
+
+describe('safeNextPath and the recovery page', () => {
+  it('allows returning to /update-password after an MFA code', () => {
+    expect(safeNextPath('/update-password')).toBe('/update-password')
+  })
+})
+
+describe('verifyPathFor', () => {
+  it('carries a safe next, and drops home or unsafe ones', () => {
+    expect(verifyPathFor('/library')).toBe('/sign-in/verify?next=%2Flibrary')
+    expect(verifyPathFor('/')).toBe('/sign-in/verify')
+    expect(verifyPathFor('//evil.example')).toBe('/sign-in/verify')
   })
 })
 

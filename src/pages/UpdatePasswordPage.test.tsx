@@ -2,7 +2,7 @@ import { AuthApiError } from '@supabase/supabase-js'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route } from 'react-router'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   fakeSession,
   installFakeSupabase,
@@ -80,6 +80,15 @@ describe('UpdatePasswordPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Choose a stronger password',
     )
+  })
+
+  it('explains that changing the password needs a connection', async () => {
+    installFakeSupabase({ session: fakeSession() })
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    page()
+    expect(await screen.findByRole('alert')).toHaveTextContent(/offline/i)
+    expect(screen.queryByLabelText('New password')).not.toBeInTheDocument()
+    vi.restoreAllMocks()
   })
 
   it('asks for the authenticator code first when the account has one', async () => {

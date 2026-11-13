@@ -19,15 +19,13 @@ import {
   INPUT_ERROR,
   INPUT_OK,
   LABEL,
+  MIN_PASSWORD,
   PRIMARY_BUTTON,
   TEXT_LINK,
 } from '../features/auth/auth-ui.ts'
 import { useCaptcha } from '../features/auth/use-captcha.ts'
 import { useFocusFirstError } from '../features/auth/use-focus-first-error.ts'
 import { isAuthConfigured } from '../lib/auth/is-configured.ts'
-
-/** Supabase's minimum, set in the dashboard. */
-const MIN_PASSWORD = 10
 
 const MONTHS = [
   'January',

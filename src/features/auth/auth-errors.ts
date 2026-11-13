@@ -21,11 +21,17 @@ const CODE_MAP: Record<string, AuthErrorCode> = {
   email_exists: 'email-in-use',
 }
 
+const NETWORK_MESSAGE = /fetch|network|load failed/i
+
 /** Turns anything Supabase (or `fetch`) throws into a code the UI can word. */
 export function toAuthErrorCode(error: unknown): AuthErrorCode {
   if (isAuthRetryableFetchError(error)) return 'offline'
-  // A fetch that never reached the server rejects with a TypeError.
-  if (error instanceof TypeError) return 'offline'
+  // A fetch that never reached the server rejects with a TypeError whose
+  // message names the network ("Failed to fetch", "NetworkError…", Safari's
+  // "Load failed"). Other TypeErrors are bugs, not connectivity.
+  if (error instanceof TypeError && NETWORK_MESSAGE.test(error.message)) {
+    return 'offline'
+  }
   if (!isAuthError(error)) return 'unknown'
   const mapped = error.code ? CODE_MAP[error.code] : undefined
   if (mapped) return mapped
