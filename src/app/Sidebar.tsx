@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link, NavLink } from 'react-router'
 import { chatPath } from '../features/chat/conversation-materials.ts'
 import { useRecentConversations } from '../features/chat/use-recent-conversations.ts'
+import { useAuth } from '../features/auth/auth-context.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
 import { useOnline } from '../lib/connectivity/use-online.ts'
 
@@ -134,26 +135,34 @@ function DeviceStatus() {
   )
 }
 
-/**
- * There are no accounts (the PRD keeps everything on the device), so the
- * profile row says so instead of showing an invented name.
- */
+/** The signed-in account, linking to its settings, like the top-bar menu. */
 function ProfileRow() {
+  const { user } = useAuth()
+  if (!user) return null
+  const email = user.email || 'Your account'
+  const initial = (user.email[0] ?? '?').toUpperCase()
   return (
-    <div className="mt-5 flex items-center gap-[11px] border-t border-line px-2.5 pt-4">
-      <span
-        aria-hidden="true"
-        className="flex size-[34px] flex-none items-center justify-center rounded-full bg-line text-fg"
+    <div className="mt-5 border-t border-line pt-3">
+      <Link
+        to="/account"
+        // One name for voice control and screen readers; the visible lines
+        // read as two separate fragments otherwise.
+        aria-label={`${email}, Account settings`}
+        className="flex min-h-11 items-center gap-[11px] rounded-[10px] px-2.5 py-1.5 hover:bg-tint"
       >
-        <svg {...ICON} width={16} height={16}>
-          <circle cx="12" cy="8" r="4" />
-          <path d="M4 21a8 8 0 0 1 16 0" />
-        </svg>
-      </span>
-      <div className="min-w-0 leading-[1.5]">
-        <p className="text-[13px] font-medium">Guest</p>
-        <p className="text-xs text-muted">No account needed</p>
-      </div>
+        <span
+          aria-hidden="true"
+          className="flex size-[34px] flex-none items-center justify-center rounded-full bg-tint text-[13px] font-semibold text-accent"
+        >
+          {initial}
+        </span>
+        <span className="min-w-0 leading-[1.5]">
+          <span className="block truncate text-[13px] font-medium">
+            {email}
+          </span>
+          <span className="block text-xs text-muted">Account settings</span>
+        </span>
+      </Link>
     </div>
   )
 }
