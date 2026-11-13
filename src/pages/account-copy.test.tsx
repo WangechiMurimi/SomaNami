@@ -53,4 +53,21 @@ describe('Account-aware device copy', () => {
       ),
     ).toBeInTheDocument()
   })
+
+  describe('sidebar profile row (#125)', () => {
+    it('shows the signed-in account and links to Account', async () => {
+      await renderSignedInApp('/')
+      const link = screen.getByRole('link', {
+        name: 'learner@example.com, Account settings',
+      })
+      expect(link).toHaveAttribute('href', '/account')
+      expect(link).toHaveTextContent('L')
+    })
+
+    it('no longer says there is no account', async () => {
+      await renderSignedInApp('/')
+      expect(screen.queryByText('Guest')).toBeNull()
+      expect(screen.queryByText('No account needed')).toBeNull()
+    })
+  })
 })
