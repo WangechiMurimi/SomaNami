@@ -451,6 +451,9 @@ describe('app shell and navigation', () => {
     render(<App />)
     const nav = within(screen.getByRole('navigation', { name: 'Main' }))
 
+    expect(
+      nav.getByRole('link', { name: 'My library, 0 materials' }),
+    ).toBeInTheDocument()
     for (const name of [
       'Home',
       'Workspaces',

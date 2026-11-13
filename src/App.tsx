@@ -2,11 +2,13 @@ import { BrowserRouter, Link, Route, Routes } from 'react-router'
 import AppShell from './app/AppShell.tsx'
 import LibraryProvider from './features/library/LibraryProvider.tsx'
 import ChatPage from './pages/ChatPage.tsx'
-import ComingSoonPage from './pages/ComingSoonPage.tsx'
 import ConversationsPage from './pages/ConversationsPage.tsx'
 import HelpPage from './pages/HelpPage.tsx'
 import HomePage from './pages/HomePage.tsx'
 import LibraryPage from './pages/LibraryPage.tsx'
+import NewWorkspacePage from './pages/NewWorkspacePage.tsx'
+import WorkspacePage from './pages/WorkspacePage.tsx'
+import WorkspacesPage from './pages/WorkspacesPage.tsx'
 import { H1, LEDE } from './pages/page-heading.ts'
 
 function NotFoundPage() {
@@ -33,25 +35,9 @@ export function AppRoutes() {
           <Route path="chat/:documentId" element={<ChatPage />} />
           <Route path="conversations" element={<ConversationsPage />} />
           <Route path="help" element={<HelpPage />} />
-          {/* TODO(#90): replace with the workspaces grid and creation flow. */}
-          <Route
-            path="workspaces"
-            element={
-              <ComingSoonPage
-                title="Workspaces"
-                description="Keep each topic’s materials and chats together in its own workspace."
-              />
-            }
-          />
-          <Route
-            path="workspaces/new"
-            element={
-              <ComingSoonPage
-                title="New workspace"
-                description="Name a topic, add its materials and start asking questions."
-              />
-            }
-          />
+          <Route path="workspaces" element={<WorkspacesPage />} />
+          <Route path="workspaces/new" element={<NewWorkspacePage />} />
+          <Route path="workspaces/:workspaceId" element={<WorkspacePage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
