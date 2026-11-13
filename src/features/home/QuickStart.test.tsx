@@ -1,7 +1,7 @@
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
-import App from '../../App.tsx'
+import { renderSignedInApp } from '../auth/testing/render-app.tsx'
 import {
   createMemoryAdapter,
   createWorkspace,
@@ -36,7 +36,7 @@ const send = () => start().getByRole('button', { name: 'Send' })
 
 describe('Home quick start', () => {
   it('explains that a material is needed before asking', async () => {
-    render(<App />)
+    await renderSignedInApp()
     await userEvent.type(question(), 'Why?')
 
     expect(send()).toBeDisabled()
@@ -46,7 +46,7 @@ describe('Home quick start', () => {
   })
 
   it('uploads from the composer into the default workspace', async () => {
-    const { container } = render(<App />)
+    const { container } = await renderSignedInApp()
     const picker =
       container.querySelector<HTMLInputElement>('input[type="file"]')!
 
@@ -66,7 +66,7 @@ describe('Home quick start', () => {
   })
 
   it('adds pasted text as a material', async () => {
-    render(<App />)
+    await renderSignedInApp()
 
     await userEvent.click(start().getByRole('button', { name: 'Paste text' }))
     await userEvent.type(
@@ -87,7 +87,7 @@ describe('Home quick start', () => {
     const biology = await createWorkspace({ name: 'Biology' })
     await material('cells', biology.id)
     await createWorkspace({ name: 'Empty' })
-    render(<App />)
+    await renderSignedInApp()
 
     await userEvent.type(question(), 'What do cells do?{Enter}')
 
@@ -107,7 +107,7 @@ describe('Home quick start', () => {
     const history = await createWorkspace({ name: 'History', topic: 'Rome' })
     await material('cells', biology.id)
     await material('rome', history.id)
-    render(<App />)
+    await renderSignedInApp()
 
     await userEvent.type(question(), 'Who built the roads?{Enter}')
     const choice = within(
@@ -129,8 +129,8 @@ describe('Home quick start', () => {
     ).toHaveValue('Who built the roads?')
   })
 
-  it('points the first step’s upload link at the composer', () => {
-    render(<App />)
+  it('points the first step’s upload link at the composer', async () => {
+    await renderSignedInApp()
 
     expect(
       screen.getByRole('link', { name: 'Upload materials' }),

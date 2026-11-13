@@ -1,7 +1,7 @@
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
-import App from '../App.tsx'
+import { renderSignedInApp } from '../features/auth/testing/render-app.tsx'
 import {
   createConversation,
   createMemoryAdapter,
@@ -17,16 +17,13 @@ beforeEach(() => {
   window.history.pushState({}, '', '/')
 })
 
-const open = (path: string) => {
-  window.history.pushState({}, '', path)
-  return render(<App />)
-}
+const open = (path: string) => renderSignedInApp(path)
 
 const main = () => within(screen.getByRole('main'))
 
 describe('Workspaces grid', () => {
   it('offers to start a workspace when there are none', async () => {
-    open('/workspaces')
+    await open('/workspaces')
 
     const list = await main().findByRole('list', { name: 'Your workspaces' })
     expect(within(list).getAllByRole('listitem')).toHaveLength(1)
@@ -58,7 +55,7 @@ describe('Workspaces grid', () => {
       workspaceId: workspace.id,
       materialIds: ['doc-1'],
     })
-    open('/workspaces')
+    await open('/workspaces')
 
     const card = (
       await main().findByRole('heading', { name: 'Memory & learning' })
@@ -76,7 +73,7 @@ describe('New workspace', () => {
   const next = () => screen.getByRole('button', { name: 'Next' })
 
   it('asks for a name before moving on', async () => {
-    open('/workspaces/new')
+    await open('/workspaces/new')
 
     await userEvent.click(next())
 
@@ -87,7 +84,7 @@ describe('New workspace', () => {
   })
 
   it('goes back to step one with the name kept', async () => {
-    open('/workspaces/new')
+    await open('/workspaces/new')
     await userEvent.type(name(), 'Biology')
     await userEvent.click(next())
 
@@ -101,7 +98,7 @@ describe('New workspace', () => {
   })
 
   it('marks the current step for assistive technology', async () => {
-    open('/workspaces/new')
+    await open('/workspaces/new')
     const steps = within(screen.getByRole('list', { name: 'Steps' }))
 
     expect(steps.getAllByRole('listitem')[0]).toHaveAttribute(
@@ -118,7 +115,7 @@ describe('New workspace', () => {
   })
 
   it('explains why links cannot be added yet', async () => {
-    open('/workspaces/new')
+    await open('/workspaces/new')
     await userEvent.type(name(), 'Biology')
     await userEvent.click(next())
 
@@ -128,7 +125,7 @@ describe('New workspace', () => {
   })
 
   it('creates the workspace with uploaded and pasted materials, then opens it', async () => {
-    open('/workspaces/new')
+    await open('/workspaces/new')
     await userEvent.type(name(), 'Biology')
     await userEvent.type(screen.getByLabelText(/Topic/), 'Cells')
     await userEvent.click(next())
@@ -168,7 +165,7 @@ describe('New workspace', () => {
   })
 
   it('leaves out a material removed before creating', async () => {
-    open('/workspaces/new')
+    await open('/workspaces/new')
     await userEvent.type(name(), 'Biology')
     await userEvent.click(next())
     await userEvent.upload(
@@ -188,7 +185,7 @@ describe('New workspace', () => {
   })
 
   it('saves nothing when cancelled', async () => {
-    open('/workspaces/new')
+    await open('/workspaces/new')
     await userEvent.type(name(), 'Biology')
 
     await userEvent.click(screen.getByRole('link', { name: 'Cancel' }))
@@ -200,7 +197,7 @@ describe('New workspace', () => {
   })
 
   it('says when a workspace address does not exist', async () => {
-    open('/workspaces/nope')
+    await open('/workspaces/nope')
 
     expect(
       await screen.findByRole('heading', {

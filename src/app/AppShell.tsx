@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router'
 import ThemeToggle from '../components/ThemeToggle.tsx'
+import AccountMenu from '../features/auth/AccountMenu.tsx'
 import Sidebar from './Sidebar.tsx'
 
 /**
@@ -81,6 +82,7 @@ export default function AppShell() {
               Help
             </Link>
             <ThemeToggle />
+            <AccountMenu />
           </div>
         </header>
         <main className="mx-auto w-full max-w-[1376px] px-4 pt-8 pb-24 md:px-12 md:pt-16">
