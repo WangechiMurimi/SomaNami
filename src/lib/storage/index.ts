@@ -18,8 +18,8 @@ import {
   DEFAULT_WORKSPACE,
   DOCUMENTS,
   MESSAGES,
-  userDbName,
   WORKSPACES,
+  userDbName,
 } from './schema.ts'
 
 export type { Change, StorageAdapter, StorageRecord } from './adapter.ts'
@@ -38,8 +38,8 @@ export {
   DOCUMENTS,
   MESSAGES,
   STORES,
-  userDbName,
   WORKSPACES,
+  userDbName,
 } from './schema.ts'
 
 let injected: StorageAdapter | undefined
@@ -92,7 +92,15 @@ export async function openUserStore(userId: string): Promise<void> {
   const opening = current
   // Open now, so a database that won't open fails here, at the gate, rather
   // than on the first screen that reads it.
-  await opening.adapter.get(DOCUMENTS, '')
+  try {
+    await opening.adapter.get(DOCUMENTS, '')
+  } catch (error) {
+    // Don't leave a store that won't open selected: later calls should fail
+    // with the clear "no user store" error, not retry a broken open.
+    if (current === opening) current = undefined
+    await opening.adapter.close()
+    throw error
+  }
   opening.open = true
   // Closed or switched while it was opening: don't keep a connection that
   // would block deleting this user's database.
@@ -127,6 +135,8 @@ export async function removeUserStore(userId: string): Promise<void> {
   if (factory) await deleteDatabase(factory, userDbName(userId))
 }
 
+// Functions that touch storage more than once take the store once up front, so
+// a user switch mid-function can't split one operation across two users.
 const store = (): StorageAdapter => {
   if (injected) return injected
   // Falling back to a shared store here would mix one user's materials into
@@ -272,12 +282,13 @@ export async function ensureDefaultWorkspace(): Promise<Workspace> {
  */
 export async function deleteWorkspace(id: string): Promise<void> {
   assert(id, 'deleteWorkspace needs an id')
+  const db = store()
   const [documents, conversations] = await Promise.all([
-    store().getAllByIndex<StoredDocument>(DOCUMENTS, 'workspaceId', id),
-    store().getAllByIndex<Conversation>(CONVERSATIONS, 'workspaceId', id),
+    db.getAllByIndex<StoredDocument>(DOCUMENTS, 'workspaceId', id),
+    db.getAllByIndex<Conversation>(CONVERSATIONS, 'workspaceId', id),
   ])
-  const messages = await messagesOf(conversations)
-  await store().commit([
+  const messages = await messagesOf(db, conversations)
+  await db.commit([
     ...messages.map(remove(MESSAGES)),
     ...conversations.map(remove(CONVERSATIONS)),
     ...documents.map(remove(DOCUMENTS)),
@@ -291,11 +302,16 @@ const remove =
   (storeName: Change['storeName']) =>
   ({ id }: { id: string }): Change => ({ type: 'remove', storeName, key: id })
 
-const messagesOf = async (conversations: readonly Conversation[]) =>
+// Takes the store from the caller, so a multi-step write stays in one user's
+// database even if the account switches while it runs.
+const messagesOf = async (
+  db: StorageAdapter,
+  conversations: readonly Conversation[],
+) =>
   (
     await Promise.all(
       conversations.map(({ id }) =>
-        store().getAllByIndex<Message>(MESSAGES, 'conversationId', id),
+        db.getAllByIndex<Message>(MESSAGES, 'conversationId', id),
       ),
     )
   ).flat()
@@ -359,7 +375,8 @@ export async function listWorkspaceDocuments(
  * could answer it any more. Everything happens in one batch.
  */
 export async function deleteDocument(id: string): Promise<void> {
-  const conversations = await store().getAllByIndex<Conversation>(
+  const db = store()
+  const conversations = await db.getAllByIndex<Conversation>(
     CONVERSATIONS,
     'materialIds',
     id,
@@ -368,8 +385,8 @@ export async function deleteDocument(id: string): Promise<void> {
     materialIds.every((materialId) => materialId === id),
   )
   const kept = conversations.filter((c) => !emptied.includes(c))
-  const messages = await messagesOf(emptied)
-  await store().commit([
+  const messages = await messagesOf(db, emptied)
+  await db.commit([
     ...messages.map(remove(MESSAGES)),
     ...emptied.map(remove(CONVERSATIONS)),
     ...kept.map((conversation): Change => {
@@ -472,10 +489,11 @@ export async function renameConversation(
   id: string,
   title: string,
 ): Promise<Conversation> {
-  const conversation = await store().get<Conversation>(CONVERSATIONS, id)
+  const db = store()
+  const conversation = await db.get<Conversation>(CONVERSATIONS, id)
   if (!conversation) throw new Error(`No conversation "${id}"`)
   const updated = { ...conversation, title, updatedAt: Date.now() }
-  await store().put(CONVERSATIONS, updated)
+  await db.put(CONVERSATIONS, updated)
   notifyConversations()
   return updated
 }
@@ -501,16 +519,14 @@ export async function appendMessage({
   answerable,
   createdAt,
 }: NewMessage = {}): Promise<Message> {
+  const db = store()
   assert(conversationId, 'appendMessage needs a conversationId')
   assert(
     role === 'user' || role === 'assistant',
     'appendMessage needs role "user" or "assistant"',
   )
 
-  const conversation = await store().get<Conversation>(
-    CONVERSATIONS,
-    conversationId,
-  )
+  const conversation = await db.get<Conversation>(CONVERSATIONS, conversationId)
   if (!conversation) throw new Error(`No conversation "${conversationId}"`)
 
   const base = {
@@ -531,8 +547,8 @@ export async function appendMessage({
         } satisfies AssistantMessage)
       : ({ ...base, role } satisfies UserMessage)
 
-  await store().put(MESSAGES, message)
-  await store().put(CONVERSATIONS, {
+  await db.put(MESSAGES, message)
+  await db.put(CONVERSATIONS, {
     ...conversation,
     updatedAt: message.createdAt,
   })
@@ -555,7 +571,8 @@ export async function listMessages(conversationId: string): Promise<Message[]> {
 
 /** Removes a conversation and the messages that belong to it. */
 export async function deleteConversation(id: string): Promise<void> {
-  await store().removeByIndex(MESSAGES, 'conversationId', id)
-  await store().remove(CONVERSATIONS, id)
+  const db = store()
+  await db.removeByIndex(MESSAGES, 'conversationId', id)
+  await db.remove(CONVERSATIONS, id)
   notifyConversations()
 }

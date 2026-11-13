@@ -14,14 +14,24 @@ import LegacyImportDialog from './LegacyImportDialog.tsx'
 
 type Outcome = 'ready' | 'failed' | 'offer-import'
 
-// A failed check must never stand between someone and their own library, so
-// it reads as "nothing to offer" and the materials stay put for next time.
+/** How long the legacy check may take before the app opens without it. */
+export const LEGACY_CHECK_TIMEOUT_MS = 3000
+
+// A failed or stuck check (say, an open queued behind another tab's pending
+// delete) must never stand between someone and their own library, so it
+// reads as "nothing to offer" and the materials stay put for next time.
 async function shouldOfferImport(userId: string): Promise<boolean> {
   if (legacyImportDeclined(userId)) return false
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const giveUp = new Promise<boolean>((resolve) => {
+    timer = setTimeout(() => resolve(false), LEGACY_CHECK_TIMEOUT_MS)
+  })
   try {
-    return await hasLegacyMaterials()
+    return await Promise.race([hasLegacyMaterials(), giveUp])
   } catch {
     return false
+  } finally {
+    clearTimeout(timer)
   }
 }
 
@@ -44,9 +54,12 @@ export default function UserStoreGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!userId || !openKey) return
     let active = true
+    // Already showing the children (see below): swapping them for the dialog
+    // now would unmount a library that has already loaded.
+    const alreadyOpen = isUserStoreOpen(userId)
     openUserStore(userId).then(
       async () => {
-        const offer = await shouldOfferImport(userId)
+        const offer = !alreadyOpen && (await shouldOfferImport(userId))
         if (active)
           setResult({ key: openKey, outcome: offer ? 'offer-import' : 'ready' })
       },
