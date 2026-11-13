@@ -1,8 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Composer from '../../components/Composer.tsx'
+import { useAuth } from '../auth/auth-context.ts'
 import ChatMessage from './ChatMessage.tsx'
 import { useChat } from './use-chat.ts'
 import type { UseChatOptions } from './use-chat.ts'
+
+const OFFLINE_NOTICE = 'You’re offline. Reconnect to ask questions.'
 
 function PendingBubble() {
   return (
@@ -32,21 +35,26 @@ export default function ChatPanel({
   addMaterialTo?: string
 }) {
   const { messages, status, error, send, retry } = useChat(chatOptions)
+  // A saved session keeps the transcript readable offline (US-07), but the
+  // session can't be refreshed, so asking waits for the connection. The
+  // server's 401 stays the real check; this only spares a doomed request.
+  const isOffline = useAuth().status === 'signed-in-offline'
   const askedInitial = useRef(false)
 
   useEffect(() => {
     // A chat started from New chat arrives with its first question; ask it
-    // once, even when React runs effects twice in development.
-    if (!initialQuestion || askedInitial.current) return
+    // once, even when React runs effects twice in development. Offline, it
+    // waits for the connection instead of failing.
+    if (!initialQuestion || askedInitial.current || isOffline) return
     askedInitial.current = true
     send(initialQuestion)
-  }, [initialQuestion, send])
+  }, [initialQuestion, send, isOffline])
   const [draft, setDraft] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const endRef = useRef<HTMLDivElement>(null)
 
   const isSending = status === 'sending'
-  const canSend = draft.trim().length > 0 && !isSending
+  const canSend = draft.trim().length > 0 && !isSending && !isOffline
 
   useLayoutEffect(() => {
     // New turns arrive at the bottom; bring them into view as they land.
@@ -94,7 +102,7 @@ export default function ChatPanel({
           className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5 rounded-xl border border-warn bg-warn-soft px-4 py-3"
         >
           <span className="text-sm leading-[1.5]">{error.message}</span>
-          {error.retryable && (
+          {error.retryable && !isOffline && (
             <button
               type="button"
               onClick={retry}
@@ -106,6 +114,15 @@ export default function ChatPanel({
         </div>
       )}
 
+      {isOffline && (
+        <p
+          role="status"
+          className="rounded-xl bg-warn-soft px-4 py-2.5 text-sm text-warn"
+        >
+          {OFFLINE_NOTICE}
+        </p>
+      )}
+
       <div className="flex flex-col gap-2.5">
         <Composer
           label="Ask a follow-up about your materials"
@@ -114,6 +131,7 @@ export default function ChatPanel({
           onChange={setDraft}
           onSubmit={submit}
           canSend={canSend}
+          sendDescription={isOffline ? OFFLINE_NOTICE : undefined}
           inputRef={inputRef}
         />
         <p className="text-center text-[13px] leading-[1.5] text-muted">

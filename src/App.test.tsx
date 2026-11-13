@@ -267,6 +267,20 @@ describe('asking about a document', () => {
     )
   }
 
+  it('sends the signed-in session token with each question', async () => {
+    serveChat(citeFirst)
+    await renderApp()
+    await uploadAndOpen(notes())
+
+    await ask('What do mitochondria produce?')
+
+    await screen.findByText('They produce ATP.')
+    const [, init] = vi.mocked(globalThis.fetch).mock.calls[0]!
+    expect(new Headers(init?.headers).get('Authorization')).toBe(
+      'Bearer token-user-1',
+    )
+  })
+
   it('answers from the uploaded document and shows where the answer came from', async () => {
     const requests = serveChat(citeFirst)
     await renderApp()
