@@ -1,0 +1,8 @@
+# URL | type | note
+# type: what you expect the captions to be (auto = auto-generated, manual = creator-uploaded).
+# Lines starting with # are ignored.
+https://www.youtube.com/watch?v=RYT08CaYq6A | auto | LeetCode patterns; auto-generated in local run 2026-11-05
+https://www.youtube.com/watch?v=B3U1NDUiwSA | manual | Quantum computing; creator captions in local run 2026-11-05
+https://www.youtube.com/watch?v=7q8Uw3rmXyE | auto | AlphaFold (NEJM); slow (~9 s) in local run 2026-11-05
+https://www.youtube.com/watch?v=uALcxReboH4 | auto | Tesla Roadster; auto-generated in local run 2026-11-05
+https://www.youtube.com/watch?v=Sh-se-i0afA | auto | Presentations; auto-generated in local run 2026-11-05

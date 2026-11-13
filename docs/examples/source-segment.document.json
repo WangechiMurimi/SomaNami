@@ -1,0 +1,18 @@
+{
+  "id": "document:photosynthesis-notes",
+  "type": "document",
+  "metadata": {
+    "filename": "photosynthesis-notes.pdf",
+    "mime_type": "application/pdf"
+  },
+  "segments": [
+    {
+      "id": "document:photosynthesis-notes:segment:1",
+      "text": "Plants use light energy to convert carbon dioxide and water into sugars and oxygen.",
+      "anchor": {
+        "type": "page",
+        "page": 2
+      }
+    }
+  ]
+}
