@@ -11,11 +11,13 @@ import type { ChatReply } from '../../types/contracts.ts'
  * the server.
  */
 export default function ConversationChat({
+  workspaceId,
   materials,
   initialMessages,
   initialQuestion,
   onAnswered,
 }: {
+  workspaceId: string
   materials: StoredDocument[]
   initialMessages: ChatTurn[]
   initialQuestion?: string
@@ -44,6 +46,7 @@ export default function ConversationChat({
       initialMessages={initialMessages}
       initialQuestion={initialQuestion}
       onAnswered={onAnswered}
+      addMaterialTo={`/workspaces/${workspaceId}`}
     />
   )
 }

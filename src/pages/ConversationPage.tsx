@@ -128,6 +128,7 @@ function Conversation({
         </p>
       ) : (
         <ConversationChat
+          workspaceId={conversation.workspaceId}
           materials={materials}
           initialMessages={state.initialMessages}
           initialQuestion={question}

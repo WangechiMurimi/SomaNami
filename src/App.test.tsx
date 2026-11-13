@@ -235,7 +235,7 @@ describe('asking about a document', () => {
   const ask = async (question: string) => {
     await userEvent.type(
       await screen.findByLabelText(
-        /^Ask a question about your (documents|materials)$/,
+        /^Ask (a question|a follow-up) about your materials$/,
       ),
       `${question}{Enter}`,
     )
@@ -278,7 +278,7 @@ describe('asking about a document', () => {
     await ask('Who won the 1998 World Cup?')
 
     expect(
-      await screen.findByText('Not answered from your documents'),
+      await screen.findByText('Not answered from your materials'),
     ).toBeInTheDocument()
     expect(requests[0]?.passages).toEqual([])
   })
