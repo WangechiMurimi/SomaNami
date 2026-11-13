@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { listDocuments, saveDocument } from '../../lib/storage/index.ts'
+import {
+  deleteDocument,
+  listDocuments,
+  saveDocument,
+} from '../../lib/storage/index.ts'
 import type { NewDocument, StoredDocument } from '../../types/contracts.ts'
 
 export type LibraryStatus = 'loading' | 'ready' | 'error'
@@ -48,5 +52,14 @@ export function useLibrary() {
     [],
   )
 
-  return { documents, status, add }
+  /**
+   * Removes a material from this device. Chats that used only it go too;
+   * chats with other materials keep those (US-08 AC5).
+   */
+  const remove = useCallback(async (id: string) => {
+    await deleteDocument(id)
+    setDocuments((current) => current.filter((document) => document.id !== id))
+  }, [])
+
+  return { documents, status, add, remove }
 }

@@ -418,7 +418,7 @@ describe('app shell and navigation', () => {
     const table = await screen.findByRole('table', { name: 'Your materials' })
     const row = within(table).getByRole('row', { name: /notes\.txt/ })
     expect(row).toHaveTextContent('Text')
-    expect(row).toHaveTextContent('2')
+    expect(row).toHaveTextContent('My materials')
   })
 
   it('explains an empty library', async () => {
