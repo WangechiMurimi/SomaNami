@@ -6,6 +6,7 @@ import { authErrorMessage } from '../auth-errors.ts'
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../auth-ui.ts'
 import { useFocusFirstError } from '../use-focus-first-error.ts'
 import CodeField from './CodeField.tsx'
+import { qrImageSrc } from './qr-src.ts'
 import { codeError, normaliseCode } from './totp-code.ts'
 
 interface EnrolAuthenticatorProps {
@@ -85,7 +86,7 @@ export default function EnrolAuthenticator({
         <li className={STEP}>
           Open an authenticator app on your phone and scan this QR code.
           <img
-            src={enrollment.qrCode}
+            src={qrImageSrc(enrollment.qrCode)}
             alt="QR code for your authenticator app. If you can’t scan it, use the setup key in the next step."
             width={176}
             height={176}

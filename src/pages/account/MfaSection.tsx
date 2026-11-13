@@ -41,36 +41,21 @@ export default function MfaSection() {
   const [notice, setNotice] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
-  // The factor being set up right now; it must survive cleanup until the
-  // user confirms it, and is removed if they leave without confirming.
+  // The factor being set up right now: removed if the user leaves the page
+  // without confirming it.
   const pending = useRef<string | null>(null)
-  // Unverified factors already being removed, so each is removed only once.
-  const discards = useRef(new Map<string, Promise<unknown>>())
   // Where focus goes after the next render, as a CSS selector.
   const focusNext = useRef<string | null>(null)
 
+  /** Removes an unconfirmed factor; resolves to whether it's gone. */
   const discard = useCallback(
-    (factorId: string) => {
-      let removal = discards.current.get(factorId)
-      if (!removal) {
-        // Failures are fine: the next visit to this page tries again.
-        removal = mfa.unenroll(factorId).catch(() => undefined)
-        discards.current.set(factorId, removal)
-      }
-      return removal
-    },
+    (factorId: string) =>
+      mfa.unenroll(factorId).then(
+        (result) => result.ok,
+        () => false,
+      ),
     [mfa],
   )
-
-  // An unconfirmed factor can only come from a setup that was abandoned
-  // (page closed, network lost), so clear it out.
-  useEffect(() => {
-    for (const factor of list ?? []) {
-      if (factor.status === 'unverified' && factor.id !== pending.current) {
-        void discard(factor.id)
-      }
-    }
-  }, [list, discard])
 
   // Leaving the page mid-setup abandons it.
   const discardOnLeave = useRef(discard)
@@ -86,11 +71,9 @@ export default function MfaSection() {
 
   useEffect(() => {
     if (!focusNext.current) return
-    const target = document.querySelector<HTMLElement>(focusNext.current)
-    if (target) {
-      target.focus()
-      focusNext.current = null
-    }
+    document.querySelector<HTMLElement>(focusNext.current)?.focus()
+    // One try only: a target that didn't render must not steal focus later.
+    focusNext.current = null
   })
 
   const showNotice = (text: string) => {
@@ -103,10 +86,19 @@ export default function MfaSection() {
     setActionError(null)
     setStarting(true)
     try {
-      // Clear leftovers first: Supabase refuses a name that's already taken.
-      const leftovers = (list ?? []).filter((f) => f.status === 'unverified')
-      await Promise.all(leftovers.map((f) => discard(f.id)))
-      const next = await mfa.enrollTotp(nextFactorName(verified))
+      // Unconfirmed factors are left by setups that were abandoned (page
+      // closed, connection lost). Clear them only now, when a new setup
+      // starts, so merely opening Account on another device can't cancel a
+      // setup in progress there. Read the list afresh: another tab may have
+      // added one since this page loaded.
+      const current = await mfa.listFactors()
+      const confirmed = current.filter((f) => f.status === 'verified')
+      const leftovers = current.filter((f) => f.status === 'unverified')
+      const removed = await Promise.all(leftovers.map((f) => discard(f.id)))
+      const stuck = leftovers.filter((_, index) => !removed[index])
+      // Supabase refuses a name already taken, even by a stuck leftover.
+      const name = nextFactorName([...confirmed, ...stuck])
+      const next = await mfa.enrollTotp(name)
       pending.current = next.factorId
       setEnrolment(next)
     } catch (error) {

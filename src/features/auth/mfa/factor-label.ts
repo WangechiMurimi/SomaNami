@@ -8,11 +8,12 @@ export function factorLabel(factor: MfaFactor, index: number): string {
 }
 
 /**
- * A name for a new authenticator that no existing one uses. Supabase rejects
- * a second factor with the same friendly name.
+ * A name for a new authenticator that no existing one uses or is shown as.
+ * Supabase rejects a second factor with the same friendly name, and two
+ * rows with the same label couldn't be told apart.
  */
 export function nextFactorName(existing: MfaFactor[]): string {
-  const taken = new Set(existing.map((f) => f.friendlyName))
+  const taken = new Set(existing.map((f, index) => factorLabel(f, index)))
   for (let index = 0; ; index += 1) {
     const name = nameFor(index)
     if (!taken.has(name)) return name

@@ -219,17 +219,36 @@ describe('MfaSection: turning it on', () => {
     )
   })
 
-  it('cleans up unconfirmed authenticators left by an abandoned setup', async () => {
+  it('clears authenticators left by an abandoned setup when a new one starts', async () => {
     const { auth, factors } = setup([
       factor('old-1', 'unverified', 'Authenticator app'),
-      factor('kept', 'verified', 'Phone'),
     ])
-    expect(await screen.findByText('Phone')).toBeVisible()
-    await waitFor(() =>
-      expect(auth.mfa.unenroll).toHaveBeenCalledWith({ factorId: 'old-1' }),
-    )
-    expect(auth.mfa.unenroll).toHaveBeenCalledTimes(1)
-    expect(factors().map((f) => f.id)).toEqual(['kept'])
+    await expectState('Off')
+    // Only viewing the page must not cancel a setup open on another device.
+    expect(auth.mfa.unenroll).not.toHaveBeenCalled()
+
+    await turnOn()
+    await screen.findByRole('img')
+    expect(auth.mfa.unenroll).toHaveBeenCalledWith({ factorId: 'old-1' })
+    expect(auth.mfa.enroll).toHaveBeenCalledWith({
+      factorType: 'totp',
+      friendlyName: 'Authenticator app',
+    })
+    expect(factors().map((f) => f.status)).toEqual(['unverified'])
+  })
+
+  it('picks a free name when a leftover cannot be removed', async () => {
+    const { auth } = setup([factor('old-1', 'unverified', 'Authenticator app')])
+    auth.mfa.unenroll.mockResolvedValueOnce({
+      data: null,
+      error: new TypeError('Failed to fetch'),
+    })
+    await turnOn()
+    await screen.findByRole('img')
+    expect(auth.mfa.enroll).toHaveBeenCalledWith({
+      factorType: 'totp',
+      friendlyName: 'Authenticator app 2',
+    })
   })
 
   it('reports a failure to start setup', async () => {
