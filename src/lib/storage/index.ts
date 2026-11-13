@@ -8,13 +8,19 @@ import type {
   UserMessage,
 } from '../../types/contracts.ts'
 import type { StorageAdapter } from './adapter.ts'
-import { createIndexedDbAdapter } from './indexeddb-adapter.ts'
+import { createIndexedDbAdapter, deleteDatabase } from './indexeddb-adapter.ts'
+import { moveLegacyMaterials } from './import-legacy.ts'
 import { createMemoryAdapter } from './memory-adapter.ts'
-import { CONVERSATIONS, DOCUMENTS, MESSAGES } from './schema.ts'
+import { CONVERSATIONS, DOCUMENTS, MESSAGES, userDbName } from './schema.ts'
 
 export type { StorageAdapter, StorageRecord } from './adapter.ts'
 export { createIndexedDbAdapter } from './indexeddb-adapter.ts'
 export { createMemoryAdapter } from './memory-adapter.ts'
+export {
+  declineLegacyImport,
+  hasLegacyMaterials,
+  legacyImportDeclined,
+} from './import-legacy.ts'
 export {
   CONVERSATIONS,
   DB_NAME,
@@ -22,40 +28,119 @@ export {
   DOCUMENTS,
   MESSAGES,
   STORES,
+  userDbName,
 } from './schema.ts'
 
-let adapter: StorageAdapter | undefined
+let injected: StorageAdapter | undefined
+
+interface UserStore {
+  userId: string
+  adapter: StorageAdapter
+  /** Set once the database has actually opened. */
+  open?: boolean
+}
+
+let current: UserStore | undefined
+
+// Without IndexedDB nothing survives a reload anyway, but each user still gets
+// their own store, kept for the session so switching back finds it again.
+const memoryStores = new Map<string, StorageAdapter>()
 
 /**
  * Swaps the backing store; tests inject a fake one, the app leaves it alone.
- * Pass `null` to fall back to IndexedDB again.
+ * An injected adapter stands in for every user's store. Pass `null` to go
+ * back to per-user stores.
  */
 export function setStorageAdapter(next: StorageAdapter | null): void {
-  adapter = next ?? undefined
+  injected = next ?? undefined
 }
 
-// TODO(#114): WS-D gives each user a private database and makes storage calls
-// fail while no user store is open. Until then these keep the shared store.
+function adapterFor(userId: string): StorageAdapter {
+  const factory = globalThis.indexedDB
+  if (factory)
+    return createIndexedDbAdapter(factory, { name: userDbName(userId) })
+  let adapter = memoryStores.get(userId)
+  if (!adapter) {
+    adapter = createMemoryAdapter()
+    memoryStores.set(userId, adapter)
+  }
+  return adapter
+}
 
 /** Opens the signed-in user's private store; later storage calls read and write it. */
 export async function openUserStore(userId: string): Promise<void> {
-  void userId
+  assert(userId, 'openUserStore needs a userId')
+  if (injected) return
+  if (current?.userId !== userId) {
+    // Switch synchronously, so whichever open is called last wins even if an
+    // earlier one is still waiting on its database.
+    const previous = current
+    current = { userId, adapter: adapterFor(userId) }
+    void previous?.adapter.close()
+  }
+  const opening = current
+  // Open now, so a database that won't open fails here, at the gate, rather
+  // than on the first screen that reads it.
+  try {
+    await opening.adapter.get(DOCUMENTS, '')
+  } catch (error) {
+    // Don't leave a store that won't open selected: later calls should fail
+    // with the clear "no user store" error, not retry a broken open.
+    if (current === opening) current = undefined
+    await opening.adapter.close()
+    throw error
+  }
+  opening.open = true
+  // Closed or switched while it was opening: don't keep a connection that
+  // would block deleting this user's database.
+  if (current !== opening) await opening.adapter.close()
+}
+
+/**
+ * Whether storage calls for this user would succeed right now, without
+ * waiting: their store is open, or a test injected an adapter.
+ */
+export function isUserStoreOpen(userId: string): boolean {
+  return Boolean(injected) || (current?.userId === userId && !!current.open)
 }
 
 /** Closes the current user's store on sign-out or user switch. */
-export function closeUserStore(): void {}
+export function closeUserStore(): void {
+  const closing = current
+  current = undefined
+  void closing?.adapter.close()
+}
 
 /** Deletes one user's materials from this device, for shared computers. */
 export async function removeUserStore(userId: string): Promise<void> {
-  void userId
+  if (current?.userId === userId) {
+    const closing = current
+    current = undefined
+    // The delete waits on every open connection, ours included.
+    await closing.adapter.close()
+  }
+  memoryStores.delete(userId)
+  const factory = globalThis.indexedDB
+  if (factory) await deleteDatabase(factory, userDbName(userId))
 }
 
-// Some browsers (and private-browsing modes) expose no IndexedDB; the app
-// still works for the session, it just cannot keep documents across reloads.
-const store = (): StorageAdapter =>
-  (adapter ??= globalThis.indexedDB
-    ? createIndexedDbAdapter()
-    : createMemoryAdapter())
+// Functions that touch storage more than once take the store once up front, so
+// a user switch mid-function can't split one operation across two users.
+const store = (): StorageAdapter => {
+  if (injected) return injected
+  // Falling back to a shared store here would mix one user's materials into
+  // another's, so a call made before sign-in fails loudly instead.
+  if (!current)
+    throw new Error(
+      'No user store is open: storage is only available inside <UserStoreGate>',
+    )
+  return current.adapter
+}
+
+/** Moves the materials from before accounts into the open user's store. */
+export async function importLegacyMaterials(): Promise<void> {
+  await moveLegacyMaterials({ target: store() })
+}
 
 const newId = (): string => crypto.randomUUID()
 
@@ -93,21 +178,18 @@ export async function listDocuments(): Promise<StoredDocument[]> {
  * deletes run as one batch so an interrupted delete cannot leave orphans.
  */
 export async function deleteDocument(id: string): Promise<void> {
-  const conversations = await store().getAllByIndex<Conversation>(
+  const db = store()
+  const conversations = await db.getAllByIndex<Conversation>(
     CONVERSATIONS,
     'documentId',
     id,
   )
   const messageGroups = await Promise.all(
     conversations.map((conversation) =>
-      store().getAllByIndex<Message>(
-        MESSAGES,
-        'conversationId',
-        conversation.id,
-      ),
+      db.getAllByIndex<Message>(MESSAGES, 'conversationId', conversation.id),
     ),
   )
-  await store().removeMany([
+  await db.removeMany([
     ...messageGroups.flat().map((message) => ({
       storeName: MESSAGES,
       key: message.id,
@@ -163,10 +245,11 @@ export async function renameConversation(
   id: string,
   title: string,
 ): Promise<Conversation> {
-  const conversation = await store().get<Conversation>(CONVERSATIONS, id)
+  const db = store()
+  const conversation = await db.get<Conversation>(CONVERSATIONS, id)
   if (!conversation) throw new Error(`No conversation "${id}"`)
   const updated = { ...conversation, title, updatedAt: Date.now() }
-  await store().put(CONVERSATIONS, updated)
+  await db.put(CONVERSATIONS, updated)
   return updated
 }
 
@@ -191,16 +274,14 @@ export async function appendMessage({
   answerable,
   createdAt,
 }: NewMessage = {}): Promise<Message> {
+  const db = store()
   assert(conversationId, 'appendMessage needs a conversationId')
   assert(
     role === 'user' || role === 'assistant',
     'appendMessage needs role "user" or "assistant"',
   )
 
-  const conversation = await store().get<Conversation>(
-    CONVERSATIONS,
-    conversationId,
-  )
+  const conversation = await db.get<Conversation>(CONVERSATIONS, conversationId)
   if (!conversation) throw new Error(`No conversation "${conversationId}"`)
 
   const base = {
@@ -221,8 +302,8 @@ export async function appendMessage({
         } satisfies AssistantMessage)
       : ({ ...base, role } satisfies UserMessage)
 
-  await store().put(MESSAGES, message)
-  await store().put(CONVERSATIONS, {
+  await db.put(MESSAGES, message)
+  await db.put(CONVERSATIONS, {
     ...conversation,
     updatedAt: message.createdAt,
   })
@@ -244,6 +325,7 @@ export async function listMessages(conversationId: string): Promise<Message[]> {
 
 /** Removes a conversation and the messages that belong to it. */
 export async function deleteConversation(id: string): Promise<void> {
-  await store().removeByIndex(MESSAGES, 'conversationId', id)
-  await store().remove(CONVERSATIONS, id)
+  const db = store()
+  await db.removeByIndex(MESSAGES, 'conversationId', id)
+  await db.remove(CONVERSATIONS, id)
 }
