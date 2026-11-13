@@ -61,9 +61,12 @@ export async function askQuestion({
 }: Pick<ChatRequest, 'question'> & Partial<ChatRequest>): Promise<ChatReply> {
   const body = JSON.stringify({ question, passages, history })
 
-  // TODO(#114): fail fast without a token once AuthProvider holds a real
-  // session; today the placeholder has none, and the server's 401 decides.
-  let response = await post(body, await getAccessToken())
+  // Without a session the server can only refuse, so don't spend a request
+  // (or a slot of the per-IP rate limit) finding that out.
+  const token = await getAccessToken()
+  if (!token) throw sessionEnded()
+
+  let response = await post(body, token)
   if (response.status === 401) {
     // Access tokens are short-lived, so one may expire between the client's
     // auto-refresh and this request. Refresh once; a second 401 means the
@@ -100,9 +103,11 @@ const sessionEnded = () =>
   })
 
 /** Sends one chat request; the token goes only in the header, never in the URL or body. */
-async function post(body: string, token: string | null): Promise<Response> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (token) headers.Authorization = `Bearer ${token}`
+async function post(body: string, token: string): Promise<Response> {
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  }
   try {
     return await fetch(ENDPOINT, { method: 'POST', headers, body })
   } catch (cause) {

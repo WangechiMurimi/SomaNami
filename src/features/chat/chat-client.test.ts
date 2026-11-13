@@ -121,16 +121,19 @@ describe('askQuestion', () => {
       expect(authorizationOf(fetchMock, 0)).toBe('Bearer current')
     })
 
-    it('sends no Authorization header without a session', async () => {
+    it('fails without a request when there is no session', async () => {
       setSupabaseClient(null)
       const fetchMock = mockFetch(async () => ({
         ok: true,
         json: async () => reply,
       }))
 
-      await askQuestion({ question: 'Why?' })
-
-      expect(authorizationOf(fetchMock, 0)).toBeNull()
+      await expect(askQuestion({ question: 'Why?' })).rejects.toMatchObject({
+        code: 'unauthenticated',
+        retryable: false,
+        message: SESSION_ENDED_MESSAGE,
+      })
+      expect(fetchMock).not.toHaveBeenCalled()
     })
 
     it('refreshes the token once and retries after a 401', async () => {
