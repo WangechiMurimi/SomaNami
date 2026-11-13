@@ -39,6 +39,18 @@ describe('toAuthErrorCode', () => {
     expect(toAuthErrorCode(new TypeError('Failed to fetch'))).toBe('offline')
   })
 
+  it('does not mistake a programming error for being offline', () => {
+    expect(
+      toAuthErrorCode(new TypeError('Cannot read properties of undefined')),
+    ).toBe('unknown')
+    expect(
+      toAuthErrorCode(
+        new TypeError('NetworkError when attempting to fetch resource.'),
+      ),
+    ).toBe('offline')
+    expect(toAuthErrorCode(new TypeError('Load failed'))).toBe('offline')
+  })
+
   it('recognises the weak-password error class', () => {
     expect(
       toAuthErrorCode(new AuthWeakPasswordError('weak', 422, ['length'])),

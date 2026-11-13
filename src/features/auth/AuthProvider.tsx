@@ -1,5 +1,5 @@
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { getSupabaseClient } from '../../lib/auth/supabase-client.ts'
 import { useOnline } from '../../lib/connectivity/use-online.ts'
@@ -56,6 +56,25 @@ async function needsMfa(
 
 const origin = () => window.location.origin
 
+// A promise that never settles: drops a result whose effect was cleaned up.
+const never = () => new Promise<never>(() => {})
+
+/**
+ * Keeps the previous snapshot (and its `user` object) when nothing visible
+ * changed, so a token refresh doesn't re-render every `useAuth()` consumer or
+ * look like a user switch to effects keyed on `user`.
+ */
+function keepUnchanged(prev: Snapshot, next: Snapshot): Snapshot {
+  if (prev.phase !== 'session' || next.phase !== 'session') {
+    return prev.phase === next.phase && prev.phase !== 'session' ? prev : next
+  }
+  const sameUser =
+    prev.user.id === next.user.id && prev.user.email === next.user.email
+  if (!sameUser) return next
+  if (prev.needsMfa === next.needsMfa && prev.stale === next.stale) return prev
+  return { ...next, user: prev.user }
+}
+
 /** The snapshot for a live session: signed in, or still owing an MFA code. */
 async function snapshotFor(
   supabase: SupabaseClient,
@@ -94,6 +113,10 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     supabase ? { phase: 'loading' } : SIGNED_OUT,
   )
 
+  // Bumped on every sign-out. A session check that started before it must
+  // not land afterwards and sign the user back in.
+  const generation = useRef(0)
+
   // The one place snapshots land, so the offline cache always matches state.
   const commit = useCallback((next: Snapshot) => {
     if (next.phase === 'signed-out') clearLastUser()
@@ -102,16 +125,29 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       if (next.needsMfa) clearLastUser()
       else writeLastUser(next.user)
     }
-    setSnapshot(next)
+    setSnapshot((prev) => keepUnchanged(prev, next))
   }, [])
 
-  const signedOut = useCallback(() => commit(SIGNED_OUT), [commit])
+  const signedOut = useCallback(() => {
+    generation.current += 1
+    commit(SIGNED_OUT)
+  }, [commit])
+
+  /** Commits what `load` resolves to, unless a sign-out happened meanwhile. */
+  const commitLater = useCallback(
+    async (load: Promise<Snapshot>) => {
+      const started = generation.current
+      const next = await load
+      if (started === generation.current) commit(next)
+    },
+    [commit],
+  )
 
   const applySession = useCallback(
     async (session: Session) => {
-      if (supabase) commit(await snapshotFor(supabase, session))
+      if (supabase) await commitLater(snapshotFor(supabase, session))
     },
-    [supabase, commit],
+    [supabase, commitLater],
   )
 
   useEffect(() => {
@@ -132,27 +168,27 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         }, 0)
       }
     })
-    void restoreSnapshot(supabase).then((next) => {
-      if (active) commit(next)
-    })
+    void commitLater(
+      restoreSnapshot(supabase).then((next) => (active ? next : never())),
+    )
     return () => {
       active = false
       data.subscription.unsubscribe()
     }
-  }, [supabase, applySession, signedOut, commit])
+  }, [supabase, applySession, signedOut, commitLater])
 
   // Back online with a session we couldn't refresh: try again.
   const stale = snapshot.phase === 'session' && snapshot.stale
   useEffect(() => {
     if (!supabase || !online || !stale) return
     let active = true
-    void restoreSnapshot(supabase).then((next) => {
-      if (active) commit(next)
-    })
+    void commitLater(
+      restoreSnapshot(supabase).then((next) => (active ? next : never())),
+    )
     return () => {
       active = false
     }
-  }, [supabase, online, stale, commit])
+  }, [supabase, online, stale, commitLater])
 
   const status: AuthStatus =
     snapshot.phase === 'loading'
@@ -246,10 +282,19 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         return code === 'email-in-use' ? OK : { ok: false, error: code }
       },
       async signOut({ scope = 'local' } = {}) {
-        const { error } = await auth.signOut({ scope })
-        // A failed global sign-out (often offline) must still sign this device out.
-        if (error && scope === 'global') await auth.signOut({ scope: 'local' })
-        signedOut()
+        try {
+          const { error } = await auth.signOut({ scope })
+          // A failed global sign-out (often offline) must still sign this device out.
+          if (error && scope === 'global') {
+            await auth.signOut({ scope: 'local' })
+          }
+        } catch {
+          // auth-js removes the local session before anything can throw here
+          // (it rethrows listener errors afterwards), so there is nothing to undo.
+        } finally {
+          // Whatever Supabase reports, this screen must stop showing the user.
+          signedOut()
+        }
       },
       async requestPasswordReset({ email, captchaToken }) {
         const { error } = await auth.resetPasswordForEmail(email, {
