@@ -146,4 +146,27 @@ describe('createApp', () => {
       }
     })
   })
+
+  describe('response headers', () => {
+    it.each([
+      [
+        'health',
+        (app: ReturnType<typeof createApp>) => request(app).get('/api/health'),
+      ],
+      [
+        'an unknown route',
+        (app: ReturnType<typeof createApp>) => request(app).get('/api/nope'),
+      ],
+      [
+        'a refused chat',
+        (app: ReturnType<typeof createApp>) =>
+          request(app).post('/api/chat').send({}),
+      ],
+    ])('marks %s as uncacheable and unsniffable', async (_label, send) => {
+      const response = await send(createApp({ authenticate: deny() }))
+
+      expect(response.headers['cache-control']).toBe('no-store')
+      expect(response.headers['x-content-type-options']).toBe('nosniff')
+    })
+  })
 })
