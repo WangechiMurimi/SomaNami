@@ -77,7 +77,7 @@ export default function EnrolAuthenticator({
       <h3
         ref={headingRef}
         tabIndex={-1}
-        className="text-[20px] leading-[1.3] font-medium text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="text-[20px] leading-[1.3] font-medium text-fg focus:outline-none"
       >
         Add SomaNami to your authenticator app
       </h3>
@@ -96,7 +96,7 @@ export default function EnrolAuthenticator({
         <li className={STEP}>
           Can’t scan it? Enter this setup key instead.
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <code className="rounded-[6px] bg-tint px-3 py-2 font-mono text-[15px] tracking-wide break-all text-fg select-all">
+            <code className="rounded-[6px] bg-tint px-3 py-2 font-mono text-[15px] tracking-wide break-normal text-fg select-all">
               {grouped(enrollment.secret)}
             </code>
             <button
