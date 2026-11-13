@@ -1,3 +1,4 @@
+import { withApiHeaders } from '../../server/api-headers.ts'
 import type { Authenticate } from '../../server/auth/types.ts'
 import { createAuthenticatorFromEnv } from '../../server/auth/verify-access-token.ts'
 import { handleChat } from '../../server/chat/handle-chat.ts'
@@ -18,7 +19,10 @@ export function createChatFunction({
   answer,
   authenticate = createAuthenticatorFromEnv(),
 }: ChatFunctionOptions) {
-  return async function chat(request: Request): Promise<Response> {
+  return async (request: Request): Promise<Response> =>
+    withApiHeaders(await respond(request))
+
+  async function respond(request: Request): Promise<Response> {
     if (request.method !== 'POST') {
       return Response.json(
         { error: 'method-not-allowed' },

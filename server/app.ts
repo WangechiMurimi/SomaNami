@@ -1,6 +1,7 @@
 import express from 'express'
 import type { ErrorRequestHandler } from 'express'
 import { rateLimit } from 'express-rate-limit'
+import { API_HEADERS } from './api-headers.ts'
 import type { Authenticate } from './auth/types.ts'
 import { handleChat } from './chat/handle-chat.ts'
 import {
@@ -34,6 +35,12 @@ export function createApp({
   authenticate = refuseAll,
 }: AppOptions = {}) {
   const app = express()
+
+  // First, so every /api reply (429s, 404s and errors included) carries them.
+  app.use('/api', (_request, response, next) => {
+    response.set(API_HEADERS)
+    next()
+  })
 
   // Limit before parsing, so a flood of large bodies is cut off cheaply. Each
   // app gets its own in-memory counter, which is enough for one dev process;

@@ -187,4 +187,26 @@ describe('chat function', () => {
       expect(response.status).not.toBe(413)
     })
   })
+
+  describe('response headers', () => {
+    const expectApiHeaders = (response: Response) => {
+      expect(response.headers.get('Cache-Control')).toBe('no-store')
+      expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff')
+    }
+
+    it('marks answers, refusals and errors as uncacheable', async () => {
+      const ok = createChatFunction({ answer: null, authenticate: allow() })
+      const refused = createChatFunction({
+        answer: null,
+        authenticate: requireHeader,
+      })
+
+      expectApiHeaders(await ok(post(JSON.stringify({ question: 'Why?' }))))
+      expectApiHeaders(
+        await refused(post(JSON.stringify({ question: 'Why?' }))),
+      )
+      expectApiHeaders(await ok(post('{"question":')))
+      expectApiHeaders(await chat(new Request('https://example.test/api/chat')))
+    })
+  })
 })
