@@ -14,6 +14,7 @@ import {
   removeUserStore,
   saveDocument,
   setStorageAdapter,
+  DEFAULT_WORKSPACE,
   userDbName,
 } from './index.ts'
 import type { StoredDocument } from '../../types/contracts.ts'
@@ -25,6 +26,7 @@ const doc = (id: string): StoredDocument => ({
   kind: 'text',
   pageCount: 1,
   chunks: [],
+  workspaceId: DEFAULT_WORKSPACE.id,
 })
 
 const databaseNames = async (factory: IDBFactory) =>

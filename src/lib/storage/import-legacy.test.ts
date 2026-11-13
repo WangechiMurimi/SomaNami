@@ -8,7 +8,14 @@ import {
   moveLegacyMaterials,
 } from './import-legacy.ts'
 import { createIndexedDbAdapter } from './indexeddb-adapter.ts'
-import { CONVERSATIONS, DB_NAME, DOCUMENTS, MESSAGES } from './schema.ts'
+import {
+  CONVERSATIONS,
+  DB_NAME,
+  DEFAULT_WORKSPACE,
+  DOCUMENTS,
+  MESSAGES,
+  WORKSPACES,
+} from './schema.ts'
 import type { StoreName } from './schema.ts'
 import { ADAPTERS } from './test-adapters.ts'
 
@@ -17,6 +24,7 @@ const RECORDS: Record<
   StoreName,
   Array<StorageRecord & Record<string, unknown>>
 > = {
+  [WORKSPACES]: [],
   [DOCUMENTS]: [
     { id: 'doc-1', name: 'a.txt', size: 1, kind: 'text', chunks: [] },
     { id: 'doc-2', name: 'b.txt', size: 1, kind: 'text', chunks: [] },
@@ -178,6 +186,76 @@ describe.each(ADAPTERS)(
     })
   },
 )
+
+// Devices that last ran SomaNami before workspaces (#89) still hold a v1
+// database: conversations point at one documentId and nothing has a workspace.
+describe('moving a v1 legacy database', () => {
+  const seedVersionOne = (factory: IDBFactory) =>
+    new Promise<void>((resolve, reject) => {
+      const request = factory.open(DB_NAME, 1)
+      request.onupgradeneeded = () => {
+        const db = request.result
+        db.createObjectStore(DOCUMENTS, { keyPath: 'id' }).put({
+          id: 'd1',
+          name: 'Cells.pdf',
+        })
+        const conversations = db.createObjectStore(CONVERSATIONS, {
+          keyPath: 'id',
+        })
+        conversations.createIndex('documentId', 'documentId')
+        conversations.put({ id: 'c1', documentId: 'd1', title: 'Why?' })
+        db.createObjectStore(MESSAGES, { keyPath: 'id' }).createIndex(
+          'conversationId',
+          'conversationId',
+        )
+        request.transaction?.objectStore(MESSAGES).put({
+          id: 'm1',
+          conversationId: 'c1',
+          role: 'user',
+          content: 'Why?',
+          createdAt: 1,
+        })
+      }
+      request.onsuccess = () => {
+        request.result.close()
+        resolve()
+      }
+      request.onerror = () => reject(request.error)
+    })
+
+  it('offers it', async () => {
+    const factory = new IDBFactory()
+    await seedVersionOne(factory)
+    expect(await hasLegacyMaterials(factory)).toBe(true)
+  })
+
+  it('arrives filed under the default workspace', async () => {
+    const factory = new IDBFactory()
+    await seedVersionOne(factory)
+    const target = createIndexedDbAdapter(factory, { name: 'somanami-user-u1' })
+
+    await moveLegacyMaterials({ target, factory })
+
+    expect(await target.get(WORKSPACES, DEFAULT_WORKSPACE.id)).toMatchObject({
+      name: DEFAULT_WORKSPACE.name,
+    })
+    expect(await target.get(DOCUMENTS, 'd1')).toMatchObject({
+      workspaceId: DEFAULT_WORKSPACE.id,
+    })
+    const conversation = await target.get(CONVERSATIONS, 'c1')
+    expect(conversation).toMatchObject({
+      workspaceId: DEFAULT_WORKSPACE.id,
+      materialIds: ['d1'],
+    })
+    expect(conversation).not.toHaveProperty('documentId')
+    expect(
+      await target.getAllByIndex(CONVERSATIONS, 'materialIds', 'd1'),
+    ).toHaveLength(1)
+    expect(await target.get(MESSAGES, 'm1')).toBeDefined()
+    expect(await databaseNames(factory)).toEqual(['somanami-user-u1'])
+    await target.close()
+  })
+})
 
 describe('declining the import', () => {
   beforeEach(() => localStorage.clear())

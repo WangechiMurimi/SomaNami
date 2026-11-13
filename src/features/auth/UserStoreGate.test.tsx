@@ -12,6 +12,7 @@ import {
   listDocuments,
   saveDocument,
   setStorageAdapter,
+  DEFAULT_WORKSPACE,
   userDbName,
 } from '../../lib/storage/index.ts'
 import type { StoredDocument } from '../../types/contracts.ts'
@@ -26,6 +27,7 @@ const doc = (id: string): StoredDocument => ({
   kind: 'text',
   pageCount: 1,
   chunks: [],
+  workspaceId: DEFAULT_WORKSPACE.id,
 })
 
 const session = (
