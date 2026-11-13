@@ -99,7 +99,11 @@ interface CodeFormProps {
 
 function CodeForm({ factors, verify }: CodeFormProps) {
   const { formRef, reportError } = useFocusFirstError<HTMLFormElement>()
-  const [factorId, setFactorId] = useState(() => factors[0]?.id ?? '')
+  const [chosenId, setFactorId] = useState(() => factors[0]?.id ?? '')
+  // A reload can drop the chosen factor (removed on another device).
+  const factorId = factors.some((f) => f.id === chosenId)
+    ? chosenId
+    : (factors[0]?.id ?? '')
   const [code, setCode] = useState('')
   const [fieldError, setFieldError] = useState<string>()
   const [formError, setFormError] = useState<string | null>(null)

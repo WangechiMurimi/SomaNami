@@ -33,4 +33,11 @@ describe('nextFactorName', () => {
       ]),
     ).toBe('Authenticator app 2')
   })
+
+  it('skips the label an unnamed factor is shown with', () => {
+    // The unnamed second factor shows as "Authenticator app 2".
+    expect(nextFactorName([named('Authenticator app'), named(null)])).toBe(
+      'Authenticator app 3',
+    )
+  })
 })
