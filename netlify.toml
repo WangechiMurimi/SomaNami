@@ -1,0 +1,17 @@
+# Netlify serves the Vite build as static files and the API as Functions.
+# ANTHROPIC_API_KEY (and optionally CLAUDE_MODEL / CLAUDE_EFFORT) must be set
+# in the site's environment variables; they are never exposed to the browser.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# Client-side routes (/library, /chat/...) are served the app shell. API paths
+# are claimed by Netlify Functions first, so this never shadows /api/*.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

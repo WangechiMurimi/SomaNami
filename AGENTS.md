@@ -11,24 +11,29 @@ The project lives at the repository root. Folders marked *(planned)* don't exist
 
 ```
 ├── src/
-│   ├── main.jsx        # entry point
-│   ├── App.jsx         # root component
+│   ├── main.tsx        # entry point
+│   ├── App.tsx         # root component
 │   ├── assets/         # images bundled by Vite
-│   ├── components/     # reusable UI (planned)
-│   ├── features/       # feature modules, one folder per feature (planned)
-│   ├── lib/            # shared utilities, API clients (planned)
-│   ├── llm/            # model adapters, prompts, retrieval (planned)
-│   └── types/          # shared types (planned)
+│   ├── app/            # app shell: layout, sidebar, routing
+│   ├── pages/          # one component per route
+│   ├── components/     # reusable UI
+│   ├── features/       # feature modules, one folder per feature
+│   ├── lib/            # shared utilities: storage, retrieval, theme, connectivity
+│   └── types/          # shared data contracts (contracts.ts), also used by server/
+├── server/             # API: Express for local dev (runs as .ts via Node type stripping)
+│   ├── chat/           # transport-neutral route handlers (shared with netlify/)
+│   └── llm/            # Claude adapter and prompts; server-only so the key never reaches the browser
+├── netlify/functions/  # production entry points; thin adapters over server/ handlers
 ├── public/             # static assets served as-is
 ├── tests/              # e2e tests (planned); unit tests are colocated in src/
 ├── docs/
-│   ├── Design/         # visual mockups (e.g. SomaNami.html)
 │   ├── PRD.md
-│   └── DESIGN.md
+│   └── DESIGN.md       # design tokens and decisions; visuals live on the design canvas
 ├── AGENTS.md           # this file
 ├── CLAUDE.md           # points to AGENTS.md
 ├── index.html
-├── vite.config.js
+├── vite.config.ts
+├── tsconfig.json       # references tsconfig.app.json (src) and tsconfig.node.json (server)
 ├── eslint.config.js
 ├── package.json
 └── README.md
