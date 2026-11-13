@@ -44,6 +44,22 @@ export function setStorageAdapter(next: StorageAdapter | null): void {
   adapter = next ?? undefined
 }
 
+// TODO(#114): WS-D gives each user a private database and makes storage calls
+// fail while no user store is open. Until then these keep the shared store.
+
+/** Opens the signed-in user's private store; later storage calls read and write it. */
+export async function openUserStore(userId: string): Promise<void> {
+  void userId
+}
+
+/** Closes the current user's store on sign-out or user switch. */
+export function closeUserStore(): void {}
+
+/** Deletes one user's materials from this device, for shared computers. */
+export async function removeUserStore(userId: string): Promise<void> {
+  void userId
+}
+
 // Some browsers (and private-browsing modes) expose no IndexedDB; the app
 // still works for the session, it just cannot keep documents across reloads.
 const store = (): StorageAdapter =>
