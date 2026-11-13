@@ -7,6 +7,7 @@ import {
   DB_NAME,
   DOCUMENTS,
   getDocument,
+  importLegacyMaterials,
   listDocuments,
   openUserStore,
   removeUserStore,
@@ -162,5 +163,33 @@ describe('an injected adapter', () => {
     setStorageAdapter(createMemoryAdapter())
     await saveDocument(doc('a'))
     expect(await listDocuments()).toHaveLength(1)
+  })
+})
+
+describe('importLegacyMaterials', () => {
+  afterEach(() => {
+    closeUserStore()
+    vi.unstubAllGlobals()
+  })
+
+  it('moves the legacy materials into the open user’s database', async () => {
+    const factory = new IDBFactory()
+    vi.stubGlobal('indexedDB', factory)
+    const legacy = createIndexedDbAdapter(factory)
+    await legacy.put(DOCUMENTS, doc('old-notes'))
+    await legacy.close()
+
+    await openUserStore('ada')
+    await importLegacyMaterials()
+
+    expect((await listDocuments()).map((d) => d.id)).toEqual(['old-notes'])
+    expect(await databaseNames(factory)).toEqual([userDbName('ada')])
+  })
+
+  it('refuses while no user store is open', async () => {
+    vi.stubGlobal('indexedDB', new IDBFactory())
+    await expect(importLegacyMaterials()).rejects.toThrow(
+      /no user store is open/i,
+    )
   })
 })
