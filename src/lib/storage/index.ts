@@ -9,12 +9,18 @@ import type {
 } from '../../types/contracts.ts'
 import type { StorageAdapter } from './adapter.ts'
 import { createIndexedDbAdapter, deleteDatabase } from './indexeddb-adapter.ts'
+import { moveLegacyMaterials } from './import-legacy.ts'
 import { createMemoryAdapter } from './memory-adapter.ts'
 import { CONVERSATIONS, DOCUMENTS, MESSAGES, userDbName } from './schema.ts'
 
 export type { StorageAdapter, StorageRecord } from './adapter.ts'
 export { createIndexedDbAdapter } from './indexeddb-adapter.ts'
 export { createMemoryAdapter } from './memory-adapter.ts'
+export {
+  declineLegacyImport,
+  hasLegacyMaterials,
+  legacyImportDeclined,
+} from './import-legacy.ts'
 export {
   CONVERSATIONS,
   DB_NAME,
@@ -108,6 +114,11 @@ const store = (): StorageAdapter => {
       'No user store is open: storage is only available inside <UserStoreGate>',
     )
   return current.adapter
+}
+
+/** Moves the materials from before accounts into the open user's store. */
+export async function importLegacyMaterials(): Promise<void> {
+  await moveLegacyMaterials({ target: store() })
 }
 
 const newId = (): string => crypto.randomUUID()
