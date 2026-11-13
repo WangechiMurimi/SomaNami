@@ -1,7 +1,15 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route } from 'react-router'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from 'vitest'
 import { setSupabaseClient } from '../../lib/auth/supabase-client.ts'
 import { removeUserStore } from '../../lib/storage/index.ts'
 import {
@@ -64,6 +72,16 @@ describe('SessionsSection', () => {
     expect(removeUserStore).not.toHaveBeenCalled()
   })
 
+  it('won’t sign out other devices while offline', async () => {
+    const offline = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    onTestFinished(() => offline.mockRestore())
+    setup()
+    expect(
+      await screen.findByRole('button', { name: 'Sign out of all devices' }),
+    ).toBeDisabled()
+    expect(screen.getByText(/connect to the internet/i)).toBeInTheDocument()
+  })
+
   it('asks before removing materials, and Cancel keeps everything', async () => {
     const { auth } = setup()
     await userEvent.click(
@@ -115,9 +133,7 @@ describe('SessionsSection', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       /couldn’t remove/i,
     )
-    await waitFor(() =>
-      expect(screen.getByRole('alertdialog')).toBeInTheDocument(),
-    )
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
     expect(auth.signOut).not.toHaveBeenCalled()
   })
 })

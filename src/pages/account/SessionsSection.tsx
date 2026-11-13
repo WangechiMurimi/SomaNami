@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import ConfirmDialog from '../../components/ConfirmDialog.tsx'
 import { useAuth } from '../../features/auth/auth-context.ts'
-import { removeUserStore } from '../../lib/storage/index.ts'
+import { useOnline } from '../../lib/connectivity/use-online.ts'
+import { openUserStore, removeUserStore } from '../../lib/storage/index.ts'
 import { H2 } from '../page-heading.ts'
 
 const BUTTON =
@@ -38,6 +39,7 @@ function Row({
 export default function SessionsSection() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
+  const online = useOnline()
   const [busy, setBusy] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [removeFailed, setRemoveFailed] = useState(false)
@@ -56,7 +58,9 @@ export default function SessionsSection() {
       await removeUserStore(user.id)
     } catch {
       // Signing out now would leave the materials behind while the person
-      // believes they're gone, so stay here and let them try again.
+      // believes they're gone, so stay here and let them try again. The
+      // removal closed the store first; reopen it so the app keeps working.
+      await openUserStore(user.id).catch(() => {})
       setRemoveFailed(true)
       setBusy(false)
       return
@@ -97,7 +101,9 @@ export default function SessionsSection() {
           action={
             <button
               type="button"
-              disabled={busy}
+              // Offline, the other devices can't be reached, and Supabase would
+              // quietly sign out only this one.
+              disabled={busy || !online}
               onClick={() => void finish('global')}
               className={SECONDARY}
             >
@@ -107,6 +113,7 @@ export default function SessionsSection() {
         >
           For a device you no longer use or have lost. Other devices sign out
           the next time they’re online.
+          {!online && ' Connect to the internet to use this.'}
         </Row>
         <Row
           title="A shared computer"
