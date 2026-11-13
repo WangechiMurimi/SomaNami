@@ -1,5 +1,8 @@
 import { BrowserRouter, Link, Route, Routes } from 'react-router'
 import AppShell from './app/AppShell.tsx'
+import AuthProvider from './features/auth/AuthProvider.tsx'
+import RequireAuth from './features/auth/RequireAuth.tsx'
+import UserStoreGate from './features/auth/UserStoreGate.tsx'
 import LibraryProvider from './features/library/LibraryProvider.tsx'
 import ChatPage from './pages/ChatPage.tsx'
 import HomePage from './pages/HomePage.tsx'
@@ -19,19 +22,34 @@ function NotFoundPage() {
   )
 }
 
-/** Routes for every screen; all share the app shell and the stored library. */
+// Storage is per user, so the library loads only once that user's store is open.
+function SignedInLayout() {
+  return (
+    <UserStoreGate>
+      <LibraryProvider>
+        <AppShell />
+      </LibraryProvider>
+    </UserStoreGate>
+  )
+}
+
+/** Routes for every screen; signed-in screens share the app shell and library. */
 export function AppRoutes() {
   return (
-    <LibraryProvider>
+    <AuthProvider>
       <Routes>
-        <Route element={<AppShell />}>
-          <Route index element={<HomePage />} />
-          <Route path="library" element={<LibraryPage />} />
-          <Route path="chat/:documentId" element={<ChatPage />} />
-          <Route path="*" element={<NotFoundPage />} />
+        {/* TODO(#114): WS-B adds the public routes here: sign-in, sign-up,
+            password reset, /sign-in/verify, privacy and terms. */}
+        <Route element={<RequireAuth />}>
+          <Route element={<SignedInLayout />}>
+            <Route index element={<HomePage />} />
+            <Route path="library" element={<LibraryPage />} />
+            <Route path="chat/:documentId" element={<ChatPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Route>
         </Route>
       </Routes>
-    </LibraryProvider>
+    </AuthProvider>
   )
 }
 
