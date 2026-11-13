@@ -13,7 +13,9 @@ const declinedKey = (userId: string) => `somanami-legacy-import:${userId}`
 // Opening a database that doesn't exist creates it, which would make every
 // later check think there were legacy materials to offer. Aborting the
 // upgrade that a brand-new database triggers leaves nothing behind.
-function legacyDatabaseExists(factory: IDBFactory): Promise<boolean> {
+function openLegacyIfPresent(
+  factory: IDBFactory,
+): Promise<IDBDatabase | undefined> {
   return new Promise((resolve, reject) => {
     const request = factory.open(DB_NAME)
     let created = false
@@ -21,32 +23,46 @@ function legacyDatabaseExists(factory: IDBFactory): Promise<boolean> {
       created = true
       request.transaction?.abort()
     }
-    request.onsuccess = () => {
-      request.result.close()
-      resolve(true)
-    }
+    request.onsuccess = () => resolve(request.result)
     request.onerror = (event) => {
       if (!created) return reject(request.error)
       // The abort is ours; keep it from surfacing as an unhandled error.
       event.preventDefault()
-      resolve(false)
+      resolve(undefined)
     }
   })
 }
 
-/** Whether this device holds documents, conversations or messages from before accounts. */
+const count = (store: IDBObjectStore) =>
+  new Promise<number>((resolve, reject) => {
+    const request = store.count()
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+
+/**
+ * Whether this device holds documents, conversations or messages from before
+ * accounts. Counts rather than reads, so a large legacy library doesn't slow
+ * every sign-in while it waits to be claimed.
+ */
 export async function hasLegacyMaterials(
   factory: IDBFactory | undefined = globalThis.indexedDB,
 ): Promise<boolean> {
-  if (!factory || !(await legacyDatabaseExists(factory))) return false
-  const legacy = createIndexedDbAdapter(factory, { name: DB_NAME })
+  if (!factory) return false
+  const database = await openLegacyIfPresent(factory)
+  if (!database) return false
   try {
-    for (const { name } of STORES) {
-      if ((await legacy.getAll(name)).length > 0) return true
-    }
-    return false
+    const names = STORES.map((store) => store.name).filter((name) =>
+      database.objectStoreNames.contains(name),
+    )
+    if (names.length === 0) return false
+    const transaction = database.transaction(names, 'readonly')
+    const counts = await Promise.all(
+      names.map((name) => count(transaction.objectStore(name))),
+    )
+    return counts.some((n) => n > 0)
   } finally {
-    await legacy.close()
+    database.close()
   }
 }
 

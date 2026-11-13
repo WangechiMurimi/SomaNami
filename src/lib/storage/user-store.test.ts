@@ -218,3 +218,42 @@ describe('isUserStoreOpen', () => {
     expect(isUserStoreOpen('ada')).toBe(true)
   })
 })
+
+describe('a store removed in another tab', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('is not recreated by a tab that still had it open', async () => {
+    const factory = new IDBFactory()
+    const otherTab = createIndexedDbAdapter(factory, {
+      name: userDbName('ada'),
+    })
+    await otherTab.put(DOCUMENTS, doc('a'))
+
+    vi.stubGlobal('indexedDB', factory)
+    await removeUserStore('ada')
+
+    await expect(otherTab.put(DOCUMENTS, doc('b'))).rejects.toThrow(
+      /removed from this device/,
+    )
+    expect(await databaseNames(factory)).toEqual([])
+  })
+})
+
+describe('a user store that fails to open', () => {
+  afterEach(() => {
+    closeUserStore()
+    vi.unstubAllGlobals()
+  })
+
+  it('is not left selected, so later calls fail clearly', async () => {
+    const factory = new IDBFactory()
+    vi.spyOn(factory, 'open').mockImplementationOnce(() => {
+      throw new DOMException('denied', 'InvalidStateError')
+    })
+    vi.stubGlobal('indexedDB', factory)
+
+    await expect(openUserStore('ada')).rejects.toThrow('denied')
+    expect(isUserStoreOpen('ada')).toBe(false)
+    await expect(listDocuments()).rejects.toThrow(/no user store is open/i)
+  })
+})

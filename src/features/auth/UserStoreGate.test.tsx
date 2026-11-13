@@ -16,7 +16,7 @@ import {
 } from '../../lib/storage/index.ts'
 import type { StoredDocument } from '../../types/contracts.ts'
 import type { AuthContextValue, AuthStatus } from '../../types/auth.ts'
-import UserStoreGate from './UserStoreGate.tsx'
+import UserStoreGate, { LEGACY_CHECK_TIMEOUT_MS } from './UserStoreGate.tsx'
 import { AuthContext } from './auth-context.ts'
 
 const doc = (id: string): StoredDocument => ({
@@ -285,6 +285,23 @@ describe('UserStoreGate legacy import', () => {
       </Harness>,
     )
     expect(await offer()).toBeInTheDocument()
+  })
+
+  it('opens the library anyway when the legacy check gets stuck', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const open = factory.open.bind(factory)
+    // An open queued behind another tab's pending delete never settles.
+    vi.spyOn(factory, 'open').mockImplementation((name, version) =>
+      name === DB_NAME ? ({} as IDBOpenDBRequest) : open(name, version),
+    )
+    render(
+      <Harness auth={session('ada')}>
+        <Library />
+      </Harness>,
+    )
+    await vi.advanceTimersByTimeAsync(LEGACY_CHECK_TIMEOUT_MS)
+    expect(await screen.findByText('library: empty')).toBeInTheDocument()
+    vi.useRealTimers()
   })
 
   it('does not ask again once the materials have moved', async () => {

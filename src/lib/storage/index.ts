@@ -81,7 +81,15 @@ export async function openUserStore(userId: string): Promise<void> {
   const opening = current
   // Open now, so a database that won't open fails here, at the gate, rather
   // than on the first screen that reads it.
-  await opening.adapter.get(DOCUMENTS, '')
+  try {
+    await opening.adapter.get(DOCUMENTS, '')
+  } catch (error) {
+    // Don't leave a store that won't open selected: later calls should fail
+    // with the clear "no user store" error, not retry a broken open.
+    if (current === opening) current = undefined
+    await opening.adapter.close()
+    throw error
+  }
   opening.open = true
   // Closed or switched while it was opening: don't keep a connection that
   // would block deleting this user's database.
@@ -116,6 +124,8 @@ export async function removeUserStore(userId: string): Promise<void> {
   if (factory) await deleteDatabase(factory, userDbName(userId))
 }
 
+// Functions that touch storage more than once take the store once up front, so
+// a user switch mid-function can't split one operation across two users.
 const store = (): StorageAdapter => {
   if (injected) return injected
   // Falling back to a shared store here would mix one user's materials into
@@ -168,21 +178,18 @@ export async function listDocuments(): Promise<StoredDocument[]> {
  * deletes run as one batch so an interrupted delete cannot leave orphans.
  */
 export async function deleteDocument(id: string): Promise<void> {
-  const conversations = await store().getAllByIndex<Conversation>(
+  const db = store()
+  const conversations = await db.getAllByIndex<Conversation>(
     CONVERSATIONS,
     'documentId',
     id,
   )
   const messageGroups = await Promise.all(
     conversations.map((conversation) =>
-      store().getAllByIndex<Message>(
-        MESSAGES,
-        'conversationId',
-        conversation.id,
-      ),
+      db.getAllByIndex<Message>(MESSAGES, 'conversationId', conversation.id),
     ),
   )
-  await store().removeMany([
+  await db.removeMany([
     ...messageGroups.flat().map((message) => ({
       storeName: MESSAGES,
       key: message.id,
@@ -238,10 +245,11 @@ export async function renameConversation(
   id: string,
   title: string,
 ): Promise<Conversation> {
-  const conversation = await store().get<Conversation>(CONVERSATIONS, id)
+  const db = store()
+  const conversation = await db.get<Conversation>(CONVERSATIONS, id)
   if (!conversation) throw new Error(`No conversation "${id}"`)
   const updated = { ...conversation, title, updatedAt: Date.now() }
-  await store().put(CONVERSATIONS, updated)
+  await db.put(CONVERSATIONS, updated)
   return updated
 }
 
@@ -266,16 +274,14 @@ export async function appendMessage({
   answerable,
   createdAt,
 }: NewMessage = {}): Promise<Message> {
+  const db = store()
   assert(conversationId, 'appendMessage needs a conversationId')
   assert(
     role === 'user' || role === 'assistant',
     'appendMessage needs role "user" or "assistant"',
   )
 
-  const conversation = await store().get<Conversation>(
-    CONVERSATIONS,
-    conversationId,
-  )
+  const conversation = await db.get<Conversation>(CONVERSATIONS, conversationId)
   if (!conversation) throw new Error(`No conversation "${conversationId}"`)
 
   const base = {
@@ -296,8 +302,8 @@ export async function appendMessage({
         } satisfies AssistantMessage)
       : ({ ...base, role } satisfies UserMessage)
 
-  await store().put(MESSAGES, message)
-  await store().put(CONVERSATIONS, {
+  await db.put(MESSAGES, message)
+  await db.put(CONVERSATIONS, {
     ...conversation,
     updatedAt: message.createdAt,
   })
@@ -319,6 +325,7 @@ export async function listMessages(conversationId: string): Promise<Message[]> {
 
 /** Removes a conversation and the messages that belong to it. */
 export async function deleteConversation(id: string): Promise<void> {
-  await store().removeByIndex(MESSAGES, 'conversationId', id)
-  await store().remove(CONVERSATIONS, id)
+  const db = store()
+  await db.removeByIndex(MESSAGES, 'conversationId', id)
+  await db.remove(CONVERSATIONS, id)
 }

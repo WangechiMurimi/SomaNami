@@ -70,15 +70,24 @@ export function createIndexedDbAdapter(
   // database is still opening share one connection instead of racing to open
   // several, which would leave one unclosed and block a later delete.
   let connection: Promise<IDBDatabase> | undefined
+  let deletedElsewhere = false
 
-  const db = (): Promise<IDBDatabase> =>
-    (connection ??= openDatabase(factory, name).then(
+  const db = (): Promise<IDBDatabase> => {
+    // Reopening would recreate the database empty and keep saving into it
+    // after its owner removed their materials from this device.
+    if (deletedElsewhere)
+      return Promise.reject(
+        new Error(`The "${name}" database was removed from this device`),
+      )
+    return (connection ??= openDatabase(factory, name).then(
       (database) => {
         // Another tab (or `deleteDatabase`) needs this database: let it go so
-        // that tab isn't blocked, and reopen on the next call.
-        database.onversionchange = () => {
+        // that tab isn't blocked. A schema upgrade reopens on the next call;
+        // a deletion (`newVersion` null) does not.
+        database.onversionchange = (event) => {
           database.close()
           connection = undefined
+          if (event.newVersion === null) deletedElsewhere = true
         }
         return database
       },
@@ -87,6 +96,7 @@ export function createIndexedDbAdapter(
         throw error
       },
     ))
+  }
 
   const read = async <T>(
     storeName: StoreName,
