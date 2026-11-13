@@ -1,30 +1,77 @@
 import express from 'express'
 import type { ErrorRequestHandler } from 'express'
+import { rateLimit } from 'express-rate-limit'
+import { API_HEADERS } from './api-headers.ts'
+import type { Authenticate } from './auth/types.ts'
 import { handleChat } from './chat/handle-chat.ts'
+import {
+  CHAT_BODY_LIMIT_BYTES,
+  CHAT_RATE_LIMIT,
+  CHAT_RATE_WINDOW_SECONDS,
+} from './chat/limits.ts'
 import type { Answerer } from './llm/claude-answerer.ts'
 
 export interface AppOptions {
   /** Answers chat questions; `null` means the server has no Claude credentials. */
   answer?: Answerer | null
+  /**
+   * Verifies the caller's session. Omitting it refuses every chat, so a
+   * forgotten wiring fails closed rather than opening the model to anyone.
+   */
+  authenticate?: Authenticate
 }
+
+const refuseAll: Authenticate = async () => ({
+  ok: false,
+  reason: 'not-configured',
+})
 
 /**
  * Builds the Express app used for local development and tests. Production runs
  * the same handlers as Netlify Functions (see `netlify/functions/`).
  */
-export function createApp({ answer = null }: AppOptions = {}) {
+export function createApp({
+  answer = null,
+  authenticate = refuseAll,
+}: AppOptions = {}) {
   const app = express()
+
+  // First, so every /api reply (429s, 404s and errors included) carries them.
+  app.use('/api', (_request, response, next) => {
+    response.set(API_HEADERS)
+    next()
+  })
+
+  // Limit before parsing, so a flood of large bodies is cut off cheaply. Each
+  // app gets its own in-memory counter, which is enough for one dev process;
+  // production relies on Netlify's per-IP limit (see netlify/functions/chat.ts).
+  app.use(
+    '/api/chat',
+    rateLimit({
+      windowMs: CHAT_RATE_WINDOW_SECONDS * 1000,
+      limit: CHAT_RATE_LIMIT,
+      standardHeaders: 'draft-8',
+      legacyHeaders: false,
+      handler: (_request, response, _next, options) => {
+        response.status(options.statusCode).json({ error: 'rate-limited' })
+      },
+    }),
+  )
 
   // Questions arrive with client-retrieved passages, which are JSON of a
   // non-trivial size; documents themselves are never uploaded.
-  app.use(express.json({ limit: '1mb' }))
+  app.use(express.json({ limit: CHAT_BODY_LIMIT_BYTES }))
 
   app.get('/api/health', (_request, response) => {
     response.json({ status: 'ok' })
   })
 
   app.post('/api/chat', async (request, response) => {
-    const result = await handleChat(request.body, { answer })
+    const result = await handleChat(request.body, {
+      answer,
+      authenticate,
+      authorization: request.get('authorization'),
+    })
     response.status(result.status).json(result.body)
   })
 

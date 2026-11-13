@@ -1,10 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
+import { useAuth } from '../auth/auth-context.ts'
 import ChatMessage from './ChatMessage.tsx'
 import { useChat } from './use-chat.ts'
 import type { UseChatOptions } from './use-chat.ts'
 
 const PENDING_LABEL = 'Reading your documents…'
+const OFFLINE_NOTICE = 'You’re offline. Reconnect to ask questions.'
 
 function PendingBubble() {
   return (
@@ -27,12 +29,16 @@ export default function ChatPanel({
   ...chatOptions
 }: UseChatOptions & { className?: string }) {
   const { messages, status, error, send, retry } = useChat(chatOptions)
+  // A saved session keeps the transcript readable offline (US-07), but the
+  // session can't be refreshed, so asking waits for the connection. The
+  // server's 401 stays the real check; this only spares a doomed request.
+  const isOffline = useAuth().status === 'signed-in-offline'
   const [draft, setDraft] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const transcriptRef = useRef<HTMLDivElement>(null)
 
   const isSending = status === 'sending'
-  const canSend = draft.trim().length > 0 && !isSending
+  const canSend = draft.trim().length > 0 && !isSending && !isOffline
 
   useLayoutEffect(() => {
     // New turns arrive at the bottom; keep them in view without hiding history.
@@ -93,7 +99,7 @@ export default function ChatPanel({
           className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-warn-soft px-4 py-2.5 text-sm text-warn"
         >
           {error.message}
-          {error.retryable && (
+          {error.retryable && !isOffline && (
             <button
               type="button"
               onClick={retry}
@@ -102,6 +108,16 @@ export default function ChatPanel({
               Try again
             </button>
           )}
+        </p>
+      )}
+
+      {isOffline && (
+        <p
+          id="chat-offline"
+          role="status"
+          className="rounded-xl bg-warn-soft px-4 py-2.5 text-sm text-warn"
+        >
+          {OFFLINE_NOTICE}
         </p>
       )}
 
@@ -119,8 +135,10 @@ export default function ChatPanel({
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={handleKeyDown}
+          disabled={isOffline}
+          aria-describedby={isOffline ? 'chat-offline' : undefined}
           placeholder="What do you want to learn today?"
-          className="w-full flex-1 resize-none bg-transparent px-2 py-1.5 text-fg placeholder:text-muted focus:outline-none"
+          className="w-full flex-1 resize-none bg-transparent px-2 py-1.5 text-fg placeholder:text-muted focus:outline-none disabled:cursor-not-allowed"
         />
         <button
           type="submit"
