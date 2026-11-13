@@ -45,8 +45,8 @@ function setup({
   )
   return {
     user,
-    box: screen.getByLabelText('Ask a question about your documents'),
-    send: screen.getByRole('button', { name: 'Ask' }),
+    box: screen.getByLabelText('Ask a follow-up about your materials'),
+    send: screen.getByRole('button', { name: 'Send' }),
   }
 }
 
@@ -80,11 +80,11 @@ describe('ChatPanel', () => {
     await user.type(box, 'Why do leaves need light?')
     await user.click(send)
 
-    const log = screen.getByRole('log', { name: 'Conversation' })
+    const log = screen.getByRole('region', { name: 'Conversation' })
     expect(within(log).getByText('Why do leaves need light?')).toBeVisible()
-    expect(within(log).getByText('Reading your documents…')).toBeVisible()
+    expect(within(log).getByText('Reading your materials…')).toBeVisible()
     expect(log).toHaveAttribute('aria-busy', 'true')
-    expect(screen.getByRole('button', { name: 'Asking…' })).toBeDisabled()
+    expect(send).toBeDisabled()
     expect(box).toHaveValue('')
 
     settle({
@@ -93,12 +93,14 @@ describe('ChatPanel', () => {
       answerable: true,
     })
 
-    const reply = await screen.findByRole('article', { name: 'Answer' })
-    expect(within(reply).getByText('From your documents')).toBeVisible()
+    const reply = await screen.findByRole('article', {
+      name: 'Answer from your materials',
+    })
+    expect(within(reply).getByText('From your materials')).toBeVisible()
     expect(within(reply).getByText('biology.pdf · Page 4')).toBeVisible()
     await waitFor(() =>
       expect(
-        screen.queryByText('Reading your documents…'),
+        screen.queryByText('Reading your materials…'),
       ).not.toBeInTheDocument(),
     )
     expect(log).toHaveAttribute('aria-busy', 'false')
@@ -136,13 +138,13 @@ describe('ChatPanel', () => {
     await user.click(send)
 
     const reply = await screen.findByRole('article', {
-      name: 'Unanswered question',
+      name: 'Not answered from your materials',
     })
     expect(
-      within(reply).getByText('Not answered from your documents'),
+      within(reply).getByText('Not answered from your materials'),
     ).toBeVisible()
-    expect(within(reply).getByText(/don’t say enough to answer/)).toBeVisible()
-    expect(screen.queryByText('From your documents')).not.toBeInTheDocument()
+    expect(within(reply).getByText(/Try rephrasing the question/)).toBeVisible()
+    expect(screen.queryByText('From your materials')).not.toBeInTheDocument()
   })
 
   it('flags an answer with no citations as ungrounded', async () => {
@@ -157,7 +159,7 @@ describe('ChatPanel', () => {
     await user.click(send)
 
     expect(
-      await screen.findByText(/no passage from your documents behind it/),
+      await screen.findByText(/no passage from your materials behind it/),
     ).toBeVisible()
   })
 
@@ -182,7 +184,11 @@ describe('ChatPanel', () => {
     })
     await user.click(within(alert).getByRole('button', { name: 'Try again' }))
 
-    expect(await screen.findByRole('article', { name: 'Answer' })).toBeVisible()
+    expect(
+      await screen.findByRole('article', {
+        name: 'Answer from your materials',
+      }),
+    ).toBeVisible()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     // The question was not duplicated by the retry.
     expect(screen.getAllByText('Why?')).toHaveLength(1)
@@ -203,7 +209,7 @@ describe('ChatPanel', () => {
     it('keeps the saved conversation readable', () => {
       setup({ status: 'signed-in-offline', initialMessages: saved })
 
-      const log = screen.getByRole('log', { name: 'Conversation' })
+      const log = screen.getByRole('region', { name: 'Conversation' })
       expect(within(log).getByText('What is ATP?')).toBeVisible()
       expect(within(log).getByText('The cell’s energy currency.')).toBeVisible()
     })
@@ -211,11 +217,11 @@ describe('ChatPanel', () => {
     it('explains that asking needs a connection, and blocks sending', async () => {
       const { user, box, send } = setup({ status: 'signed-in-offline' })
 
-      expect(
-        screen.getByText('You’re offline. Reconnect to ask questions.'),
-      ).toBeVisible()
-      expect(box).toBeDisabled()
+      const offline = 'You’re offline. Reconnect to ask questions.'
+      expect(screen.getByRole('status')).toHaveTextContent(offline)
+      // Typing a draft stays possible; Send says why it's unavailable.
       expect(send).toBeDisabled()
+      expect(send).toHaveAccessibleDescription(offline)
 
       await user.type(box, 'Why?{Enter}')
       expect(askQuestion).not.toHaveBeenCalled()
@@ -233,7 +239,7 @@ describe('ChatPanel', () => {
       )
       const { rerender } = render(panel('signed-in'))
       await user.type(
-        screen.getByLabelText('Ask a question about your documents'),
+        screen.getByLabelText('Ask a follow-up about your materials'),
         'Why?{Enter}',
       )
       const alert = await screen.findByRole('alert')

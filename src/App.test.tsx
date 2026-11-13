@@ -8,7 +8,13 @@ import {
   installFakeSupabase,
 } from './features/auth/testing/fake-supabase.ts'
 import { setSupabaseClient } from './lib/auth/supabase-client.ts'
-import { createMemoryAdapter, setStorageAdapter } from './lib/storage/index.ts'
+import {
+  createConversation,
+  createMemoryAdapter,
+  DEFAULT_WORKSPACE,
+  saveDocument,
+  setStorageAdapter,
+} from './lib/storage/index.ts'
 import type { StorageAdapter } from './lib/storage/index.ts'
 import type { ChatReply, ChatRequest } from './types/contracts.ts'
 import { parsePdf } from './features/upload/parse-pdf.ts'
@@ -52,8 +58,14 @@ async function renderApp() {
 const uploadRegion = () =>
   within(screen.getByRole('region', { name: 'Upload' }))
 
+// The upload area lives on My library; Home adds materials through its composer.
+const startInLibrary = () => window.history.pushState({}, '', '/library')
+
 describe('document upload', () => {
-  beforeEach(() => vi.mocked(parsePdf).mockReset())
+  beforeEach(() => {
+    vi.mocked(parsePdf).mockReset()
+    startInLibrary()
+  })
 
   it('lists DOCX among the supported formats', async () => {
     await renderApp()
@@ -71,7 +83,8 @@ describe('document upload', () => {
     await userEvent.upload(input(), file)
 
     expect(await screen.findByText('✓ Ready to explore')).toBeInTheDocument()
-    expect(screen.getByText('class-notes.txt')).toBeInTheDocument()
+    // The library table lists it too; check the upload's own status.
+    expect(uploadRegion().getByText('class-notes.txt')).toBeInTheDocument()
     expect(screen.getByText(/2 passages indexed/)).toBeInTheDocument()
   })
 
@@ -207,6 +220,7 @@ describe('document upload', () => {
 })
 
 describe('asking about a document', () => {
+  beforeEach(startInLibrary)
   const notes = () =>
     new File(
       [
@@ -233,9 +247,12 @@ describe('asking about a document', () => {
     citations: request.passages.slice(0, 1),
   })
 
+  // The first question goes in on New chat, follow-ups in the chat itself.
   const ask = async (question: string) => {
     await userEvent.type(
-      await screen.findByLabelText('Ask a question about your documents'),
+      await screen.findByLabelText(
+        /^Ask (a question|a follow-up) about your materials$/,
+      ),
       `${question}{Enter}`,
     )
   }
@@ -291,7 +308,7 @@ describe('asking about a document', () => {
     await ask('Who won the 1998 World Cup?')
 
     expect(
-      await screen.findByText('Not answered from your documents'),
+      await screen.findByText('Not answered from your materials'),
     ).toBeInTheDocument()
     expect(requests[0]?.passages).toEqual([])
   })
@@ -308,7 +325,9 @@ describe('asking about a document', () => {
 
     expect(await screen.findByText('They produce ATP.')).toBeInTheDocument()
     expect(
-      screen.getByText('What do mitochondria produce?'),
+      within(screen.getByLabelText('Conversation')).getByText(
+        'What do mitochondria produce?',
+      ),
     ).toBeInTheDocument()
     expect(screen.getByText('biology.txt · Line 1')).toBeInTheDocument()
   })
@@ -336,18 +355,30 @@ describe('asking about a document', () => {
     await ask('What do mitochondria produce?')
     await screen.findByText('They produce ATP.')
 
-    await userEvent.click(screen.getByRole('link', { name: 'Home' }))
+    await userEvent.click(screen.getByRole('link', { name: /My library/ }))
     await uploadAndOpen(
       new File(['Photosynthesis happens in chloroplasts.'], 'plants.txt'),
     )
-    expect(
-      await screen.findByRole('heading', { name: 'plants.txt' }),
-    ).toBeInTheDocument()
+    // A new chat about the new material starts empty, with only it chosen.
+    const picker = within(
+      await screen.findByRole('group', { name: 'Materials for this chat' }),
+    )
+    expect(picker.getByRole('button', { name: 'plants.txt' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(picker.getByRole('button', { name: 'biology.txt' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
     expect(screen.queryByText('They produce ATP.')).not.toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('link', { name: /My library/ }))
+    // The earlier chat is still there to continue.
     await userEvent.click(
-      await screen.findByRole('link', { name: 'Ask about this: biology.txt' }),
+      within(screen.getByRole('region', { name: 'Recent chats' })).getByRole(
+        'link',
+        { name: 'What do mitochondria produce?' },
+      ),
     )
     expect(await screen.findByText('They produce ATP.')).toBeInTheDocument()
   })
@@ -371,6 +402,23 @@ describe('asking about a document', () => {
   })
 })
 
+// A stored material and chats about it, as the app would have saved them.
+const saveCells = () =>
+  saveDocument({
+    id: 'doc-1',
+    name: 'Cells.txt',
+    size: 10,
+    kind: 'text',
+    pageCount: null,
+    chunks: [],
+  })
+const chatAbout = (materialId: string, title: string) =>
+  createConversation({
+    workspaceId: DEFAULT_WORKSPACE.id,
+    materialIds: [materialId],
+    title,
+  })
+
 describe('app shell and navigation', () => {
   it('marks the current screen in the sidebar', async () => {
     await renderApp()
@@ -390,6 +438,7 @@ describe('app shell and navigation', () => {
   })
 
   it('lists stored materials in the library table', async () => {
+    startInLibrary()
     await renderApp()
     await userEvent.upload(input(), new File(['one\n\ntwo'], 'notes.txt'))
     await screen.findByText('✓ Ready to explore')
@@ -399,7 +448,7 @@ describe('app shell and navigation', () => {
     const table = await screen.findByRole('table', { name: 'Your materials' })
     const row = within(table).getByRole('row', { name: /notes\.txt/ })
     expect(row).toHaveTextContent('Text')
-    expect(row).toHaveTextContent('2')
+    expect(row).toHaveTextContent('My materials')
   })
 
   it('explains an empty library', async () => {
@@ -450,5 +499,78 @@ describe('app shell and navigation', () => {
     expect(
       screen.getByRole('region', { name: 'On this device' }),
     ).toHaveTextContent('Online')
+  })
+
+  it('links to every screen from the sidebar', async () => {
+    await renderApp()
+    const nav = within(screen.getByRole('navigation', { name: 'Main' }))
+
+    expect(
+      nav.getByRole('link', { name: 'My library, 0 materials' }),
+    ).toBeInTheDocument()
+    for (const name of [
+      'Home',
+      'Workspaces',
+      /My library/,
+      'Saved conversations',
+    ]) {
+      expect(nav.getByRole('link', { name })).toBeInTheDocument()
+    }
+    expect(screen.getByRole('link', { name: 'New workspace' })).toHaveAttribute(
+      'href',
+      '/workspaces/new',
+    )
+  })
+
+  it('says where recent chats will appear before there are any', async () => {
+    await renderApp()
+
+    expect(
+      await screen.findByText('Chats you start will appear here.'),
+    ).toBeInTheDocument()
+  })
+
+  it('lists recent chats, newest first, and opens one', async () => {
+    await saveCells()
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(1000)
+    await chatAbout('doc-1', 'What is a cell?')
+    now.mockReturnValue(2000)
+    await chatAbout('doc-1', 'Why mitosis?')
+    now.mockRestore()
+    await renderApp()
+
+    const recent = within(screen.getByRole('region', { name: 'Recent chats' }))
+    const links = await recent.findAllByRole('link', { name: /\?$/ })
+    expect(links.map((link) => link.textContent)).toEqual([
+      'Why mitosis?',
+      'What is a cell?',
+    ])
+
+    await userEvent.click(links[0]!)
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Why mitosis?' }),
+    ).toBeInTheDocument()
+  })
+
+  it('lists saved conversations with their material', async () => {
+    await saveCells()
+    await chatAbout('doc-1', 'Old question')
+    window.history.pushState({}, '', '/conversations')
+    await renderApp()
+
+    const item = await within(screen.getByRole('main')).findByRole('link', {
+      name: /Old question/,
+    })
+    expect(item).toHaveTextContent('Cells.txt')
+  })
+
+  it('opens the help page from the top bar', async () => {
+    await renderApp()
+
+    await userEvent.click(screen.getByRole('link', { name: 'Help' }))
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'How SomaNami works' }),
+    ).toBeInTheDocument()
   })
 })

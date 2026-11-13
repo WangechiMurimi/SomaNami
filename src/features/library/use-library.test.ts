@@ -6,10 +6,10 @@ import {
   saveDocument,
   setStorageAdapter,
 } from '../../lib/storage/index.ts'
-import type { StoredDocument } from '../../types/contracts.ts'
+import type { NewDocument } from '../../types/contracts.ts'
 import { useLibrary } from './use-library.ts'
 
-const doc = (id: string, name: string): StoredDocument => ({
+const doc = (id: string, name: string): NewDocument => ({
   id,
   name,
   size: 1,

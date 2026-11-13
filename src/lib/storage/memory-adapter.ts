@@ -1,4 +1,9 @@
-import type { Removal, StorageAdapter, StorageRecord } from './adapter.ts'
+import type {
+  Change,
+  Removal,
+  StorageAdapter,
+  StorageRecord,
+} from './adapter.ts'
 import { requireIndexValue } from './index-value.ts'
 import { STORES } from './schema.ts'
 import type { StoreName } from './schema.ts'
@@ -20,10 +25,10 @@ export function createMemoryAdapter(): StorageAdapter {
     STORES.map((store) => [store.name, new Map()]),
   )
 
-  const indexKeyPath = (storeName: StoreName, indexName: string) =>
+  const indexFor = (storeName: StoreName, indexName: string) =>
     STORES.find((store) => store.name === storeName)?.indexes.find(
       (index) => index.name === indexName,
-    )?.keyPath
+    )
 
   const entries = (storeName: StoreName) => {
     const store = stores.get(storeName)
@@ -44,14 +49,18 @@ export function createMemoryAdapter(): StorageAdapter {
     indexName: string,
     value: IDBValidKey | null | undefined,
   ) => {
-    const keyPath = indexKeyPath(storeName, indexName)
-    if (!keyPath)
+    const index = indexFor(storeName, indexName)
+    if (!index)
       throw new Error(`Unknown index "${indexName}" on store "${storeName}"`)
     requireIndexValue(indexName, value)
-    return sorted(storeName).filter(
-      (record) =>
-        (record as unknown as Record<string, unknown>)[keyPath] === value,
-    )
+    return sorted(storeName).filter((record) => {
+      const field = (record as unknown as Record<string, unknown>)[
+        index.keyPath
+      ]
+      return index.multiEntry && Array.isArray(field)
+        ? field.includes(value)
+        : field === value
+    })
   }
 
   return {
@@ -97,6 +106,20 @@ export function createMemoryAdapter(): StorageAdapter {
         key,
       }))
       for (const { store, key } of targets) store.delete(key)
+    },
+
+    async commit(changes: readonly Change[]) {
+      // As with removeMany: resolve every store first so a bad store name
+      // rejects the batch before any change lands.
+      const targets = changes.map((change) => ({
+        change,
+        store: entries(change.storeName),
+      }))
+      for (const { change, store } of targets) {
+        if (change.type === 'put')
+          store.set(change.record.id, copy(change.record))
+        else store.delete(change.key)
+      }
     },
 
     async close() {

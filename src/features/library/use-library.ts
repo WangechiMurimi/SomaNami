@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { listDocuments, saveDocument } from '../../lib/storage/index.ts'
-import type { StoredDocument } from '../../types/contracts.ts'
+import {
+  deleteDocument,
+  listDocuments,
+  saveDocument,
+} from '../../lib/storage/index.ts'
+import type { NewDocument, StoredDocument } from '../../types/contracts.ts'
 
 export type LibraryStatus = 'loading' | 'ready' | 'error'
 
@@ -36,14 +40,26 @@ export function useLibrary() {
     }
   }, [])
 
-  const add = useCallback(async (document: StoredDocument) => {
-    await saveDocument(document)
-    setDocuments((current) =>
-      [...current.filter(({ id }) => id !== document.id), document].sort(
-        byName,
-      ),
-    )
+  /** Saves a parsed material into a workspace (the default one if omitted). */
+  const add = useCallback(
+    async (document: NewDocument, workspaceId?: string) => {
+      const stored = await saveDocument(document, workspaceId)
+      setDocuments((current) =>
+        [...current.filter(({ id }) => id !== stored.id), stored].sort(byName),
+      )
+      return stored
+    },
+    [],
+  )
+
+  /**
+   * Removes a material from this device. Chats that used only it go too;
+   * chats with other materials keep those (US-08 AC5).
+   */
+  const remove = useCallback(async (id: string) => {
+    await deleteDocument(id)
+    setDocuments((current) => current.filter((document) => document.id !== id))
   }, [])
 
-  return { documents, status, add }
+  return { documents, status, add, remove }
 }

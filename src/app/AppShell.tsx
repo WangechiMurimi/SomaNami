@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Outlet, useLocation } from 'react-router'
+import { Link, Outlet, useLocation } from 'react-router'
 import ThemeToggle from '../components/ThemeToggle.tsx'
 import AccountMenu from '../features/auth/AccountMenu.tsx'
 import Sidebar from './Sidebar.tsx'
@@ -59,7 +59,28 @@ export default function AppShell() {
               <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
+            <Link
+              to="/help"
+              className="inline-flex h-11 items-center gap-[7px] rounded-[10px] px-2 text-[15px] text-fg hover:text-accent"
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                <path d="M12 17h.01" />
+              </svg>
+              Help
+            </Link>
             <ThemeToggle />
             <AccountMenu />
           </div>

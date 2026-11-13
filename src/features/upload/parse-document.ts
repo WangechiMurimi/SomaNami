@@ -5,7 +5,7 @@ import type { Parser, ParsedFile } from './parsed-file.ts'
 import { UploadError } from './upload-error.ts'
 import { validateFile, verifyContents } from './validate-file.ts'
 import type { FileProblem } from './validate-file.ts'
-import type { DocumentKind, StoredDocument } from '../../types/contracts.ts'
+import type { DocumentKind, NewDocument } from '../../types/contracts.ts'
 
 export { UploadError }
 
@@ -24,7 +24,7 @@ export const chunkIdFor = (documentId: string, index: number): string =>
   `${documentId}:${index}`
 
 /** Validates and parses a file into a document with source-referenced chunks; throws `UploadError`. */
-export async function parseDocument(file: File): Promise<StoredDocument> {
+export async function parseDocument(file: File): Promise<NewDocument> {
   const validation = validateFile(file)
   if (!validation.ok) throw rejectFile(validation.error)
 

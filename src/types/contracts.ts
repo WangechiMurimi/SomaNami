@@ -23,13 +23,29 @@ export interface Chunk {
 export type DocumentKind = 'pdf' | 'docx' | 'text'
 
 /** A parsed, uploaded document as stored locally. */
-export interface StoredDocument {
+/** A topic that groups materials and the conversations about them (US-08). */
+export interface Workspace {
+  id: string
+  name: string
+  topic: string
+  description: string
+  createdAt: number
+  updatedAt: number
+}
+
+/** A parsed material before it is filed into a workspace. */
+export interface NewDocument {
   id: string
   name: string
   size: number
   kind: DocumentKind
   pageCount: number | null
   chunks: Chunk[]
+}
+
+/** A material saved on this device; it belongs to exactly one workspace. */
+export interface StoredDocument extends NewDocument {
+  workspaceId: string
 }
 
 /** Identifies one chunk; `documentId` is carried so callers can join to the file. */
@@ -73,9 +89,14 @@ export interface ChatReply {
   answerable: boolean
 }
 
+/**
+ * A chat inside one workspace. `materialIds` are the workspace materials it
+ * may draw on; retrieval never looks beyond them (US-08 AC3).
+ */
 export interface Conversation {
   id: string
-  documentId: string
+  workspaceId: string
+  materialIds: string[]
   title: string
   createdAt: number
   updatedAt: number
