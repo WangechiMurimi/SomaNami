@@ -3,7 +3,17 @@
  * offline reading works; Supabase is a later sync target.
  */
 
+/**
+ * The shared database from before accounts existed. New materials never go
+ * here; it is only read to offer moving its contents into an account.
+ */
 export const DB_NAME = 'somanami'
+
+/**
+ * Each account's private database. A database per user keeps records free of
+ * an owner field, and removing someone's materials is one `deleteDatabase`.
+ */
+export const userDbName = (userId: string): string => `somanami-user-${userId}`
 
 /** Bump whenever `STORES` changes so the upgrade path runs. */
 export const DB_VERSION = 1
