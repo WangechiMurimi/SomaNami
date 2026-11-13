@@ -43,6 +43,24 @@ const store = (): StorageAdapter =>
 
 const newId = (): string => crypto.randomUUID()
 
+const conversationListeners = new Set<() => void>()
+
+/**
+ * Calls `listener` after any conversation is created, changed or removed, so
+ * lists such as the sidebar's recent chats stay current without polling.
+ * Returns the unsubscribe function.
+ */
+export function subscribeToConversations(listener: () => void): () => void {
+  conversationListeners.add(listener)
+  return () => {
+    conversationListeners.delete(listener)
+  }
+}
+
+const notifyConversations = (): void => {
+  for (const listener of conversationListeners) listener()
+}
+
 // Types guard compile-time callers; these guard data that arrives untyped at
 // runtime, where a missing id would otherwise corrupt an index lookup.
 function assert(value: unknown, message: string): asserts value {
@@ -102,6 +120,7 @@ export async function deleteDocument(id: string): Promise<void> {
     })),
     { storeName: DOCUMENTS, key: id },
   ])
+  if (conversations.length > 0) notifyConversations()
 }
 
 /** Starts a conversation against a document and returns the stored record. */
@@ -119,6 +138,7 @@ export async function createConversation({
     updatedAt: now,
   }
   await store().put(CONVERSATIONS, conversation)
+  notifyConversations()
   return conversation
 }
 
@@ -139,7 +159,18 @@ export async function listConversations(
     'documentId',
     documentId,
   )
-  return conversations.sort((a, b) => b.updatedAt - a.updatedAt)
+  return conversations.sort(byRecentActivity)
+}
+
+const byRecentActivity = (a: Conversation, b: Conversation): number =>
+  b.updatedAt - a.updatedAt
+
+/** Lists conversations across every document, most recently updated first. */
+export async function listRecentConversations(
+  limit = Infinity,
+): Promise<Conversation[]> {
+  const conversations = await store().getAll<Conversation>(CONVERSATIONS)
+  return conversations.sort(byRecentActivity).slice(0, limit)
 }
 
 /** Renames a conversation and returns the updated record. */
@@ -151,6 +182,7 @@ export async function renameConversation(
   if (!conversation) throw new Error(`No conversation "${id}"`)
   const updated = { ...conversation, title, updatedAt: Date.now() }
   await store().put(CONVERSATIONS, updated)
+  notifyConversations()
   return updated
 }
 
@@ -210,6 +242,7 @@ export async function appendMessage({
     ...conversation,
     updatedAt: message.createdAt,
   })
+  notifyConversations()
   return message
 }
 
@@ -230,4 +263,5 @@ export async function listMessages(conversationId: string): Promise<Message[]> {
 export async function deleteConversation(id: string): Promise<void> {
   await store().removeByIndex(MESSAGES, 'conversationId', id)
   await store().remove(CONVERSATIONS, id)
+  notifyConversations()
 }
