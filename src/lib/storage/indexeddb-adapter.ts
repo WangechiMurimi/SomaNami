@@ -98,18 +98,22 @@ function openDatabase(factory: IDBFactory, name: string): Promise<IDBDatabase> {
 }
 
 /**
- * Deletes a whole database. Resolves once the deletion is queued even if
- * another tab still holds it open: the browser finishes it when that tab lets
- * go, and waiting here would hang the caller indefinitely.
+ * Deletes a whole database, resolving once it's gone. Pass `evenIfBlocked`
+ * to resolve as soon as the delete is queued instead, for callers that must
+ * not wait on a tab that may never let go.
  */
 export function deleteDatabase(
   factory: IDBFactory,
   name: string,
+  { evenIfBlocked = false }: { evenIfBlocked?: boolean } = {},
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const request = factory.deleteDatabase(name)
     request.onsuccess = () => resolve()
-    request.onblocked = () => resolve()
+    // `blocked` means another tab still holds a connection: the delete stays
+    // queued and succeeds once that tab lets go. By default wait for it, so
+    // materials are never reported removed while still on the device.
+    if (evenIfBlocked) request.onblocked = () => resolve()
     request.onerror = () => reject(request.error)
   })
 }
@@ -135,8 +139,14 @@ export function createIndexedDbAdapter(
   // several, which would leave one unclosed and block a later delete.
   let connection: Promise<IDBDatabase> | undefined
   let deletedElsewhere = false
+  // Closing is for good: a call that still holds this adapter afterwards
+  // (one started before a user switch or a removal) would otherwise reopen,
+  // and so recreate, a database its owner may have just removed.
+  let closed = false
 
   const db = (): Promise<IDBDatabase> => {
+    if (closed)
+      return Promise.reject(new Error(`The "${name}" database was closed`))
     // Reopening would recreate the database empty and keep saving into it
     // after its owner removed their materials from this device.
     if (deletedElsewhere)
@@ -279,6 +289,7 @@ export function createIndexedDbAdapter(
     },
 
     async close() {
+      closed = true
       const pending = connection
       connection = undefined
       // Nothing to close if it never opened, and a failed open left nothing open.
