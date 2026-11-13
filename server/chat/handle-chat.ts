@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { ChatReply, ChunkRef } from '../../src/types/contracts.ts'
+import type { Authenticate } from '../auth/types.ts'
 import type { Answerer } from '../llm/claude-answerer.ts'
 import { parseChatRequest } from './chat-request.ts'
 
@@ -15,6 +16,15 @@ export const NO_PASSAGES_ANSWER =
 export const REFUSAL_ANSWER =
   'I can’t help with that request. Try asking about the content of your documents.'
 
+export interface ChatDependencies {
+  /** Answers chat questions; `null` means the server has no Claude credentials. */
+  answer: Answerer | null
+  /** Verifies the caller's session; see `server/auth/verify-access-token.ts`. */
+  authenticate: Authenticate
+  /** The raw `Authorization` header, passed through untouched. */
+  authorization: string | undefined
+}
+
 const notAnswerable = (answer: string): ChatReply => ({
   answer,
   citations: [],
@@ -22,13 +32,22 @@ const notAnswerable = (answer: string): ChatReply => ({
 })
 
 /**
- * Handles one `POST /api/chat`: validates the body, answers from the passages
- * the client retrieved, and enforces grounding on the way out.
+ * Handles one `POST /api/chat`: checks the session, validates the body, answers
+ * from the passages the client retrieved, and enforces grounding on the way out.
  */
 export async function handleChat(
   body: unknown,
-  { answer }: { answer: Answerer | null },
+  { answer, authenticate, authorization }: ChatDependencies,
 ): Promise<HandlerResponse> {
+  // Authenticate first, so anonymous traffic costs neither parsing nor a model
+  // call. The header is never logged: it is a live credential.
+  const session = await authenticate(authorization)
+  if (!session.ok) {
+    return session.reason === 'not-configured'
+      ? { status: 503, body: { error: 'not-configured' } }
+      : { status: 401, body: { error: 'unauthenticated' } }
+  }
+
   const parsed = parseChatRequest(body)
   if (!parsed.ok) {
     return {

@@ -2,6 +2,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ChatRequest } from '../../src/types/contracts.ts'
+import type { Authenticate, AuthFailure } from '../auth/types.ts'
 import type { Answerer, ModelAnswer } from '../llm/claude-answerer.ts'
 import {
   handleChat,
@@ -23,6 +24,17 @@ const request = (overrides: Partial<ChatRequest> = {}): ChatRequest => ({
   ...overrides,
 })
 
+const allow = vi.fn<Authenticate>().mockResolvedValue({
+  ok: true,
+  user: { id: 'user-1', aal: 'aal1' },
+})
+
+/** Dependencies for a request from a signed-in user. */
+const signedIn = { authenticate: allow, authorization: 'Bearer valid' }
+
+const deny = (reason: AuthFailure) =>
+  vi.fn<Authenticate>().mockResolvedValue({ ok: false, reason })
+
 const answering = (answer: ModelAnswer): Answerer =>
   vi.fn<Answerer>().mockResolvedValue({ kind: 'answer', answer })
 
@@ -36,7 +48,7 @@ describe('handleChat', () => {
       citations: ['doc-1:1'],
     })
 
-    const result = await handleChat(request(), { answer })
+    const result = await handleChat(request(), { answer, ...signedIn })
 
     expect(result).toEqual({
       status: 200,
@@ -52,7 +64,7 @@ describe('handleChat', () => {
     const answer = answering({ answer: 'x', answerable: true, citations: [] })
     const body = request({ history: [{ role: 'user', content: 'Earlier' }] })
 
-    await handleChat(body, { answer })
+    await handleChat(body, { answer, ...signedIn })
 
     expect(answer).toHaveBeenCalledWith(body)
   })
@@ -64,7 +76,7 @@ describe('handleChat', () => {
       citations: ['doc-1:0', 'doc-9:4'],
     })
 
-    const result = await handleChat(request(), { answer })
+    const result = await handleChat(request(), { answer, ...signedIn })
 
     expect(result.body).toMatchObject({
       citations: [{ documentId: 'doc-1', chunkId: 'doc-1:0' }],
@@ -79,7 +91,7 @@ describe('handleChat', () => {
       citations: ['doc-1:0', 'doc-1:0'],
     })
 
-    const result = await handleChat(request(), { answer })
+    const result = await handleChat(request(), { answer, ...signedIn })
 
     expect(result.body).toMatchObject({ citations: [{ chunkId: 'doc-1:0' }] })
   })
@@ -91,7 +103,7 @@ describe('handleChat', () => {
       citations: ['made-up'],
     })
 
-    const result = await handleChat(request(), { answer })
+    const result = await handleChat(request(), { answer, ...signedIn })
 
     expect(result.body).toEqual({
       answer: 'Confident but unsupported.',
@@ -107,7 +119,7 @@ describe('handleChat', () => {
       citations: ['doc-1:0'],
     })
 
-    const result = await handleChat(request(), { answer })
+    const result = await handleChat(request(), { answer, ...signedIn })
 
     expect(result.body).toMatchObject({ answerable: false, citations: [] })
   })
@@ -115,7 +127,10 @@ describe('handleChat', () => {
   it('answers "not covered" without calling the model when no passages were retrieved', async () => {
     const answer = vi.fn<Answerer>()
 
-    const result = await handleChat(request({ passages: [] }), { answer })
+    const result = await handleChat(request({ passages: [] }), {
+      answer,
+      ...signedIn,
+    })
 
     expect(answer).not.toHaveBeenCalled()
     expect(result).toEqual({
@@ -127,7 +142,7 @@ describe('handleChat', () => {
   it('treats a safety refusal as unanswerable rather than an error', async () => {
     const answer = vi.fn<Answerer>().mockResolvedValue({ kind: 'refusal' })
 
-    const result = await handleChat(request(), { answer })
+    const result = await handleChat(request(), { answer, ...signedIn })
 
     expect(result).toEqual({
       status: 200,
@@ -138,7 +153,7 @@ describe('handleChat', () => {
   it('rejects a malformed body with the problems listed', async () => {
     const answer = vi.fn<Answerer>()
 
-    const result = await handleChat({ question: '' }, { answer })
+    const result = await handleChat({ question: '' }, { answer, ...signedIn })
 
     expect(result.status).toBe(400)
     expect(result.body).toMatchObject({ error: 'invalid-request' })
@@ -149,7 +164,7 @@ describe('handleChat', () => {
   })
 
   it('reports a missing API key as a server-side configuration problem', async () => {
-    const result = await handleChat(request(), { answer: null })
+    const result = await handleChat(request(), { answer: null, ...signedIn })
 
     expect(result).toEqual({ status: 503, body: { error: 'not-configured' } })
   })
@@ -162,7 +177,10 @@ describe('handleChat', () => {
     it('maps rate limiting to a retryable 503', async () => {
       const error = new Anthropic.RateLimitError(429, {}, 'slow down', headers)
 
-      const result = await handleChat(request(), { answer: failing(error) })
+      const result = await handleChat(request(), {
+        answer: failing(error),
+        ...signedIn,
+      })
 
       expect(result).toEqual({ status: 503, body: { error: 'rate-limited' } })
     })
@@ -176,7 +194,10 @@ describe('handleChat', () => {
         headers,
       )
 
-      const result = await handleChat(request(), { answer: failing(error) })
+      const result = await handleChat(request(), {
+        answer: failing(error),
+        ...signedIn,
+      })
 
       expect(result).toEqual({ status: 503, body: { error: 'not-configured' } })
     })
@@ -184,7 +205,10 @@ describe('handleChat', () => {
     it('maps a network failure to a retryable 502', async () => {
       const error = new Anthropic.APIConnectionError({ message: 'offline' })
 
-      const result = await handleChat(request(), { answer: failing(error) })
+      const result = await handleChat(request(), {
+        answer: failing(error),
+        ...signedIn,
+      })
 
       expect(result).toEqual({
         status: 502,
@@ -197,6 +221,7 @@ describe('handleChat', () => {
 
       const result = await handleChat(request(), {
         answer: failing(new Error('boom')),
+        ...signedIn,
       })
 
       expect(result).toEqual({
@@ -204,6 +229,76 @@ describe('handleChat', () => {
         body: { error: 'upstream-failed' },
       })
       expect(log).toHaveBeenCalled()
+    })
+  })
+
+  describe('authentication', () => {
+    it('checks the Authorization header it was given', async () => {
+      const authenticate = vi.fn<Authenticate>().mockResolvedValue({
+        ok: true,
+        user: { id: 'user-1', aal: 'aal1' },
+      })
+      const answer = answering({ answer: 'x', answerable: true, citations: [] })
+
+      await handleChat(request(), {
+        answer,
+        authenticate,
+        authorization: 'Bearer abc',
+      })
+
+      expect(authenticate).toHaveBeenCalledWith('Bearer abc')
+    })
+
+    it.each(['missing', 'invalid', 'expired'] as const)(
+      'answers a %s session with 401 before any model call',
+      async (reason) => {
+        const answer = answering({
+          answer: 'x',
+          answerable: true,
+          citations: [],
+        })
+
+        const result = await handleChat(request(), {
+          answer,
+          authenticate: deny(reason),
+          authorization: 'Bearer nope',
+        })
+
+        expect(result).toEqual({
+          status: 401,
+          body: { error: 'unauthenticated' },
+        })
+        expect(answer).not.toHaveBeenCalled()
+      },
+    )
+
+    it('checks the session before validating the body', async () => {
+      const result = await handleChat(
+        { question: '' },
+        {
+          answer: null,
+          authenticate: deny('missing'),
+          authorization: undefined,
+        },
+      )
+
+      expect(result.status).toBe(401)
+    })
+
+    it('answers 503 when the server cannot verify sessions', async () => {
+      const answer = answering({ answer: 'x', answerable: true, citations: [] })
+
+      const result = await handleChat(request(), {
+        answer,
+        authenticate: deny('not-configured'),
+        authorization: 'Bearer abc',
+      })
+
+      expect(result).toEqual({
+        status: 503,
+        body: { error: 'not-configured' },
+      })
+      expect(answer).not.toHaveBeenCalled()
     })
   })
 })
