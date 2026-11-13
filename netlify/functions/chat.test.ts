@@ -113,7 +113,10 @@ describe('chat function', () => {
     })
 
     it('fails closed when sessions cannot be verified', async () => {
+      // Blank both: the server falls back to the browser's project URL, and
+      // a developer's real .env would otherwise supply it.
       vi.stubEnv('SUPABASE_URL', '')
+      vi.stubEnv('VITE_SUPABASE_URL', '')
       try {
         const handler = createChatFunction({ answer: null })
 
