@@ -1,13 +1,14 @@
 // @vitest-environment node
 import {
   createLocalJWKSet,
+  errors,
   exportJWK,
   generateKeyPair,
   SignJWT,
   UnsecuredJWT,
 } from 'jose'
 import type { CryptoKey, JWTPayload } from 'jose'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   createAuthenticator,
   createAuthenticatorFromEnv,
@@ -176,6 +177,43 @@ describe('createAuthenticator', () => {
   })
 })
 
+describe('when the signing keys are unreachable', () => {
+  it.each([
+    ['a JWKS timeout', new errors.JWKSTimeout()],
+    ['a network failure', new TypeError('fetch failed')],
+    ['a non-200 JWKS response', new errors.JOSEError('Expected 200 OK')],
+  ])(
+    'reports %s as a server problem, not a bad session',
+    async (_label, error) => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const check = createAuthenticator({
+        supabaseUrl: SUPABASE_URL,
+        keySet: async () => {
+          throw error
+        },
+      })
+
+      await expect(check(`Bearer ${await sign()}`)).resolves.toEqual({
+        ok: false,
+        reason: 'not-configured',
+      })
+      vi.restoreAllMocks()
+    },
+  )
+
+  it('still reports a token signed by an unknown key as invalid', async () => {
+    const check = createAuthenticator({
+      supabaseUrl: SUPABASE_URL,
+      keySet: createLocalJWKSet({ keys: [] }),
+    })
+
+    await expect(check(`Bearer ${await sign()}`)).resolves.toEqual({
+      ok: false,
+      reason: 'invalid',
+    })
+  })
+})
+
 describe('createAuthenticatorFromEnv', () => {
   it('reports every request as not configured without SUPABASE_URL', async () => {
     const check = createAuthenticatorFromEnv({})
@@ -187,6 +225,17 @@ describe('createAuthenticatorFromEnv', () => {
     await expect(check(undefined)).resolves.toEqual({
       ok: false,
       reason: 'not-configured',
+    })
+  })
+
+  it('falls back to the public VITE_SUPABASE_URL', async () => {
+    const check = createAuthenticatorFromEnv({
+      VITE_SUPABASE_URL: SUPABASE_URL,
+    })
+
+    await expect(check(undefined)).resolves.toEqual({
+      ok: false,
+      reason: 'missing',
     })
   })
 

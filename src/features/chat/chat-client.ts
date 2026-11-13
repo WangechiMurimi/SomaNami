@@ -61,6 +61,8 @@ export async function askQuestion({
 }: Pick<ChatRequest, 'question'> & Partial<ChatRequest>): Promise<ChatReply> {
   const body = JSON.stringify({ question, passages, history })
 
+  // TODO(#114): fail fast without a token once AuthProvider holds a real
+  // session; today the placeholder has none, and the server's 401 decides.
   let response = await post(body, await getAccessToken())
   if (response.status === 401) {
     // Access tokens are short-lived, so one may expire between the client's
@@ -68,12 +70,7 @@ export async function askQuestion({
     // session itself is gone, and retrying again would only loop.
     const fresh = await getAccessToken({ refresh: true })
     if (fresh) response = await post(body, fresh)
-    if (!fresh || response.status === 401) {
-      throw new ChatError(SESSION_ENDED_MESSAGE, {
-        code: 'unauthenticated',
-        retryable: false,
-      })
-    }
+    if (!fresh || response.status === 401) throw sessionEnded()
   }
 
   if (response.status === 429) {
@@ -95,6 +92,12 @@ export async function askQuestion({
     throw new ChatError(MALFORMED_MESSAGE, { code: 'malformed', cause })
   }
 }
+
+const sessionEnded = () =>
+  new ChatError(SESSION_ENDED_MESSAGE, {
+    code: 'unauthenticated',
+    retryable: false,
+  })
 
 /** Sends one chat request; the token goes only in the header, never in the URL or body. */
 async function post(body: string, token: string | null): Promise<Response> {

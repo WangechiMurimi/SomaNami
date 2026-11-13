@@ -2,7 +2,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Authenticate } from '../../server/auth/types.ts'
 import type { Answerer } from '../../server/llm/claude-answerer.ts'
-import chat, { config, createChatFunction, MAX_BODY_BYTES } from './chat.ts'
+import {
+  CHAT_BODY_LIMIT_BYTES as MAX_BODY_BYTES,
+  CHAT_RATE_LIMIT,
+  CHAT_RATE_WINDOW_SECONDS,
+} from '../../server/chat/limits.ts'
+import chat, { config, createChatFunction } from './chat.ts'
 
 const allow = () =>
   vi.fn<Authenticate>().mockResolvedValue({
@@ -41,10 +46,10 @@ describe('chat function', () => {
     expect(config.path).toBe('/api/chat')
   })
 
-  it('rate-limits each client IP', () => {
+  it('rate-limits each client IP like the dev server', () => {
     expect(config.rateLimit).toEqual({
-      windowLimit: 20,
-      windowSize: 60,
+      windowLimit: CHAT_RATE_LIMIT,
+      windowSize: CHAT_RATE_WINDOW_SECONDS,
       aggregateBy: ['ip', 'domain'],
     })
   })

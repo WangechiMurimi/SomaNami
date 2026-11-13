@@ -221,6 +221,33 @@ describe('ChatPanel', () => {
       expect(askQuestion).not.toHaveBeenCalled()
     })
 
+    it('hides "Try again" once the connection drops', async () => {
+      vi.mocked(askQuestion).mockRejectedValue(
+        new ChatError('The answer service had a problem.', { retryable: true }),
+      )
+      const user = userEvent.setup()
+      const panel = (status: AuthStatus) => (
+        <AuthContext.Provider value={authAs(status)}>
+          <ChatPanel selectPassages={() => PASSAGES} />
+        </AuthContext.Provider>
+      )
+      const { rerender } = render(panel('signed-in'))
+      await user.type(
+        screen.getByLabelText('Ask a question about your documents'),
+        'Why?{Enter}',
+      )
+      const alert = await screen.findByRole('alert')
+      expect(
+        within(alert).getByRole('button', { name: 'Try again' }),
+      ).toBeVisible()
+
+      rerender(panel('signed-in-offline'))
+
+      expect(
+        within(alert).queryByRole('button', { name: 'Try again' }),
+      ).not.toBeInTheDocument()
+    })
+
     it('says nothing about being offline when online', () => {
       setup()
 

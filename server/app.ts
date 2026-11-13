@@ -3,6 +3,11 @@ import type { ErrorRequestHandler } from 'express'
 import { rateLimit } from 'express-rate-limit'
 import type { Authenticate } from './auth/types.ts'
 import { handleChat } from './chat/handle-chat.ts'
+import {
+  CHAT_BODY_LIMIT_BYTES,
+  CHAT_RATE_LIMIT,
+  CHAT_RATE_WINDOW_SECONDS,
+} from './chat/limits.ts'
 import type { Answerer } from './llm/claude-answerer.ts'
 
 export interface AppOptions {
@@ -14,10 +19,6 @@ export interface AppOptions {
    */
   authenticate?: Authenticate
 }
-
-/** Chat requests allowed per client IP in each window. */
-export const CHAT_RATE_LIMIT = 20
-const CHAT_RATE_WINDOW_MS = 60_000
 
 const refuseAll: Authenticate = async () => ({
   ok: false,
@@ -40,7 +41,7 @@ export function createApp({
   app.use(
     '/api/chat',
     rateLimit({
-      windowMs: CHAT_RATE_WINDOW_MS,
+      windowMs: CHAT_RATE_WINDOW_SECONDS * 1000,
       limit: CHAT_RATE_LIMIT,
       standardHeaders: 'draft-8',
       legacyHeaders: false,
@@ -52,7 +53,7 @@ export function createApp({
 
   // Questions arrive with client-retrieved passages, which are JSON of a
   // non-trivial size; documents themselves are never uploaded.
-  app.use(express.json({ limit: '1mb' }))
+  app.use(express.json({ limit: CHAT_BODY_LIMIT_BYTES }))
 
   app.get('/api/health', (_request, response) => {
     response.json({ status: 'ok' })

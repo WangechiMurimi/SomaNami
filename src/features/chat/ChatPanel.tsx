@@ -99,7 +99,7 @@ export default function ChatPanel({
           className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-warn-soft px-4 py-2.5 text-sm text-warn"
         >
           {error.message}
-          {error.retryable && (
+          {error.retryable && !isOffline && (
             <button
               type="button"
               onClick={retry}
