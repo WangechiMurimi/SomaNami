@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link, NavLink } from 'react-router'
+import { chatPath } from '../features/chat/chat-path.ts'
 import { useRecentConversations } from '../features/chat/use-recent-conversations.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
 import { useOnline } from '../lib/connectivity/use-online.ts'
@@ -72,7 +73,7 @@ function RecentChats() {
           {conversations.map((conversation) => (
             <li key={conversation.id}>
               <NavLink
-                to={`/chat/${conversation.documentId}`}
+                to={chatPath(conversation)}
                 className={({ isActive }) =>
                   `group flex items-center gap-2.5 rounded-md text-[13px] leading-[22px] ${
                     isActive

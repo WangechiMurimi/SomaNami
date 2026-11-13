@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { listDocuments, saveDocument } from '../../lib/storage/index.ts'
-import type { StoredDocument } from '../../types/contracts.ts'
+import type { NewDocument, StoredDocument } from '../../types/contracts.ts'
 
 export type LibraryStatus = 'loading' | 'ready' | 'error'
 
@@ -36,14 +36,17 @@ export function useLibrary() {
     }
   }, [])
 
-  const add = useCallback(async (document: StoredDocument) => {
-    await saveDocument(document)
-    setDocuments((current) =>
-      [...current.filter(({ id }) => id !== document.id), document].sort(
-        byName,
-      ),
-    )
-  }, [])
+  /** Saves a parsed material into a workspace (the default one if omitted). */
+  const add = useCallback(
+    async (document: NewDocument, workspaceId?: string) => {
+      const stored = await saveDocument(document, workspaceId)
+      setDocuments((current) =>
+        [...current.filter(({ id }) => id !== stored.id), stored].sort(byName),
+      )
+      return stored
+    },
+    [],
+  )
 
   return { documents, status, add }
 }

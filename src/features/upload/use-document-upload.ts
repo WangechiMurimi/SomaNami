@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { StoredDocument } from '../../types/contracts.ts'
+import type { NewDocument } from '../../types/contracts.ts'
 import { parseDocument, UploadError } from './parse-document.ts'
 import type { UploadStage } from './upload-error.ts'
 
@@ -14,7 +14,7 @@ export interface UploadErrorState {
 export type UploadState =
   | { status: 'idle'; document: null; error: null }
   | { status: 'processing'; document: null; error: null; fileName: string }
-  | { status: 'ready'; document: StoredDocument; error: null }
+  | { status: 'ready'; document: NewDocument; error: null }
   | {
       status: 'error'
       document: null
@@ -45,7 +45,7 @@ export interface UseDocumentUploadOptions {
    * Runs with each parsed document before it is shown as ready, e.g. to save
    * it. If it throws, the upload is reported as failed.
    */
-  onReady?: (document: StoredDocument) => void | Promise<void>
+  onReady?: (document: NewDocument) => void | Promise<void>
 }
 
 /** Tracks one upload at a time: idle, processing, ready or error. */

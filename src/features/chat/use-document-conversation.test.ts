@@ -4,8 +4,10 @@ import {
   appendMessage,
   createConversation,
   createMemoryAdapter,
+  DEFAULT_WORKSPACE,
   listConversations,
   listMessages,
+  saveDocument,
   setStorageAdapter,
 } from '../../lib/storage/index.ts'
 import type { StoredDocument } from '../../types/contracts.ts'
@@ -17,6 +19,7 @@ import {
 
 const document: StoredDocument = {
   id: 'doc-1',
+  workspaceId: DEFAULT_WORKSPACE.id,
   name: 'biology.pdf',
   size: 10,
   kind: 'pdf',
@@ -36,7 +39,11 @@ const reply = {
   citations: [{ documentId: 'doc-1', chunkId: 'doc-1:0' }],
 }
 
-beforeEach(() => setStorageAdapter(createMemoryAdapter()))
+// The document is stored first: a conversation may only use stored materials.
+beforeEach(async () => {
+  setStorageAdapter(createMemoryAdapter())
+  await saveDocument(document)
+})
 
 describe('toPassages', () => {
   it('turns every chunk into a citable passage', () => {
@@ -125,7 +132,10 @@ describe('useDocumentConversation', () => {
   })
 
   it('restores the most recent conversation', async () => {
-    const conversation = await createConversation({ documentId: 'doc-1' })
+    const conversation = await createConversation({
+      workspaceId: DEFAULT_WORKSPACE.id,
+      materialIds: ['doc-1'],
+    })
     await appendMessage({
       conversationId: conversation.id,
       role: 'user',

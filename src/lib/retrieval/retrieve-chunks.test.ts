@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { clearIndexCache } from './build-index.ts'
 import { retrieveChunks } from './retrieve-chunks.ts'
-import type { Chunk, StoredDocument } from '../../types/contracts.ts'
+import type { Chunk, NewDocument } from '../../types/contracts.ts'
 
 const makeDocument = (
   id: string,
   chunks: Omit<Chunk, 'id'>[],
-): StoredDocument => ({
+): NewDocument => ({
   id,
   name: `${id}.txt`,
   size: 1000,
@@ -160,7 +160,7 @@ describe('retrieveChunks', () => {
     expect(retrieveChunks('mitochondria', [])).toEqual([])
     // Untyped callers can still pass nothing; the guard must hold at runtime.
     expect(
-      retrieveChunks('mitochondria', undefined as unknown as StoredDocument[]),
+      retrieveChunks('mitochondria', undefined as unknown as NewDocument[]),
     ).toEqual([])
     expect(retrieveChunks('mitochondria', [biology], { limit: 0 })).toEqual([])
   })

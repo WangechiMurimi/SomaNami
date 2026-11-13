@@ -6,6 +6,7 @@ import App from './App.tsx'
 import {
   createConversation,
   createMemoryAdapter,
+  DEFAULT_WORKSPACE,
   saveDocument,
   setStorageAdapter,
 } from './lib/storage/index.ts'
@@ -348,6 +349,23 @@ describe('asking about a document', () => {
   })
 })
 
+// A stored material and chats about it, as the app would have saved them.
+const saveCells = () =>
+  saveDocument({
+    id: 'doc-1',
+    name: 'Cells.txt',
+    size: 10,
+    kind: 'text',
+    pageCount: null,
+    chunks: [],
+  })
+const chatAbout = (materialId: string, title: string) =>
+  createConversation({
+    workspaceId: DEFAULT_WORKSPACE.id,
+    materialIds: [materialId],
+    title,
+  })
+
 describe('app shell and navigation', () => {
   it('marks the current screen in the sidebar', async () => {
     render(<App />)
@@ -456,19 +474,12 @@ describe('app shell and navigation', () => {
   })
 
   it('lists recent chats, newest first, and opens one', async () => {
-    await saveDocument({
-      id: 'doc-1',
-      name: 'Cells.txt',
-      size: 10,
-      kind: 'text',
-      pageCount: null,
-      chunks: [],
-    })
+    await saveCells()
     const now = vi.spyOn(Date, 'now')
     now.mockReturnValue(1000)
-    await createConversation({ documentId: 'doc-1', title: 'What is a cell?' })
+    await chatAbout('doc-1', 'What is a cell?')
     now.mockReturnValue(2000)
-    await createConversation({ documentId: 'doc-1', title: 'Why mitosis?' })
+    await chatAbout('doc-1', 'Why mitosis?')
     now.mockRestore()
     render(<App />)
 
@@ -486,14 +497,15 @@ describe('app shell and navigation', () => {
   })
 
   it('lists saved conversations with their material', async () => {
-    await createConversation({ documentId: 'gone', title: 'Old question' })
+    await saveCells()
+    await chatAbout('doc-1', 'Old question')
     window.history.pushState({}, '', '/conversations')
     render(<App />)
 
     const item = await within(screen.getByRole('main')).findByRole('link', {
       name: /Old question/,
     })
-    expect(item).toHaveTextContent('Material not found')
+    expect(item).toHaveTextContent('Cells.txt')
   })
 
   it('opens the help page from the top bar', async () => {

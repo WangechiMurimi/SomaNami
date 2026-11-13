@@ -11,6 +11,11 @@ export interface Removal {
   key: string
 }
 
+/** One write in a `commit`: store a record, or delete one by key. */
+export type Change =
+  | { type: 'put'; storeName: StoreName; record: StorageRecord }
+  | { type: 'remove'; storeName: StoreName; key: string }
+
 /**
  * The persistence interface both backends implement. Records go in and come
  * out as copies, matching IndexedDB's structured-clone semantics.
@@ -38,5 +43,10 @@ export interface StorageAdapter {
    * applies or none does.
    */
   removeMany(removals: readonly Removal[]): Promise<void>
+  /**
+   * Applies puts and deletes across several stores as one unit: either every
+   * change applies or none does.
+   */
+  commit(changes: readonly Change[]): Promise<void>
   close(): Promise<void>
 }

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import type { StoredDocument } from '../../types/contracts.ts'
+import type { NewDocument } from '../../types/contracts.ts'
 import { buildIndex, clearIndexCache } from './build-index.ts'
 
-const makeDocument = (id: string, texts: string[]): StoredDocument => ({
+const makeDocument = (id: string, texts: string[]): NewDocument => ({
   id,
   name: `${id}.txt`,
   size: 100,

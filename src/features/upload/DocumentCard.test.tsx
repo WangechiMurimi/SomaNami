@@ -1,11 +1,11 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import type { StoredDocument } from '../../types/contracts.ts'
+import type { NewDocument } from '../../types/contracts.ts'
 import DocumentCard from './DocumentCard.tsx'
 import type { UploadErrorState } from './use-document-upload.ts'
 
-const readyDocument: StoredDocument = {
+const readyDocument: NewDocument = {
   id: 'd1',
   name: 'class-notes.pdf',
   size: 2048,

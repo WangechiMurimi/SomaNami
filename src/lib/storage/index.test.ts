@@ -2,6 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   appendMessage,
   createConversation,
+  createWorkspace,
+  deleteWorkspace,
+  ensureDefaultWorkspace,
+  getWorkspace,
+  listWorkspaceConversations,
+  listWorkspaceDocuments,
+  listWorkspaces,
+  updateWorkspace,
   deleteConversation,
   deleteDocument,
   getConversation,
@@ -14,6 +22,7 @@ import {
   saveDocument,
   setStorageAdapter,
   subscribeToConversations,
+  DEFAULT_WORKSPACE,
 } from './index.ts'
 import { ADAPTERS } from './test-adapters.ts'
 import type {
@@ -26,6 +35,7 @@ const makeDocument = (
   overrides: Partial<StoredDocument> = {},
 ): StoredDocument => ({
   id: 'doc-1',
+  workspaceId: DEFAULT_WORKSPACE.id,
   name: 'Cell Biology.pdf',
   size: 2048,
   kind: 'pdf',
@@ -50,6 +60,15 @@ const makeDocument = (
   ...overrides,
 })
 
+// A conversation over one material in the default workspace, the way the app
+// creates one today.
+const chat = (materialId: string, title?: string) =>
+  createConversation({
+    workspaceId: DEFAULT_WORKSPACE.id,
+    materialIds: [materialId],
+    title,
+  })
+
 // Every behaviour runs against real IndexedDB as well as the in-memory double:
 // US-07's offline guarantee rests on the IndexedDB path, not the substitute.
 describe.each(ADAPTERS)(
@@ -57,6 +76,160 @@ describe.each(ADAPTERS)(
   (_name, makeAdapter) => {
     beforeEach(() => setStorageAdapter(makeAdapter()))
     afterEach(() => setStorageAdapter(null))
+
+    describe('workspaces', () => {
+      it('creates a workspace with a trimmed name, topic and description', async () => {
+        const workspace = await createWorkspace({
+          name: '  Memory & learning ',
+          topic: 'Psychology',
+          description: 'Week 3 readings',
+        })
+
+        expect(workspace).toMatchObject({
+          name: 'Memory & learning',
+          topic: 'Psychology',
+          description: 'Week 3 readings',
+        })
+        expect(await getWorkspace(workspace.id)).toEqual(workspace)
+      })
+
+      it('requires a name', async () => {
+        await expect(createWorkspace({ name: '   ' })).rejects.toThrow(
+          TypeError,
+        )
+      })
+
+      it('lists workspaces, most recently updated first', async () => {
+        const now = vi.spyOn(Date, 'now')
+        now.mockReturnValue(1000)
+        const older = await createWorkspace({ name: 'Older' })
+        now.mockReturnValue(2000)
+        await createWorkspace({ name: 'Newer' })
+        now.mockReturnValue(3000)
+        await updateWorkspace(older.id, { topic: 'Touched' })
+        now.mockRestore()
+
+        expect((await listWorkspaces()).map(({ name }) => name)).toEqual([
+          'Older',
+          'Newer',
+        ])
+      })
+
+      it('updates only the fields given, and keeps a name', async () => {
+        const workspace = await createWorkspace({ name: 'A', topic: 'T' })
+
+        const updated = await updateWorkspace(workspace.id, { name: 'B' })
+        expect(updated).toMatchObject({ name: 'B', topic: 'T' })
+        await expect(
+          updateWorkspace(workspace.id, { name: ' ' }),
+        ).rejects.toThrow(TypeError)
+        await expect(updateWorkspace('nope', {})).rejects.toThrow(
+          /No workspace/,
+        )
+      })
+
+      it('creates the default workspace once, on first use', async () => {
+        const first = await ensureDefaultWorkspace()
+        const second = await ensureDefaultWorkspace()
+
+        expect(first).toEqual(second)
+        expect(first).toMatchObject({ id: DEFAULT_WORKSPACE.id })
+        expect(await listWorkspaces()).toHaveLength(1)
+      })
+
+      it('files a material without a workspace under the default one', async () => {
+        const { workspaceId, ...unfiled } = makeDocument()
+        const stored = await saveDocument(unfiled)
+
+        expect(workspaceId).toBe(DEFAULT_WORKSPACE.id)
+        expect(stored.workspaceId).toBe(DEFAULT_WORKSPACE.id)
+        expect(await getWorkspace(DEFAULT_WORKSPACE.id)).toBeDefined()
+      })
+
+      it('refuses a material for a workspace that does not exist', async () => {
+        await expect(
+          saveDocument(makeDocument({ workspaceId: 'nope' })),
+        ).rejects.toThrow(/No workspace/)
+      })
+
+      it('lists only a workspace’s own materials and conversations', async () => {
+        const biology = await createWorkspace({ name: 'Biology' })
+        const history = await createWorkspace({ name: 'History' })
+        await saveDocument(makeDocument({ id: 'cell' }), biology.id)
+        await saveDocument(makeDocument({ id: 'rome' }), history.id)
+        const chat = await createConversation({
+          workspaceId: biology.id,
+          materialIds: ['cell'],
+        })
+
+        expect(
+          (await listWorkspaceDocuments(biology.id)).map(({ id }) => id),
+        ).toEqual(['cell'])
+        expect(await listWorkspaceConversations(biology.id)).toEqual([chat])
+        expect(await listWorkspaceConversations(history.id)).toEqual([])
+      })
+
+      it('never lets a conversation use another workspace’s material (US-08 AC3)', async () => {
+        const biology = await createWorkspace({ name: 'Biology' })
+        const history = await createWorkspace({ name: 'History' })
+        await saveDocument(makeDocument({ id: 'cell' }), biology.id)
+        await saveDocument(makeDocument({ id: 'rome' }), history.id)
+
+        await expect(
+          createConversation({
+            workspaceId: biology.id,
+            materialIds: ['cell', 'rome'],
+          }),
+        ).rejects.toThrow(/not in workspace/)
+        await expect(
+          createConversation({
+            workspaceId: biology.id,
+            materialIds: ['missing'],
+          }),
+        ).rejects.toThrow(/not in workspace/)
+        expect(await listWorkspaceConversations(biology.id)).toEqual([])
+      })
+
+      it('deletes a workspace with its materials, conversations and messages', async () => {
+        const biology = await createWorkspace({ name: 'Biology' })
+        const kept = await createWorkspace({ name: 'Kept' })
+        await saveDocument(makeDocument({ id: 'cell' }), biology.id)
+        await saveDocument(makeDocument({ id: 'other' }), kept.id)
+        const conversation = await createConversation({
+          workspaceId: biology.id,
+          materialIds: ['cell'],
+        })
+        await appendMessage({
+          conversationId: conversation.id,
+          role: 'user',
+          content: 'Why?',
+        })
+
+        await deleteWorkspace(biology.id)
+
+        expect(await getWorkspace(biology.id)).toBeUndefined()
+        expect(await getDocument('cell')).toBeUndefined()
+        expect(await getConversation(conversation.id)).toBeUndefined()
+        expect(await listMessages(conversation.id)).toEqual([])
+        expect(await getDocument('other')).toBeDefined()
+      })
+
+      it('keeps the whole workspace when its delete fails part-way', async () => {
+        const adapter = makeAdapter()
+        setStorageAdapter(adapter)
+        const biology = await createWorkspace({ name: 'Biology' })
+        await saveDocument(makeDocument({ id: 'cell' }), biology.id)
+        vi.spyOn(adapter, 'commit').mockRejectedValueOnce(
+          new Error('write failed'),
+        )
+
+        await expect(deleteWorkspace(biology.id)).rejects.toThrow(
+          'write failed',
+        )
+        expect(await getWorkspace(biology.id)).toBeDefined()
+        expect(await getDocument('cell')).toBeDefined()
+      })
+    })
 
     describe('documents', () => {
       it('round-trips a document with every source reference intact (US-07)', async () => {
@@ -107,10 +280,7 @@ describe.each(ADAPTERS)(
 
       it('deletes a document together with its conversations and messages', async () => {
         await saveDocument(makeDocument())
-        const conversation = await createConversation({
-          documentId: 'doc-1',
-          title: 'Chapter 1',
-        })
+        const conversation = await chat('doc-1', 'Chapter 1')
         await appendMessage({
           conversationId: conversation.id,
           role: 'user',
@@ -128,7 +298,7 @@ describe.each(ADAPTERS)(
         const adapter = makeAdapter()
         setStorageAdapter(adapter)
         await saveDocument(makeDocument())
-        const conversation = await createConversation({ documentId: 'doc-1' })
+        const conversation = await chat('doc-1')
         await appendMessage({
           conversationId: conversation.id,
           role: 'user',
@@ -136,7 +306,7 @@ describe.each(ADAPTERS)(
         })
         // Simulates the batch failing (quota, tab closed mid-write): nothing
         // may be removed one-by-one before it.
-        vi.spyOn(adapter, 'removeMany').mockRejectedValueOnce(
+        vi.spyOn(adapter, 'commit').mockRejectedValueOnce(
           new Error('write failed'),
         )
 
@@ -147,13 +317,29 @@ describe.each(ADAPTERS)(
         expect(await listMessages(conversation.id)).toHaveLength(1)
       })
 
+      it('keeps a chat that still has other materials, minus the deleted one', async () => {
+        await saveDocument(makeDocument())
+        await saveDocument(makeDocument({ id: 'doc-2', name: 'Other.pdf' }))
+        const both = await createConversation({
+          workspaceId: DEFAULT_WORKSPACE.id,
+          materialIds: ['doc-1', 'doc-2'],
+        })
+        await appendMessage({
+          conversationId: both.id,
+          role: 'user',
+          content: 'Compare them',
+        })
+
+        await deleteDocument('doc-1')
+
+        expect((await getConversation(both.id))?.materialIds).toEqual(['doc-2'])
+        expect(await listMessages(both.id)).toHaveLength(1)
+      })
+
       it('leaves another document’s conversations alone when one is deleted', async () => {
         await saveDocument(makeDocument())
         await saveDocument(makeDocument({ id: 'doc-2', name: 'Other.pdf' }))
-        const kept = await createConversation({
-          documentId: 'doc-2',
-          title: 'Keep me',
-        })
+        const kept = await chat('doc-2', 'Keep me')
 
         await deleteDocument('doc-1')
 
@@ -162,14 +348,18 @@ describe.each(ADAPTERS)(
     })
 
     describe('conversations', () => {
+      // Conversations may only use materials stored in their workspace.
+      beforeEach(async () => {
+        await saveDocument(makeDocument())
+        await saveDocument(makeDocument({ id: 'doc-2', name: 'Other.pdf' }))
+      })
+
       it('creates a conversation with timestamps and a generated id', async () => {
-        const conversation = await createConversation({
-          documentId: 'doc-1',
-          title: 'Chapter 1',
-        })
+        const conversation = await chat('doc-1', 'Chapter 1')
 
         expect(conversation).toMatchObject({
-          documentId: 'doc-1',
+          workspaceId: DEFAULT_WORKSPACE.id,
+          materialIds: ['doc-1'],
           title: 'Chapter 1',
         })
         expect(conversation.id).toEqual(expect.any(String))
@@ -178,12 +368,15 @@ describe.each(ADAPTERS)(
       })
 
       it('defaults the title when none is given', async () => {
-        const conversation = await createConversation({ documentId: 'doc-1' })
+        const conversation = await chat('doc-1')
         expect(conversation.title).toBe('Untitled conversation')
       })
 
-      it('requires a documentId', async () => {
+      it('requires a workspace and at least one material', async () => {
         await expect(createConversation({})).rejects.toThrow(TypeError)
+        await expect(
+          createConversation({ workspaceId: DEFAULT_WORKSPACE.id }),
+        ).rejects.toThrow(TypeError)
         // Deliberately missing: the runtime guard is what is under test.
         await expect(
           listConversations(undefined as unknown as string),
@@ -197,16 +390,10 @@ describe.each(ADAPTERS)(
         const now = vi.spyOn(Date, 'now')
 
         now.mockReturnValue(1000)
-        const older = await createConversation({
-          documentId: 'doc-1',
-          title: 'Older',
-        })
+        const older = await chat('doc-1', 'Older')
         now.mockReturnValue(2000)
-        const newer = await createConversation({
-          documentId: 'doc-1',
-          title: 'Newer',
-        })
-        await createConversation({ documentId: 'doc-2', title: 'Elsewhere' })
+        const newer = await chat('doc-1', 'Newer')
+        await chat('doc-2', 'Elsewhere')
         now.mockReturnValue(3000)
         await renameConversation(newer.id, 'Newer still')
         now.mockRestore()
@@ -221,11 +408,11 @@ describe.each(ADAPTERS)(
       it('lists recent conversations across documents, newest first', async () => {
         const now = vi.spyOn(Date, 'now')
         now.mockReturnValue(1000)
-        await createConversation({ documentId: 'doc-1', title: 'First' })
+        await chat('doc-1', 'First')
         now.mockReturnValue(2000)
-        await createConversation({ documentId: 'doc-2', title: 'Second' })
+        await chat('doc-2', 'Second')
         now.mockReturnValue(3000)
-        await createConversation({ documentId: 'doc-1', title: 'Third' })
+        await chat('doc-1', 'Third')
         now.mockRestore()
 
         const titles = async (limit?: number) =>
@@ -238,7 +425,7 @@ describe.each(ADAPTERS)(
         const listener = vi.fn()
         const unsubscribe = subscribeToConversations(listener)
 
-        const conversation = await createConversation({ documentId: 'doc-1' })
+        const conversation = await chat('doc-1')
         await appendMessage({
           conversationId: conversation.id,
           role: 'user',
@@ -249,7 +436,7 @@ describe.each(ADAPTERS)(
         expect(listener).toHaveBeenCalledTimes(4)
 
         unsubscribe()
-        await createConversation({ documentId: 'doc-1' })
+        await chat('doc-1')
         expect(listener).toHaveBeenCalledTimes(4)
       })
 
@@ -260,14 +447,8 @@ describe.each(ADAPTERS)(
       })
 
       it('deletes a conversation and its messages but keeps its siblings', async () => {
-        const doomed = await createConversation({
-          documentId: 'doc-1',
-          title: 'Doomed',
-        })
-        const kept = await createConversation({
-          documentId: 'doc-1',
-          title: 'Kept',
-        })
+        const doomed = await chat('doc-1', 'Doomed')
+        const kept = await chat('doc-1', 'Kept')
         await appendMessage({
           conversationId: doomed.id,
           role: 'user',
@@ -288,8 +469,10 @@ describe.each(ADAPTERS)(
     })
 
     describe('messages', () => {
+      beforeEach(() => saveDocument(makeDocument()))
+
       it('stores assistant grounding fields and keeps them off user messages', async () => {
-        const conversation = await createConversation({ documentId: 'doc-1' })
+        const conversation = await chat('doc-1')
 
         const question = await appendMessage({
           conversationId: conversation.id,
@@ -317,7 +500,7 @@ describe.each(ADAPTERS)(
       })
 
       it('defaults an assistant message to unanswerable with no citations', async () => {
-        const conversation = await createConversation({ documentId: 'doc-1' })
+        const conversation = await chat('doc-1')
         const answer = await appendMessage({
           conversationId: conversation.id,
           role: 'assistant',
@@ -328,7 +511,7 @@ describe.each(ADAPTERS)(
       })
 
       it('replays messages in the order they were written', async () => {
-        const conversation = await createConversation({ documentId: 'doc-1' })
+        const conversation = await chat('doc-1')
         for (const [index, content] of ['first', 'second', 'third'].entries()) {
           await appendMessage({
             conversationId: conversation.id,
@@ -346,7 +529,7 @@ describe.each(ADAPTERS)(
       })
 
       it('touches the conversation so recent activity sorts first', async () => {
-        const conversation = await createConversation({ documentId: 'doc-1' })
+        const conversation = await chat('doc-1')
         await appendMessage({
           conversationId: conversation.id,
           role: 'user',
@@ -360,7 +543,7 @@ describe.each(ADAPTERS)(
       })
 
       it('rejects an unknown conversation, a missing id, or a bad role', async () => {
-        const conversation = await createConversation({ documentId: 'doc-1' })
+        const conversation = await chat('doc-1')
 
         await expect(
           appendMessage({ conversationId: 'nope', role: 'user', content: 'x' }),
