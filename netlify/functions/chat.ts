@@ -1,11 +1,9 @@
 import type { Authenticate } from '../../server/auth/types.ts'
 import { createAuthenticatorFromEnv } from '../../server/auth/verify-access-token.ts'
 import { handleChat } from '../../server/chat/handle-chat.ts'
+import { CHAT_BODY_LIMIT_BYTES } from '../../server/chat/limits.ts'
 import { createAnswererFromEnv } from '../../server/llm/answerer-from-env.ts'
 import type { Answerer } from '../../server/llm/claude-answerer.ts'
-
-/** Matches Express's `express.json({ limit: '1mb' })`, so both servers agree. */
-export const MAX_BODY_BYTES = 1024 * 1024
 
 export interface ChatFunctionOptions {
   answer: Answerer | null
@@ -31,9 +29,9 @@ export function createChatFunction({
     // A declared length is free to check; the read below still enforces the
     // cap for bodies that lie about it or stream without one.
     const declared = Number(request.headers.get('content-length'))
-    if (declared > MAX_BODY_BYTES) return tooLarge()
+    if (declared > CHAT_BODY_LIMIT_BYTES) return tooLarge()
 
-    const text = await readCapped(request, MAX_BODY_BYTES)
+    const text = await readCapped(request, CHAT_BODY_LIMIT_BYTES)
     if (text === null) return tooLarge()
 
     let body: unknown
@@ -81,8 +79,9 @@ export default createChatFunction({ answer: createAnswererFromEnv() })
 
 export const config = {
   path: '/api/chat',
-  // Netlify's per-IP limit (429 when exceeded), matching the Express dev
-  // server. Function rate limits can only be set here, not in netlify.toml.
+  // Netlify's per-IP limit (429 when exceeded). Netlify reads this object
+  // statically at deploy, so it must stay literal; a test keeps it equal to
+  // server/chat/limits.ts. Function rate limits can't go in netlify.toml.
   rateLimit: {
     windowLimit: 20,
     windowSize: 60,

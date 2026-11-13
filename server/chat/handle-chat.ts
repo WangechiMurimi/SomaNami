@@ -39,8 +39,9 @@ export async function handleChat(
   body: unknown,
   { answer, authenticate, authorization }: ChatDependencies,
 ): Promise<HandlerResponse> {
-  // Authenticate first, so anonymous traffic costs neither parsing nor a model
-  // call. The header is never logged: it is a live credential.
+  // Authenticate before validation, so anonymous traffic never reaches the
+  // model. (The transport has already parsed the body; its 1 MB cap and rate
+  // limit bound that cost.) The header is never logged: it is a live credential.
   const session = await authenticate(authorization)
   if (!session.ok) {
     return session.reason === 'not-configured'

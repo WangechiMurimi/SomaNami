@@ -50,13 +50,28 @@ export function createAuthenticator({
       const user = toUser(payload.sub, payload.aal)
       return user ? { ok: true, user } : fail('invalid')
     } catch (error) {
-      // The client refreshes and retries on `expired`; everything else is a
-      // forged, foreign or broken token. The token itself is never logged.
-      return error instanceof errors.JWTExpired
-        ? fail('expired')
-        : fail('invalid')
+      // The token itself is never logged, only that keys were unreachable.
+      if (error instanceof errors.JWTExpired) return fail('expired')
+      if (isKeySetUnavailable(error)) {
+        console.error('Could not load the Supabase signing keys')
+        return fail('not-configured')
+      }
+      return fail('invalid')
     }
   }
+}
+
+/**
+ * True when the signing keys couldn't be fetched (timeout, network, bad
+ * response), which is the server's problem, not the caller's. Answering 401
+ * here would tell every signed-in user their session ended.
+ */
+function isKeySetUnavailable(error: unknown): boolean {
+  if (error instanceof errors.JWKSTimeout) return true
+  // Fetch failures surface as plain errors; jose's own non-200 and bad-JSON
+  // responses use the base class. Every token problem uses a subclass.
+  if (!(error instanceof errors.JOSEError)) return true
+  return error.constructor === errors.JOSEError
 }
 
 function toUser(sub: unknown, aal: unknown): VerifiedUser | null {
@@ -70,13 +85,14 @@ function toUser(sub: unknown, aal: unknown): VerifiedUser | null {
 const notConfigured: Authenticate = async () => fail('not-configured')
 
 /**
- * Builds the authenticator from `SUPABASE_URL` (server-side only; the browser
- * reads `VITE_SUPABASE_URL`). Without it every request is refused as
- * `not-configured`, so a misconfigured deploy fails closed.
+ * Builds the authenticator from `SUPABASE_URL`, falling back to the browser's
+ * `VITE_SUPABASE_URL` (the same public project URL) so one setting suffices.
+ * Without either every request is refused as `not-configured`, so a
+ * misconfigured deploy fails closed.
  */
 export function createAuthenticatorFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): Authenticate {
-  const supabaseUrl = env.SUPABASE_URL?.trim()
+  const supabaseUrl = env.SUPABASE_URL?.trim() || env.VITE_SUPABASE_URL?.trim()
   return supabaseUrl ? createAuthenticator({ supabaseUrl }) : notConfigured
 }
