@@ -31,7 +31,7 @@ export default function AuthLayout({
       </header>
       <main
         className={`mx-auto w-full px-4 pt-8 pb-24 md:pt-14 ${
-          wide ? 'max-w-[46rem]' : 'max-w-[28rem]'
+          wide ? 'max-w-[46rem]' : 'max-w-[32rem]'
         }`}
       >
         <h1 className={H1}>{title}</h1>

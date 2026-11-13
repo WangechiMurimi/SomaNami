@@ -18,9 +18,9 @@ export default function PrivacyPage() {
             don’t upload them to our servers.
           </li>
           <li>
-            When you ask a question, we send <strong>only your question</strong>
-            , the earlier messages in that chat, and the parts of your materials
-            that match it, so the AI can answer.
+            When you ask a question, we send <strong>your question</strong>, the
+            earlier messages in that chat, and the parts of your materials that
+            match it, so the AI can answer.
           </li>
           <li>
             Your account holds your email and a scrambled (hashed) password. We
