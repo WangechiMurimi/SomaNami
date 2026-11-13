@@ -10,13 +10,14 @@ import type {
   Workspace,
 } from '../../types/contracts.ts'
 import type { Change, StorageAdapter } from './adapter.ts'
-import { createIndexedDbAdapter } from './indexeddb-adapter.ts'
+import { createIndexedDbAdapter, deleteDatabase } from './indexeddb-adapter.ts'
 import { createMemoryAdapter } from './memory-adapter.ts'
 import {
   CONVERSATIONS,
   DEFAULT_WORKSPACE,
   DOCUMENTS,
   MESSAGES,
+  userDbName,
   WORKSPACES,
 } from './schema.ts'
 
@@ -31,41 +32,94 @@ export {
   DOCUMENTS,
   MESSAGES,
   STORES,
+  userDbName,
   WORKSPACES,
 } from './schema.ts'
 
-let adapter: StorageAdapter | undefined
+let injected: StorageAdapter | undefined
+
+interface UserStore {
+  userId: string
+  adapter: StorageAdapter
+}
+
+let current: UserStore | undefined
+
+// Without IndexedDB nothing survives a reload anyway, but each user still gets
+// their own store, kept for the session so switching back finds it again.
+const memoryStores = new Map<string, StorageAdapter>()
 
 /**
  * Swaps the backing store; tests inject a fake one, the app leaves it alone.
- * Pass `null` to fall back to IndexedDB again.
+ * An injected adapter stands in for every user's store. Pass `null` to go
+ * back to per-user stores.
  */
 export function setStorageAdapter(next: StorageAdapter | null): void {
-  adapter = next ?? undefined
+  injected = next ?? undefined
 }
 
-// TODO(#114): WS-D gives each user a private database and makes storage calls
-// fail while no user store is open. Until then these keep the shared store.
+function adapterFor(userId: string): StorageAdapter {
+  const factory = globalThis.indexedDB
+  if (factory)
+    return createIndexedDbAdapter(factory, { name: userDbName(userId) })
+  let adapter = memoryStores.get(userId)
+  if (!adapter) {
+    adapter = createMemoryAdapter()
+    memoryStores.set(userId, adapter)
+  }
+  return adapter
+}
 
 /** Opens the signed-in user's private store; later storage calls read and write it. */
 export async function openUserStore(userId: string): Promise<void> {
-  void userId
+  assert(userId, 'openUserStore needs a userId')
+  if (injected) return
+  if (current?.userId !== userId) {
+    // Switch synchronously, so whichever open is called last wins even if an
+    // earlier one is still waiting on its database.
+    const previous = current
+    current = { userId, adapter: adapterFor(userId) }
+    void previous?.adapter.close()
+  }
+  const opening = current
+  // Open now, so a database that won't open fails here, at the gate, rather
+  // than on the first screen that reads it.
+  await opening.adapter.get(DOCUMENTS, '')
+  // Closed or switched while it was opening: don't keep a connection that
+  // would block deleting this user's database.
+  if (current !== opening) await opening.adapter.close()
 }
 
 /** Closes the current user's store on sign-out or user switch. */
-export function closeUserStore(): void {}
+export function closeUserStore(): void {
+  const closing = current
+  current = undefined
+  void closing?.adapter.close()
+}
 
 /** Deletes one user's materials from this device, for shared computers. */
 export async function removeUserStore(userId: string): Promise<void> {
-  void userId
+  if (current?.userId === userId) {
+    const closing = current
+    current = undefined
+    // The delete waits on every open connection, ours included.
+    await closing.adapter.close()
+  }
+  memoryStores.delete(userId)
+  const factory = globalThis.indexedDB
+  if (factory) await deleteDatabase(factory, userDbName(userId))
 }
 
-// Some browsers (and private-browsing modes) expose no IndexedDB; the app
-// still works for the session, it just cannot keep documents across reloads.
-const store = (): StorageAdapter =>
-  (adapter ??= globalThis.indexedDB
-    ? createIndexedDbAdapter()
-    : createMemoryAdapter())
+const store = (): StorageAdapter => {
+  if (injected) return injected
+  // Falling back to a shared store here would mix one user's materials into
+  // another's, so a call made before sign-in fails loudly instead.
+  if (!current)
+    throw new Error(
+      'No user store is open: storage is only available inside <UserStoreGate>',
+    )
+  return current.adapter
+}
 
 const newId = (): string => crypto.randomUUID()
 
