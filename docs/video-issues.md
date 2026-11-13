@@ -62,7 +62,7 @@ Videos and documents should share one internal format so the learning modes work
 - [ ] Return timestamped fragments, preferring creator captions over auto-generated
 - [ ] Build a "Paste transcript" input that feeds the same next step
 
-**Depends on:** Spike
+**Depends on:** #59
 ```
 
 ```markdown
@@ -75,7 +75,7 @@ Videos and documents should share one internal format so the learning modes work
 - [ ] Skip cleanup for creator-uploaded captions
 - [ ] Store raw and cleaned text
 
-**Depends on:** Shared schema, caption fetching
+**Depends on:** #60, #62
 ```
 
 ```markdown
@@ -88,7 +88,7 @@ Videos and documents should share one internal format so the learning modes work
 - [ ] Validate that every cited segment ID exists; drop or flag invalid ones
 - [ ] Use prompt caching for repeated transcript calls
 
-**Depends on:** Normalize
+**Depends on:** #63
 ```
 
 ```markdown
@@ -100,7 +100,7 @@ Videos and documents should share one internal format so the learning modes work
 - [ ] Connect existing visual, map and audio modes to video sources
 - [ ] Ground Q&A in retrieved segments, not the full transcript
 
-**Depends on:** Shared schema, understand
+**Depends on:** #60, #64
 ```
 
 ```markdown
