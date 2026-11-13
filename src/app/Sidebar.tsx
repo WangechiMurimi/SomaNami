@@ -117,8 +117,8 @@ function DeviceStatus() {
         On this device
       </h2>
       <p className="mt-2 text-xs leading-[18px] text-muted">
-        Your materials and chats are saved here and work offline. Asking new
-        questions needs a connection.
+        Your materials and chats are saved to your account on this device and
+        work offline. Asking new questions needs a connection.
       </p>
       <p
         className="mt-3 flex items-center gap-2 text-xs font-medium"
