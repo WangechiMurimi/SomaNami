@@ -28,6 +28,10 @@ dist-ssr
 *.sln
 *.sw?
 
+# Local Claude Code state; only the shared .claude/settings.json is tracked.
+.claude/worktrees/
+.claude/settings.local.json
+
 # Python
 .venv/
 __pycache__/
