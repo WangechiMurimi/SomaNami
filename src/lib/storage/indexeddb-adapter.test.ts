@@ -1,6 +1,6 @@
 import { IDBFactory } from 'fake-indexeddb'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { createIndexedDbAdapter } from './indexeddb-adapter.ts'
+import { createIndexedDbAdapter, deleteDatabase } from './indexeddb-adapter.ts'
 import {
   CONVERSATIONS,
   DB_NAME,
@@ -206,5 +206,67 @@ describe('createIndexedDbAdapter', () => {
 
     expect(count).toBe(1)
     db.close()
+  })
+
+  describe('after close (#124)', () => {
+    it('stays closed rather than recreating a removed database', async () => {
+      const adapter = createIndexedDbAdapter(factory)
+      await adapter.put(DOCUMENTS, { id: 'doc-1' })
+      await adapter.close()
+      await deleteDatabase(factory, DB_NAME)
+
+      // A call still holding this adapter, say one that started before the
+      // owner removed their materials, must not bring the database back.
+      await expect(adapter.put(DOCUMENTS, { id: 'doc-2' })).rejects.toThrow(
+        /closed/,
+      )
+      await expect(adapter.get(DOCUMENTS, 'doc-1')).rejects.toThrow(/closed/)
+      expect(await factory.databases()).toEqual([])
+    })
+  })
+})
+
+describe('deleteDatabase (#124)', () => {
+  let factory: IDBFactory
+
+  beforeEach(() => {
+    factory = new IDBFactory()
+  })
+
+  const pending = Symbol('pending')
+  // Whether the promise has settled yet, without waiting for it to.
+  const settledYet = (promise: Promise<unknown>) =>
+    Promise.race([
+      promise.then(() => 'resolved'),
+      new Promise((resolve) => setTimeout(() => resolve(pending), 50)),
+    ])
+
+  it('waits while another tab holds the database, until it lets go', async () => {
+    const other = await openRaw(factory)
+    // Unlike our adapter, this connection doesn't step aside by itself.
+    let release = () => {}
+    const released = new Promise<void>((resolve) => {
+      release = () => {
+        other.close()
+        resolve()
+      }
+    })
+
+    const deleting = deleteDatabase(factory, DB_NAME)
+    expect(await settledYet(deleting)).toBe(pending)
+
+    release()
+    await released
+    await expect(deleting).resolves.toBeUndefined()
+    expect(await factory.databases()).toEqual([])
+  })
+
+  it('finishes at once when our own adapter is the other connection', async () => {
+    const adapter = createIndexedDbAdapter(factory)
+    await adapter.put(DOCUMENTS, { id: 'doc-1' })
+
+    // The adapter closes itself on `versionchange`, so nothing blocks.
+    await deleteDatabase(factory, DB_NAME)
+    expect(await factory.databases()).toEqual([])
   })
 })

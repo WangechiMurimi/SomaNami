@@ -97,7 +97,10 @@ export async function moveLegacyMaterials({
     // The delete below waits on every open connection, this one included.
     await legacy.close()
   }
-  await deleteDatabase(factory, DB_NAME)
+  // Every record is already copied and checked. A tab still running the
+  // version from before accounts never lets go of this database, so don't
+  // wait on it: the queued delete finishes once that tab closes.
+  await deleteDatabase(factory, DB_NAME, { evenIfBlocked: true })
 }
 
 /** Whether this user chose to leave the legacy materials aside. */

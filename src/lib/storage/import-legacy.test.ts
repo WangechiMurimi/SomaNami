@@ -124,6 +124,22 @@ describe.each(ADAPTERS)(
       expect(await hasLegacyMaterials(factory)).toBe(false)
     })
 
+    it('finishes even while a tab from before accounts holds the old database', async () => {
+      // That version never closes its connection when asked to.
+      const oldTab = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = factory.open(DB_NAME)
+        request.onsuccess = () => resolve(request.result)
+        request.onerror = () => reject(request.error)
+      })
+
+      await moveLegacyMaterials({ factory, target })
+      expect(await target.getAll(DOCUMENTS)).toEqual(RECORDS[DOCUMENTS])
+
+      // The queued delete completes once that tab goes away.
+      oldTab.close()
+      await expect.poll(() => databaseNames(factory)).not.toContain(DB_NAME)
+    })
+
     it('keeps what the user already had', async () => {
       const own = {
         id: 'doc-own',
