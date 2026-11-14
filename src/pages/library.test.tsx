@@ -1,7 +1,7 @@
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import App from '../App.tsx'
+import { renderSignedInApp } from '../features/auth/testing/render-app.tsx'
 import {
   createConversation,
   createMemoryAdapter,
@@ -34,7 +34,7 @@ const table = () => screen.findByRole('table', { name: 'Your materials' })
 
 describe('Library', () => {
   it('shows each material’s type and workspace', async () => {
-    render(<App />)
+    await renderSignedInApp()
 
     const row = within(await table()).getByRole('row', { name: /cells\.pdf/ })
     expect(row).toHaveTextContent('PDF')
@@ -51,7 +51,7 @@ describe('Library', () => {
   })
 
   it('filters by type and says how many are shown', async () => {
-    render(<App />)
+    await renderSignedInApp()
     await table()
     const filters = within(
       screen.getByRole('group', { name: 'Filter by type' }),
@@ -70,7 +70,7 @@ describe('Library', () => {
   })
 
   it('uploads into the chosen workspace', async () => {
-    render(<App />)
+    await renderSignedInApp()
     await userEvent.selectOptions(
       await screen.findByLabelText('Add to workspace'),
       'Biology',
@@ -101,7 +101,7 @@ describe('Removing a material (US-08 AC5)', () => {
       workspaceId: biology.id,
       materialIds: ['cells', 'notes'],
     })
-    render(<App />)
+    await renderSignedInApp()
 
     await userEvent.click(await removeButton('cells.pdf'))
 
@@ -118,7 +118,7 @@ describe('Removing a material (US-08 AC5)', () => {
   })
 
   it('keeps everything when cancelled, and returns focus', async () => {
-    render(<App />)
+    await renderSignedInApp()
     const button = await removeButton('cells.pdf')
 
     await userEvent.click(button)
@@ -138,7 +138,7 @@ describe('Removing a material (US-08 AC5)', () => {
       workspaceId: biology.id,
       materialIds: ['cells', 'notes'],
     })
-    render(<App />)
+    await renderSignedInApp()
 
     await userEvent.click(await removeButton('cells.pdf'))
     const dialog = await screen.findByRole('alertdialog')

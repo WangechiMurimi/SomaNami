@@ -4,6 +4,11 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.tsx'
 import {
+  fakeSession,
+  installFakeSupabase,
+} from './features/auth/testing/fake-supabase.ts'
+import { setSupabaseClient } from './lib/auth/supabase-client.ts'
+import {
   createConversation,
   createMemoryAdapter,
   DEFAULT_WORKSPACE,
@@ -33,11 +38,22 @@ const parsedPdf: ParsedFile = {
 }
 
 // A fresh store per test, so documents saved by one test never leak into the next.
+// Every screen needs sign-in, so each test starts with a signed-in fake session.
 beforeEach(() => {
+  installFakeSupabase({ session: fakeSession() })
   setStorageAdapter(createMemoryAdapter())
   // BrowserRouter reads the real URL, which jsdom keeps between tests.
   window.history.pushState({}, '', '/')
 })
+
+afterEach(() => setSupabaseClient(undefined))
+
+/** Renders the app and waits for the saved session to be restored. */
+async function renderApp() {
+  const view = render(<App />)
+  await screen.findByRole('navigation', { name: 'Main' })
+  return view
+}
 
 const uploadRegion = () =>
   within(screen.getByRole('region', { name: 'Upload' }))
@@ -51,8 +67,8 @@ describe('document upload', () => {
     startInLibrary()
   })
 
-  it('lists DOCX among the supported formats', () => {
-    render(<App />)
+  it('lists DOCX among the supported formats', async () => {
+    await renderApp()
     expect(
       screen.getByText('PDF, DOCX, TXT or Markdown, up to 20 MB'),
     ).toBeInTheDocument()
@@ -60,7 +76,7 @@ describe('document upload', () => {
   })
 
   it('shows a ready state with passage count after a valid upload', async () => {
-    render(<App />)
+    await renderApp()
     const file = new File(['first\n\nsecond'], 'class-notes.txt', {
       type: 'text/plain',
     })
@@ -75,7 +91,7 @@ describe('document upload', () => {
   it('shows the file name while it is being processed', async () => {
     let finish: (parsed: ParsedFile) => void = () => {}
     vi.mocked(parsePdf).mockReturnValue(new Promise((r) => (finish = r)))
-    render(<App />)
+    await renderApp()
     await userEvent.upload(input(), pdf())
 
     const status = await uploadRegion().findByRole('status')
@@ -89,7 +105,7 @@ describe('document upload', () => {
   })
 
   it('shows a clear, dismissable error when an unsupported file is dropped', async () => {
-    render(<App />)
+    await renderApp()
     // Drop bypasses the input's `accept` filter, as in a real drag-and-drop.
     const zone = input().closest('label')
     expect(zone).not.toBeNull()
@@ -109,7 +125,7 @@ describe('document upload', () => {
   })
 
   it('rejects a renamed file by its contents, then recovers with a valid one', async () => {
-    render(<App />)
+    await renderApp()
     const fake = new File(
       [new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0])],
       'a.docx',
@@ -127,7 +143,7 @@ describe('document upload', () => {
   })
 
   it('lets the same file be chosen again after an error', async () => {
-    render(<App />)
+    await renderApp()
     const empty = new File([], 'empty.txt')
     await userEvent.upload(input(), empty)
     await userEvent.click(
@@ -148,7 +164,7 @@ describe('document upload', () => {
         }),
       )
       .mockResolvedValueOnce(parsedPdf)
-    render(<App />)
+    await renderApp()
     await userEvent.upload(input(), pdf())
 
     const alert = await screen.findByRole('alert')
@@ -160,7 +176,7 @@ describe('document upload', () => {
   })
 
   it('reads a real .docx end to end', async () => {
-    render(<App />)
+    await renderApp()
     await userEvent.upload(input(), new File([DOCX_FIXTURE], 'ball.docx'))
 
     expect(await screen.findByText('✓ Ready to explore')).toBeInTheDocument()
@@ -170,7 +186,7 @@ describe('document upload', () => {
   })
 
   it('does not offer Try again for a damaged file', async () => {
-    render(<App />)
+    await renderApp()
     // Valid ZIP signature, so it passes the content check but fails parsing.
     const corrupt = new File([DOCX_FIXTURE.subarray(0, 200)], 'broken.docx')
     await userEvent.upload(input(), corrupt)
@@ -182,7 +198,7 @@ describe('document upload', () => {
   })
 
   it('reports an empty file', async () => {
-    render(<App />)
+    await renderApp()
     await userEvent.upload(input(), new File([], 'empty.txt'))
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'That file is empty.',
@@ -190,7 +206,7 @@ describe('document upload', () => {
   })
 
   it('lets the user dismiss the upload status without losing the document', async () => {
-    render(<App />)
+    await renderApp()
     await userEvent.upload(input(), new File(['hi'], 'a.txt'))
     await userEvent.click(
       await screen.findByRole('button', { name: 'Dismiss' }),
@@ -253,7 +269,7 @@ describe('asking about a document', () => {
 
   it('answers from the uploaded document and shows where the answer came from', async () => {
     const requests = serveChat(citeFirst)
-    render(<App />)
+    await renderApp()
     await uploadAndOpen(notes())
 
     await ask('What do mitochondria produce?')
@@ -272,7 +288,7 @@ describe('asking about a document', () => {
       answerable: false,
       citations: [],
     }))
-    render(<App />)
+    await renderApp()
     await uploadAndOpen(notes())
 
     await ask('Who won the 1998 World Cup?')
@@ -285,13 +301,13 @@ describe('asking about a document', () => {
 
   it('restores the conversation when the app is opened again', async () => {
     serveChat(citeFirst)
-    const { unmount } = render(<App />)
+    const { unmount } = await renderApp()
     await uploadAndOpen(notes())
     await ask('What do mitochondria produce?')
     await screen.findByText('They produce ATP.')
 
     unmount()
-    render(<App />)
+    await renderApp()
 
     expect(await screen.findByText('They produce ATP.')).toBeInTheDocument()
     expect(
@@ -304,7 +320,7 @@ describe('asking about a document', () => {
 
   it('sends earlier turns as history with a follow-up question', async () => {
     const requests = serveChat(citeFirst)
-    render(<App />)
+    await renderApp()
     await uploadAndOpen(notes())
     await ask('What do mitochondria produce?')
     await screen.findByText('They produce ATP.')
@@ -320,7 +336,7 @@ describe('asking about a document', () => {
 
   it('keeps each material’s conversation separate', async () => {
     serveChat(citeFirst)
-    render(<App />)
+    await renderApp()
     await uploadAndOpen(notes())
     await ask('What do mitochondria produce?')
     await screen.findByText('They produce ATP.')
@@ -359,7 +375,7 @@ describe('asking about a document', () => {
       put: () => Promise.reject(new Error('QuotaExceededError')),
     }
     setStorageAdapter(failing)
-    render(<App />)
+    await renderApp()
 
     await userEvent.upload(input(), notes())
 
@@ -391,7 +407,7 @@ const chatAbout = (materialId: string, title: string) =>
 
 describe('app shell and navigation', () => {
   it('marks the current screen in the sidebar', async () => {
-    render(<App />)
+    await renderApp()
 
     expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute(
       'aria-current',
@@ -409,7 +425,7 @@ describe('app shell and navigation', () => {
 
   it('lists stored materials in the library table', async () => {
     startInLibrary()
-    render(<App />)
+    await renderApp()
     await userEvent.upload(input(), new File(['one\n\ntwo'], 'notes.txt'))
     await screen.findByText('✓ Ready to explore')
 
@@ -423,7 +439,7 @@ describe('app shell and navigation', () => {
 
   it('explains an empty library', async () => {
     window.history.pushState({}, '', '/library')
-    render(<App />)
+    await renderApp()
 
     expect(
       await screen.findByText(
@@ -434,7 +450,7 @@ describe('app shell and navigation', () => {
 
   it('explains a chat link to a material that is not on this device', async () => {
     window.history.pushState({}, '', '/chat/missing')
-    render(<App />)
+    await renderApp()
 
     expect(
       await screen.findByRole('heading', {
@@ -443,9 +459,9 @@ describe('app shell and navigation', () => {
     ).toBeInTheDocument()
   })
 
-  it('shows a not-found page for unknown addresses', () => {
+  it('shows a not-found page for unknown addresses', async () => {
     window.history.pushState({}, '', '/nowhere')
-    render(<App />)
+    await renderApp()
 
     expect(
       screen.getByRole('heading', { name: 'Page not found' }),
@@ -453,7 +469,7 @@ describe('app shell and navigation', () => {
   })
 
   it('opens and closes the menu on small screens', async () => {
-    render(<App />)
+    await renderApp()
     const open = screen.getByRole('button', { name: 'Open menu' })
 
     await userEvent.click(open)
@@ -463,16 +479,16 @@ describe('app shell and navigation', () => {
     expect(open).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('shows whether the device is online', () => {
-    render(<App />)
+  it('shows whether the device is online', async () => {
+    await renderApp()
 
     expect(
       screen.getByRole('region', { name: 'On this device' }),
     ).toHaveTextContent('Online')
   })
 
-  it('links to every screen from the sidebar', () => {
-    render(<App />)
+  it('links to every screen from the sidebar', async () => {
+    await renderApp()
     const nav = within(screen.getByRole('navigation', { name: 'Main' }))
 
     expect(
@@ -493,7 +509,7 @@ describe('app shell and navigation', () => {
   })
 
   it('says where recent chats will appear before there are any', async () => {
-    render(<App />)
+    await renderApp()
 
     expect(
       await screen.findByText('Chats you start will appear here.'),
@@ -508,7 +524,7 @@ describe('app shell and navigation', () => {
     now.mockReturnValue(2000)
     await chatAbout('doc-1', 'Why mitosis?')
     now.mockRestore()
-    render(<App />)
+    await renderApp()
 
     const recent = within(screen.getByRole('region', { name: 'Recent chats' }))
     const links = await recent.findAllByRole('link', { name: /\?$/ })
@@ -527,7 +543,7 @@ describe('app shell and navigation', () => {
     await saveCells()
     await chatAbout('doc-1', 'Old question')
     window.history.pushState({}, '', '/conversations')
-    render(<App />)
+    await renderApp()
 
     const item = await within(screen.getByRole('main')).findByRole('link', {
       name: /Old question/,
@@ -536,7 +552,7 @@ describe('app shell and navigation', () => {
   })
 
   it('opens the help page from the top bar', async () => {
-    render(<App />)
+    await renderApp()
 
     await userEvent.click(screen.getByRole('link', { name: 'Help' }))
     expect(

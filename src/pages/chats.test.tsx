@@ -1,7 +1,7 @@
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import App from '../App.tsx'
+import { renderSignedInApp } from '../features/auth/testing/render-app.tsx'
 import {
   appendMessage,
   createConversation,
@@ -45,10 +45,7 @@ beforeEach(async () => {
 
 afterEach(() => vi.restoreAllMocks())
 
-const open = (path: string) => {
-  window.history.pushState({}, '', path)
-  return render(<App />)
-}
+const open = (path: string) => renderSignedInApp(path)
 
 /** Answers every /api/chat call with its first passage, recording requests. */
 function serveChat() {
@@ -79,7 +76,7 @@ describe('Workspace page', () => {
       materialIds: ['cells'],
       title: 'What makes ATP?',
     })
-    open(`/workspaces/${workspace.id}`)
+    await open(`/workspaces/${workspace.id}`)
 
     const materials = within(
       await screen.findByRole('region', { name: /Materials/ }),
@@ -102,7 +99,7 @@ describe('Workspace page', () => {
   })
 
   it('adds pasted text to this workspace', async () => {
-    open(`/workspaces/${workspace.id}`)
+    await open(`/workspaces/${workspace.id}`)
 
     await userEvent.click(
       await screen.findByRole('button', { name: 'Add materials' }),
@@ -128,7 +125,7 @@ describe('Workspace page', () => {
 
   it('asks a question over every material from its composer', async () => {
     const requests = serveChat()
-    open(`/workspaces/${workspace.id}`)
+    await open(`/workspaces/${workspace.id}`)
 
     await userEvent.type(
       await screen.findByLabelText('Ask about Biology'),
@@ -144,7 +141,7 @@ describe('Workspace page', () => {
 
 describe('New chat', () => {
   it('starts with the material it was opened from', async () => {
-    open(`/workspaces/${workspace.id}/chats/new?material=plants`)
+    await open(`/workspaces/${workspace.id}/chats/new?material=plants`)
     const materials = await picker()
 
     expect(
@@ -159,7 +156,7 @@ describe('New chat', () => {
   })
 
   it('needs at least one material and a question before it can send', async () => {
-    open(`/workspaces/${workspace.id}/chats/new?material=plants`)
+    await open(`/workspaces/${workspace.id}/chats/new?material=plants`)
     const materials = await picker()
 
     await userEvent.click(materials.getByRole('button', { name: 'plants.txt' }))
@@ -172,7 +169,7 @@ describe('New chat', () => {
   })
 
   it('fills the question from a way of understanding', async () => {
-    open(`/workspaces/${workspace.id}/chats/new`)
+    await open(`/workspaces/${workspace.id}/chats/new`)
     await picker()
 
     await userEvent.click(
@@ -185,7 +182,7 @@ describe('New chat', () => {
 
   it('answers only from the chosen materials (US-08 AC3)', async () => {
     const requests = serveChat()
-    open(`/workspaces/${workspace.id}/chats/new?material=cells`)
+    await open(`/workspaces/${workspace.id}/chats/new?material=cells`)
     await picker()
 
     // The question matches plants.txt, which this chat did not choose.
@@ -216,7 +213,7 @@ describe('Chat', () => {
         citations: [],
       } satisfies ChatReply),
     )
-    open(`/workspaces/${workspace.id}/chats/new?material=cells`)
+    await open(`/workspaces/${workspace.id}/chats/new?material=cells`)
     await picker()
 
     await userEvent.type(question(), 'Who discovered ATP?{Enter}')
@@ -232,7 +229,7 @@ describe('Chat', () => {
 
 describe('Chat addresses', () => {
   it('says when a chat is not on this device', async () => {
-    open('/chats/nope')
+    await open('/chats/nope')
 
     expect(
       await screen.findByRole('heading', { name: 'We can’t find that chat' }),
@@ -250,7 +247,7 @@ describe('Chat addresses', () => {
       role: 'user',
       content: 'An earlier question',
     })
-    open('/chat/cells')
+    await open('/chat/cells')
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Saved chat' }),
@@ -259,7 +256,7 @@ describe('Chat addresses', () => {
   })
 
   it('sends an old material link without chats to New chat', async () => {
-    open('/chat/plants')
+    await open('/chat/plants')
 
     const materials = await picker()
     expect(
