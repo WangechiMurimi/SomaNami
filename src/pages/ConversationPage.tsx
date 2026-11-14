@@ -62,7 +62,8 @@ function Conversation({
       <div>
         <h1 className={H1}>We can’t find that chat</h1>
         <p className={LEDE}>
-          It may have been removed, or saved on another device.{' '}
+          It may have been removed, or added on another device. For now, each
+          device keeps its own materials and chats.{' '}
           <Link
             to="/conversations"
             className="font-semibold text-accent underline"
