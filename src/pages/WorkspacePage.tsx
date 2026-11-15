@@ -2,7 +2,7 @@ import { useCallback, useId, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
 import Composer from '../components/Composer.tsx'
-import { ArrowRight, Lock } from '../components/icons.tsx'
+import { ArrowRight, Plus } from '../components/icons.tsx'
 import { Chats, FileIcon } from '../features/chat/chat-icons.tsx'
 import {
   chatPath,
@@ -13,15 +13,24 @@ import { useRecentConversations } from '../features/chat/use-recent-conversation
 import { KIND_LABEL } from '../features/library/kind-label.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
 import AddMaterialsPanel from '../features/workspaces/AddMaterialsPanel.tsx'
+import WorkspaceActionDialog from '../features/workspaces/WorkspaceActionDialog.tsx'
+import { Bookmark } from '../features/workspaces/workspace-icons.tsx'
 import { useWorkspace } from '../features/workspaces/use-workspace.ts'
 import { useWorkspaceUpload } from '../features/workspaces/use-workspace-upload.ts'
-import { createConversation } from '../lib/storage/index.ts'
+import {
+  createConversation,
+  isLooseWorkspace,
+  setConversationSaved,
+} from '../lib/storage/index.ts'
 import type {
   Conversation,
   StoredDocument,
   Workspace,
 } from '../types/contracts.ts'
 import { H1, H2, LEDE } from './page-heading.ts'
+
+const HEADER_BUTTON =
+  'inline-flex h-11 items-center gap-2 rounded-[10px] border border-edge bg-surface px-4 text-sm font-medium text-fg hover:bg-tint'
 
 const BADGE: Record<StoredDocument['kind'], string> = {
   pdf: 'PDF',
@@ -75,6 +84,35 @@ function ChatSources({ sources }: { sources: StoredDocument[] }) {
   )
 }
 
+/** Saves a chat to Saved conversations, or takes it off again. */
+function SaveToggle({ chat }: { chat: Conversation }) {
+  const saved = Boolean(chat.saved)
+  const [failed, setFailed] = useState(false)
+  const toggle = () => {
+    setFailed(false)
+    setConversationSaved(chat.id, !saved).catch((cause: unknown) => {
+      console.error('Could not save the chat', cause)
+      setFailed(true)
+    })
+  }
+  return (
+    <button
+      type="button"
+      aria-pressed={saved}
+      aria-label={`Save ${chat.title}`}
+      title={failed ? 'That didn’t work. Try again.' : undefined}
+      onClick={toggle}
+      className={`flex h-11 flex-none items-center gap-1.5 rounded-[10px] px-2.5 text-sm font-medium hover:bg-tint ${
+        saved ? 'text-accent' : 'text-muted hover:text-fg'
+      }`}
+    >
+      <Bookmark size={16} fill={saved ? 'currentColor' : 'none'} />
+      {/* The label stays "Save"; aria-pressed and the filled icon carry the state. */}
+      Save
+    </button>
+  )
+}
+
 function ChatList({
   chats,
   documents,
@@ -111,6 +149,7 @@ function ChatList({
             </span>
             <ChatSources sources={materialsFor(chat, documents)} />
           </div>
+          <SaveToggle chat={chat} />
           <Link
             to={chatPath(chat)}
             className="flex h-11 flex-none items-center gap-[7px] text-sm font-semibold text-accent hover:underline"
@@ -144,6 +183,7 @@ function WorkspaceView({ workspace }: { workspace: Workspace }) {
   const [pasting, setPasting] = useState(false)
   const [question, setQuestion] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [dialog, setDialog] = useState<'add-sources' | 'remove-sources'>()
   // A material added here joins the selection even if it was unticked before.
   const include = useCallback(
     (material: StoredDocument) =>
@@ -183,19 +223,30 @@ function WorkspaceView({ workspace }: { workspace: Workspace }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="min-w-0">
-        {workspace.topic && (
-          <span className="mb-3 inline-block rounded-md bg-tag px-3 py-[5px] text-xs leading-[1.5] font-medium tracking-[0.06em] text-accent uppercase">
-            {workspace.topic}
-          </span>
-        )}
-        <h1 className={`${H1} break-words`}>{workspace.name}</h1>
-        {workspace.description && (
-          <p className={LEDE}>{workspace.description}</p>
-        )}
+      {/* The workspace starts straight away: its name and what you can do. */}
+      <div className="flex min-h-[50px] flex-wrap items-center justify-between gap-3">
+        <h1 className="min-w-0 text-2xl leading-[1.3] font-semibold break-words">
+          {workspace.name}
+        </h1>
+        <div className="flex flex-wrap gap-2.5">
+          <button
+            type="button"
+            onClick={() => setDialog('add-sources')}
+            className={HEADER_BUTTON}
+          >
+            <Plus size={15} strokeWidth={2.2} />
+            Add sources
+          </button>
+          <button
+            type="button"
+            onClick={() => setDialog('remove-sources')}
+            disabled={materials.length === 0}
+            className={`${HEADER_BUTTON} disabled:cursor-not-allowed disabled:opacity-50`}
+          >
+            Remove sources
+          </button>
+        </div>
       </div>
-
-      <hr className="border-line" />
 
       <div className="flex flex-wrap items-start gap-x-11 gap-y-10">
         <section
@@ -291,25 +342,6 @@ function WorkspaceView({ workspace }: { workspace: Workspace }) {
                   )
                 })}
               </ul>
-              <p
-                aria-live="polite"
-                className="flex items-start gap-2 text-[13px] leading-[1.5] text-muted"
-              >
-                <Lock
-                  size={14}
-                  strokeWidth={1.9}
-                  className="mt-0.5 flex-none"
-                />
-                {selected.length === 0
-                  ? 'Tick the materials a new question may use.'
-                  : `A new question here uses only ${
-                      allSelected
-                        ? materials.length === 1
-                          ? 'this material'
-                          : `these ${materials.length} materials`
-                        : `the ${plural(selected.length, 'material')} you ticked`
-                    }.`}
-              </p>
             </div>
           )}
         </section>
@@ -331,15 +363,16 @@ function WorkspaceView({ workspace }: { workspace: Workspace }) {
         sendDescription={sendDescription}
         onUpload={(file) => void upload.upload(file)}
         onPaste={() => setPasting(true)}
-        extra={
-          <span className="ml-2 flex items-center gap-1.5 rounded-full bg-tint px-2.5 py-1 text-[13px] leading-[1.5] text-accent">
-            <Lock size={14} strokeWidth={1.9} />
-            {allSelected
-              ? plural(materials.length, 'material')
-              : `${selected.length} of ${plural(materials.length, 'material')}`}
-          </span>
-        }
       />
+
+      {dialog && (
+        <WorkspaceActionDialog
+          action={dialog}
+          workspace={workspace}
+          chats={chats.length}
+          onClose={() => setDialog(undefined)}
+        />
+      )}
     </div>
   )
 }
@@ -347,10 +380,16 @@ function WorkspaceView({ workspace }: { workspace: Workspace }) {
 /** One workspace: its chats, its materials and a place to ask (US-08 AC4). */
 export default function WorkspacePage() {
   const { workspaceId = '' } = useParams()
-  const state = useWorkspace(workspaceId)
+  const found = useWorkspace(workspaceId)
+  // The default workspace holds loose chats; it is never opened as a workspace.
+  const state: typeof found = isLooseWorkspace(workspaceId)
+    ? { status: 'missing' }
+    : found
+  const ready = state.status === 'ready' ? state.workspace : undefined
   useBreadcrumbs([
     { label: 'Workspaces', to: '/workspaces' },
-    ...(state.status === 'ready' ? [{ label: state.workspace.name }] : []),
+    ...(ready?.topic ? [{ label: ready.topic }] : []),
+    ...(ready ? [{ label: ready.name }] : []),
   ])
 
   if (state.status === 'loading') {
@@ -365,8 +404,7 @@ export default function WorkspacePage() {
       <div>
         <h1 className={H1}>We can’t find that workspace</h1>
         <p className={LEDE}>
-          It may have been removed, or added on another device. For now, each
-          device keeps its own materials and chats.{' '}
+          It may have been deleted.{' '}
           <Link
             to="/workspaces"
             className="font-semibold text-accent underline"

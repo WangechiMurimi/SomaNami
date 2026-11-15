@@ -7,6 +7,7 @@ import {
   createMemoryAdapter,
   createWorkspace,
   DEFAULT_WORKSPACE,
+  getConversation,
   getDocument,
   getWorkspace,
   listWorkspaceDocuments,
@@ -296,6 +297,99 @@ describe('Workspace card menu', () => {
         DEFAULT_WORKSPACE.id,
       ),
     )
+  })
+})
+
+describe('Workspace page', () => {
+  let biology: Workspace
+
+  beforeEach(async () => {
+    biology = await createWorkspace({
+      name: 'Biology',
+      topic: 'Cells',
+      description: 'Everything about the cell.',
+    })
+    await saveDocument(doc('cells', 'Cells.txt'), biology.id)
+  })
+
+  it('starts with the workspace itself, without intro copy', async () => {
+    await open(`/workspaces/${biology.id}`)
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Biology' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText('Everything about the cell.'),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/uses only/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/offline|on this device/)).not.toBeInTheDocument()
+    const trail = within(screen.getByRole('navigation', { name: 'Breadcrumb' }))
+    expect(await trail.findByText('Cells')).toBeInTheDocument()
+  })
+
+  it('saves and unsaves a chat', async () => {
+    const chat = await createConversation({
+      workspaceId: biology.id,
+      materialIds: ['cells'],
+      title: 'What makes ATP?',
+    })
+    await open(`/workspaces/${biology.id}`)
+
+    const save = await screen.findByRole('button', {
+      name: 'Save What makes ATP?',
+    })
+    expect(save).toHaveAttribute('aria-pressed', 'false')
+    await userEvent.click(save)
+    await vi.waitFor(() => expect(save).toHaveAttribute('aria-pressed', 'true'))
+    expect((await getConversation(chat.id))?.saved).toBe(true)
+
+    await userEvent.click(save)
+    await vi.waitFor(() =>
+      expect(save).toHaveAttribute('aria-pressed', 'false'),
+    )
+    expect((await getConversation(chat.id))?.saved).toBe(false)
+  })
+
+  it('adds and removes sources from its header', async () => {
+    await saveDocument(doc('loose', 'Loose notes.txt'))
+    await open(`/workspaces/${biology.id}`)
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Add sources' }),
+    )
+    const add = within(screen.getByRole('dialog'))
+    await userEvent.click(add.getByRole('checkbox', { name: /Loose notes/ }))
+    await userEvent.click(add.getByRole('button', { name: 'Add 1 source' }))
+    const materials = within(
+      screen.getByRole('region', { name: 'Your materials' }),
+    )
+    expect(
+      await materials.findByLabelText(/Loose notes\.txt/),
+    ).toBeInTheDocument()
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Remove sources' }),
+    )
+    const remove = within(screen.getByRole('dialog'))
+    await userEvent.click(remove.getByRole('checkbox', { name: /Cells\.txt/ }))
+    await userEvent.click(
+      remove.getByRole('button', { name: 'Remove 1 source' }),
+    )
+    await vi.waitFor(() =>
+      expect(materials.queryByLabelText(/Cells\.txt/)).not.toBeInTheDocument(),
+    )
+    expect((await getDocument('cells'))?.workspaceId).toBe(DEFAULT_WORKSPACE.id)
+  })
+
+  it('does not open the default workspace as a workspace', async () => {
+    await saveDocument(doc('loose', 'Loose notes.txt'))
+    await open(`/workspaces/${DEFAULT_WORKSPACE.id}`)
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'We can’t find that workspace',
+      }),
+    ).toBeInTheDocument()
   })
 })
 
