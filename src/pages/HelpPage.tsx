@@ -8,7 +8,7 @@ import { H1, H2, LEDE } from './page-heading.ts'
 const TOPICS = [
   {
     title: 'Adding materials',
-    body: `Upload ${SUPPORTED_LABEL} files up to ${MAX_FILE_BYTES / 1024 / 1024} MB from Home or My library. SomaNami reads them on this device and splits them into passages it can quote back to you.`,
+    body: `Upload ${SUPPORTED_LABEL} files up to ${MAX_FILE_BYTES / 1024 / 1024} MB from Home or My library. SomaNami reads them on this device and splits them into passages it can quote back to you. When you’re online, it also keeps a private copy of the original file in your account.`,
   },
   {
     title: 'Asking questions',
@@ -20,7 +20,7 @@ const TOPICS = [
   },
   {
     title: 'Working offline',
-    body: 'Your materials and saved chats are saved to your account on this device and open without a connection. They don’t appear on your other devices yet. Asking a new question needs a connection; the sidebar shows whether you’re online.',
+    body: 'Your materials and saved chats are saved to your account on this device and open without a connection. They don’t appear on your other devices yet, even though the original files are stored privately in your account. Asking a new question needs a connection; the sidebar shows whether you’re online.',
   },
 ] as const
 
