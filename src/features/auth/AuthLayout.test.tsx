@@ -24,11 +24,29 @@ describe('AuthLayout', () => {
     expect(panel).toHaveTextContent('Learn from your own materials.')
   })
 
-  it('keeps privacy copy to what holds true', () => {
+  it('states where answers come from, without privacy or offline claims', () => {
     renderLayout()
     const panel = screen.getByRole('region', { name: 'About SomaNami' })
-    expect(panel).toHaveTextContent(/you can delete them at any time/i)
-    expect(panel).not.toHaveTextContent(/stay private/i)
+    expect(panel).toHaveTextContent(/answers come only from what you add/i)
+    expect(panel).not.toHaveTextContent(/private|offline|this device/i)
+    expect(
+      within(panel).getByRole('link', { name: 'How your data is handled' }),
+    ).toHaveAttribute('href', '/privacy')
+  })
+
+  it('shows a step line above the title when given one', () => {
+    render(
+      <MemoryRouter>
+        <AuthLayout title="Create your account" eyebrow="Step 1 of 2">
+          <p>Form goes here</p>
+        </AuthLayout>
+      </MemoryRouter>,
+    )
+    const step = screen.getByText('Step 1 of 2')
+    expect(
+      step.compareDocumentPosition(screen.getByRole('heading', { level: 1 })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
   })
 
   it('places the form before the brand copy for keyboard and phone users', () => {
