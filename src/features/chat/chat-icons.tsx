@@ -66,6 +66,23 @@ export const ListIcon = (props: IconProps) => (
   </Icon>
 )
 
+/** A cross: remove or dismiss. */
+export const Close = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M18 6 6 18M6 6l12 12" />
+  </Icon>
+)
+
+/** A bookmark: save a chat; filled once it is saved. */
+export const Bookmark = ({
+  filled = false,
+  ...props
+}: IconProps & { filled?: boolean }) => (
+  <Icon {...props} fill={filled ? 'currentColor' : 'none'}>
+    <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+  </Icon>
+)
+
 /** SomaNami's mark on an accent tile, beside each answer. */
 export function AssistantAvatar() {
   return (

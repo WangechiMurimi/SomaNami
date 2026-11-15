@@ -22,6 +22,7 @@ export default function Composer({
   onUpload,
   onPaste,
   extra,
+  attachments,
   inputRef,
 }: {
   label: string
@@ -36,6 +37,8 @@ export default function Composer({
   onPaste?: () => void
   /** Shown beside the add buttons, e.g. how many materials a chat uses. */
   extra?: ReactNode
+  /** Shown inside the box above the text, e.g. files attached to the question. */
+  attachments?: ReactNode
   inputRef?: Ref<HTMLTextAreaElement>
 }) {
   const id = useId()
@@ -55,6 +58,7 @@ export default function Composer({
       <label htmlFor={`${id}-question`} className="sr-only">
         {label}
       </label>
+      {attachments}
       <textarea
         ref={inputRef}
         id={`${id}-question`}

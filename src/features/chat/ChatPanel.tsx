@@ -1,14 +1,10 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
 import Composer from '../../components/Composer.tsx'
-import { useAuth } from '../auth/auth-context.ts'
 import { ANSWER_FORMATS } from './answer-formats.ts'
 import { AssistantAvatar, Bulb, ListIcon } from './chat-icons.tsx'
 import ChatMessage from './ChatMessage.tsx'
 import { useChat } from './use-chat.ts'
 import type { UseChatOptions } from './use-chat.ts'
-
-const OFFLINE_NOTICE = 'You’re offline. Reconnect to ask questions.'
 
 const FORMAT_ICON = { example: Bulb, summary: ListIcon }
 
@@ -67,45 +63,34 @@ export default function ChatPanel({
   className = '',
   initialQuestion,
   addMaterialTo,
-  scope,
   ...chatOptions
 }: UseChatOptions & {
   className?: string
   initialQuestion?: string
   /** Where to add material when a question goes unanswered. */
   addMaterialTo?: string
-  /** Shown in the question box, e.g. which materials the chat uses. */
-  scope?: ReactNode
 }) {
   const { messages, status, error, send, retry } = useChat(chatOptions)
-  // A saved session keeps the transcript readable offline (US-07), but the
-  // session can't be refreshed, so asking waits for the connection. The
-  // server's 401 stays the real check; this only spares a doomed request.
-  const isOffline = useAuth().status === 'signed-in-offline'
   const askedInitial = useRef(false)
 
   useEffect(() => {
-    // A chat started from New chat arrives with its first question; ask it
-    // once, even when React runs effects twice in development. Offline, it
-    // waits for the connection instead of failing.
-    if (!initialQuestion || askedInitial.current || isOffline) return
+    // A chat started from Home or New chat arrives with its first question;
+    // ask it once, even when React runs effects twice in development.
+    if (!initialQuestion || askedInitial.current) return
     askedInitial.current = true
     send(initialQuestion)
-  }, [initialQuestion, send, isOffline])
+  }, [initialQuestion, send])
   const [draft, setDraft] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const endRef = useRef<HTMLDivElement>(null)
 
   const isSending = status === 'sending'
-  const canSend = draft.trim().length > 0 && !isSending && !isOffline
+  const canSend = draft.trim().length > 0 && !isSending
   const latest = messages.at(-1)
   // Only a grounded answer has something to reshape; after a refusal or a
   // failure the learner needs to rephrase instead.
   const canReformat =
-    latest?.role === 'assistant' &&
-    latest.answerable &&
-    status === 'idle' &&
-    !isOffline
+    latest?.role === 'assistant' && latest.answerable && status === 'idle'
 
   useLayoutEffect(() => {
     // New turns arrive at the bottom; bring them into view as they land.
@@ -147,6 +132,8 @@ export default function ChatPanel({
         <div ref={endRef} />
       </section>
 
+      {/* TODO(#NEW-2): the Level and Format controls from the chat design
+          go here once the server can answer at a level and in a format. */}
       {canReformat && <AnotherFormat onPick={send} />}
 
       {error && (
@@ -155,7 +142,7 @@ export default function ChatPanel({
           className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5 rounded-xl border border-warn bg-warn-soft px-4 py-3"
         >
           <span className="text-sm leading-[1.5]">{error.message}</span>
-          {error.retryable && !isOffline && (
+          {error.retryable && (
             <button
               type="button"
               onClick={retry}
@@ -167,15 +154,6 @@ export default function ChatPanel({
         </div>
       )}
 
-      {isOffline && (
-        <p
-          role="status"
-          className="rounded-xl bg-warn-soft px-4 py-2.5 text-sm text-warn"
-        >
-          {OFFLINE_NOTICE}
-        </p>
-      )}
-
       <div className="flex flex-col gap-2.5">
         <Composer
           label="Ask a follow-up about your materials"
@@ -184,9 +162,7 @@ export default function ChatPanel({
           onChange={setDraft}
           onSubmit={submit}
           canSend={canSend}
-          sendDescription={isOffline ? OFFLINE_NOTICE : undefined}
           inputRef={inputRef}
-          extra={scope}
         />
         <p className="text-center text-[13px] leading-[1.5] text-muted">
           This is a simplified overview to get you started. For accuracy and

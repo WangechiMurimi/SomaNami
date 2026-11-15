@@ -25,7 +25,7 @@ export type UploadState =
 const IDLE: UploadState = { status: 'idle', document: null, error: null }
 
 /** Shapes any thrown value into the error the UI shows; unexpected ones are logged, not leaked. */
-function toErrorState(error: unknown): UploadErrorState {
+export function toUploadErrorState(error: unknown): UploadErrorState {
   if (error instanceof UploadError) {
     const { code, message, stage, retryable } = error
     return { code, message, stage, retryable }
@@ -83,7 +83,7 @@ export function useDocumentUpload({ onReady }: UseDocumentUploadOptions = {}) {
         setState({
           status: 'error',
           document: null,
-          error: toErrorState(error),
+          error: toUploadErrorState(error),
           fileName: file.name,
         })
       }

@@ -1,10 +1,12 @@
 import { useCallback } from 'react'
-import { Lock } from '../../components/icons.tsx'
 import { retrieveChunks } from '../../lib/retrieval/index.ts'
-import type { Passage, StoredDocument } from '../../types/contracts.ts'
+import type {
+  ChatReply,
+  Passage,
+  StoredDocument,
+} from '../../types/contracts.ts'
 import ChatPanel from './ChatPanel.tsx'
 import type { ChatTurn } from './use-chat.ts'
-import type { ChatReply } from '../../types/contracts.ts'
 
 /**
  * Questions within one saved conversation. Retrieval runs locally over the
@@ -12,13 +14,14 @@ import type { ChatReply } from '../../types/contracts.ts'
  * the server.
  */
 export default function ConversationChat({
-  workspaceId,
+  addMaterialTo,
   materials,
   initialMessages,
   initialQuestion,
   onAnswered,
 }: {
-  workspaceId: string
+  /** Where to add material when a question goes unanswered. */
+  addMaterialTo: string
   materials: StoredDocument[]
   initialMessages: ChatTurn[]
   initialQuestion?: string
@@ -47,15 +50,7 @@ export default function ConversationChat({
       initialMessages={initialMessages}
       initialQuestion={initialQuestion}
       onAnswered={onAnswered}
-      addMaterialTo={`/workspaces/${workspaceId}`}
-      scope={
-        <span className="ml-1 flex items-center gap-1.5 rounded-full bg-tint px-2.5 py-1 text-[13px] leading-[1.5] text-accent">
-          <Lock size={14} strokeWidth={1.9} />
-          {materials.length === 1
-            ? '1 material'
-            : `${materials.length} materials`}
-        </span>
-      }
+      addMaterialTo={addMaterialTo}
     />
   )
 }

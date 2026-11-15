@@ -77,12 +77,13 @@ describe('askQuestion', () => {
     })
   })
 
-  it('reports an unreachable service as retryable', async () => {
+  it('reports an unreachable service as a plain, retryable failure', async () => {
     mockFetch(async () => {
       throw new TypeError('Failed to fetch')
     })
     await expect(askQuestion({ question: 'Why?' })).rejects.toMatchObject({
-      code: 'offline',
+      code: 'network',
+      message: 'Couldn’t get an answer. Try again.',
       retryable: true,
     })
   })
@@ -95,6 +96,7 @@ describe('askQuestion', () => {
 
     mockFetch(async () => ({ ok: false, status: 503 }))
     await expect(askQuestion({ question: 'Why?' })).rejects.toMatchObject({
+      message: 'Couldn’t get an answer. Try again.',
       retryable: true,
     })
   })
