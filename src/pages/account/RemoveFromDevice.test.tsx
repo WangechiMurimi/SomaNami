@@ -45,7 +45,7 @@ describe('RemoveFromDevice', () => {
     const { auth } = setup()
     await userEvent.click(
       await screen.findByRole('button', {
-        name: 'Sign out and remove my materials from this device',
+        name: 'Remove my materials and sign out',
       }),
     )
     const dialog = screen.getByRole('alertdialog')
@@ -64,7 +64,7 @@ describe('RemoveFromDevice', () => {
     setup()
     await userEvent.click(
       await screen.findByRole('button', {
-        name: 'Sign out and remove my materials from this device',
+        name: 'Remove my materials and sign out',
       }),
     )
     await userEvent.click(
@@ -81,7 +81,7 @@ describe('RemoveFromDevice', () => {
     vi.mocked(removeUserStore).mockRejectedValueOnce(new Error('blocked'))
     await userEvent.click(
       await screen.findByRole('button', {
-        name: 'Sign out and remove my materials from this device',
+        name: 'Remove my materials and sign out',
       }),
     )
     await userEvent.click(

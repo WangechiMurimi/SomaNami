@@ -1,7 +1,7 @@
-import { act, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route } from 'react-router'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import {
   fakeSession,
   installFakeSupabase,
@@ -66,30 +66,24 @@ describe('Account settings', () => {
     expect(document.documentElement.dataset.theme).toBe('dark')
   })
 
-  it('says where materials are kept and whether this device is online', async () => {
+  it('shows no connection status or upload privacy claims', async () => {
     setup()
-    const device = await card('On this device')
-    expect(device).toHaveTextContent(
-      'Your materials and chats are saved to your account on this device and work offline. Asking new questions needs a connection.',
-    )
-    expect(within(device).getByRole('status')).toHaveTextContent('Online')
-
-    const offline = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
-    onTestFinished(() => offline.mockRestore())
-    act(() => {
-      window.dispatchEvent(new Event('offline'))
-    })
-    expect(within(device).getByRole('status')).toHaveTextContent(
-      'Offline — you can still read saved chats',
-    )
+    const privacy = await card('Privacy and data')
+    expect(
+      within(privacy).getByRole('link', { name: 'How your data is handled' }),
+    ).toHaveAttribute('href', '/privacy')
+    expect(within(privacy).queryByRole('status')).toBeNull()
+    const page = document.body.textContent ?? ''
+    expect(page).not.toMatch(/offline|online|on this device|shared computer/i)
+    expect(page).not.toMatch(/private|never leaves/i)
   })
 
-  it('keeps erasing this device’s materials under Privacy and data', async () => {
+  it('keeps removing materials under Privacy and data', async () => {
     setup()
     const privacy = await card('Privacy and data')
     expect(
       within(privacy).getByRole('button', {
-        name: 'Sign out and remove my materials from this device',
+        name: 'Remove my materials and sign out',
       }),
     ).toBeInTheDocument()
   })

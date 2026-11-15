@@ -1,15 +1,7 @@
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route } from 'react-router'
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  onTestFinished,
-  vi,
-} from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setSupabaseClient } from '../../lib/auth/supabase-client.ts'
 import { removeUserStore } from '../../lib/storage/index.ts'
 import {
@@ -50,7 +42,7 @@ describe('SessionsSection', () => {
   it('signs out every device, and says when the others notice', async () => {
     const { auth } = setup()
     expect(
-      await screen.findByText(/other devices sign out the next time/i),
+      await screen.findByText(/other devices are signed out the next time/i),
     ).toBeInTheDocument()
     await userEvent.click(
       screen.getByRole('button', { name: 'Sign out of all devices' }),
@@ -58,16 +50,6 @@ describe('SessionsSection', () => {
     expect(await redirectedTo()).toBe('/sign-in')
     expect(auth.signOut).toHaveBeenCalledWith({ scope: 'global' })
     expect(removeUserStore).not.toHaveBeenCalled()
-  })
-
-  it('won’t sign out other devices while offline', async () => {
-    const offline = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
-    onTestFinished(() => offline.mockRestore())
-    setup()
-    expect(
-      await screen.findByRole('button', { name: 'Sign out of all devices' }),
-    ).toBeDisabled()
-    expect(screen.getByText(/connect to the internet/i)).toBeInTheDocument()
   })
 
   it('says which account is signed in', async () => {

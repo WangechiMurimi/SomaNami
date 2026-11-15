@@ -8,7 +8,7 @@ import PrivacySection from './account/PrivacySection.tsx'
 import SessionsSection from './account/SessionsSection.tsx'
 import { H1, LEDE } from './page-heading.ts'
 
-/** Account settings: profile, theme, device and privacy, sign-out and 2FA. */
+/** Account settings: profile, theme, data, sign-out and 2FA. */
 export default function AccountPage() {
   const { user } = useAuth()
   const email = user?.email ?? ''
@@ -19,8 +19,8 @@ export default function AccountPage() {
       <div>
         <h1 className={H1}>Account settings</h1>
         <p className={LEDE}>
-          Manage your profile, how SomaNami looks, how you sign in, and where
-          your materials are kept.
+          Manage your profile, how SomaNami looks, how you sign in, and your
+          materials.
         </p>
       </div>
 

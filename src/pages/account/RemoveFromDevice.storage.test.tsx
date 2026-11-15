@@ -43,7 +43,7 @@ async function renderWithMaterial() {
     />,
   )
   await screen.findByRole('button', {
-    name: 'Sign out and remove my materials from this device',
+    name: 'Remove my materials and sign out',
   })
   await saveDocument(
     {
@@ -61,7 +61,7 @@ async function renderWithMaterial() {
 async function confirmRemoval() {
   await userEvent.click(
     screen.getByRole('button', {
-      name: 'Sign out and remove my materials from this device',
+      name: 'Remove my materials and sign out',
     }),
   )
   await userEvent.click(
