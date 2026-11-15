@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 
 export type Theme = 'light' | 'dark'
 
+/** What the learner picked: a fixed theme, or whatever the system uses. */
+export type ThemePreference = Theme | 'system'
+
 export const THEME_KEY = 'somanami-theme'
 
 function systemTheme(): Theme {
@@ -21,9 +24,10 @@ export function readSavedTheme(): Theme | null {
   }
 }
 
-function saveTheme(theme: Theme): void {
+function savePreference(preference: ThemePreference): void {
   try {
-    window.localStorage.setItem(THEME_KEY, theme)
+    if (preference === 'system') window.localStorage.removeItem(THEME_KEY)
+    else window.localStorage.setItem(THEME_KEY, preference)
   } catch {
     // Private browsing can refuse storage; the choice then lasts the session.
   }
@@ -31,25 +35,35 @@ function saveTheme(theme: Theme): void {
 
 /**
  * Light/dark theme: follows the system until the learner picks one, then
- * remembers that choice on this device. Applied as `data-theme` on <html>,
- * which the CSS tokens in index.css key off.
+ * remembers that choice on this device. A fixed choice is applied as
+ * `data-theme` on <html>; "system" removes the attribute so the CSS media
+ * query in index.css tracks the OS live, with no listener needed here.
  */
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>(
-    () => readSavedTheme() ?? systemTheme(),
+  const [preference, setPreferenceState] = useState<ThemePreference>(
+    () => readSavedTheme() ?? 'system',
   )
+  const theme: Theme = preference === 'system' ? systemTheme() : preference
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme
-  }, [theme])
+    const root = document.documentElement
+    if (preference === 'system') delete root.dataset.theme
+    else root.dataset.theme = preference
+  }, [preference])
+
+  const setPreference = useCallback((next: ThemePreference) => {
+    savePreference(next)
+    setPreferenceState(next)
+  }, [])
 
   const toggle = useCallback(() => {
-    setTheme((current) => {
-      const next = current === 'dark' ? 'light' : 'dark'
-      saveTheme(next)
+    setPreferenceState((current) => {
+      const shown = current === 'system' ? systemTheme() : current
+      const next = shown === 'dark' ? 'light' : 'dark'
+      savePreference(next)
       return next
     })
   }, [])
 
-  return { theme, toggle }
+  return { theme, preference, setPreference, toggle }
 }

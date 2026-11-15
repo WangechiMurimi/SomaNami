@@ -26,7 +26,31 @@ describe('useTheme', () => {
     const { result } = renderHook(() => useTheme())
 
     expect(result.current.theme).toBe('dark')
+    expect(result.current.preference).toBe('system')
+    // No attribute, so the CSS media query keeps tracking the OS live.
+    expect(document.documentElement.dataset.theme).toBeUndefined()
+  })
+
+  it('applies and remembers a fixed preference', () => {
+    const { result } = renderHook(() => useTheme())
+
+    act(() => result.current.setPreference('dark'))
+
+    expect(result.current.preference).toBe('dark')
     expect(document.documentElement.dataset.theme).toBe('dark')
+    expect(window.localStorage.getItem(THEME_KEY)).toBe('dark')
+  })
+
+  it('goes back to following the system', () => {
+    prefersDark(false)
+    window.localStorage.setItem(THEME_KEY, 'dark')
+    const { result } = renderHook(() => useTheme())
+
+    act(() => result.current.setPreference('system'))
+
+    expect(result.current.theme).toBe('light')
+    expect(document.documentElement.dataset.theme).toBeUndefined()
+    expect(window.localStorage.getItem(THEME_KEY)).toBeNull()
   })
 
   it('defaults to light when the system preference is unknown', () => {

@@ -5,6 +5,7 @@ import { useRecentConversations } from '../features/chat/use-recent-conversation
 import { useAuth } from '../features/auth/auth-context.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
 import { useOnline } from '../lib/connectivity/use-online.ts'
+import { initialsFor } from './initials.ts'
 
 const RECENT_LIMIT = 3
 
@@ -103,71 +104,68 @@ function RecentChats() {
   )
 }
 
-function DeviceStatus() {
+/**
+ * Only shown while offline: the account page carries the full device status,
+ * but reading-only mode must stay visible wherever the learner is (US-07).
+ */
+function OfflineNotice() {
   const online = useOnline()
   return (
-    <section
-      aria-labelledby="device-status-title"
-      className="rounded-xl border border-line bg-surface p-4"
+    <p
+      role="status"
+      className={
+        online
+          ? 'sr-only'
+          : 'flex items-start gap-2 rounded-[10px] bg-warn-soft px-3 py-2.5 text-xs leading-[18px] font-medium text-warn'
+      }
     >
-      <svg {...ICON} className="text-accent">
-        <rect x="5" y="2" width="14" height="20" rx="2" />
-        <path d="M12 18h.01" />
-      </svg>
-      <h2 id="device-status-title" className="mt-3 text-[13px] font-semibold">
-        On this device
-      </h2>
-      <p className="mt-2 text-xs leading-[18px] text-muted">
-        Your materials and chats are saved to your account on this device and
-        work offline. Asking new questions needs a connection.
-      </p>
-      <p
-        className="mt-3 flex items-center gap-2 text-xs font-medium"
-        role="status"
-      >
-        <span
-          aria-hidden="true"
-          className={`size-2 rounded-full ${online ? 'bg-online' : 'bg-warn'}`}
-        />
-        {online ? 'Online' : 'Offline — you can still read saved chats'}
-      </p>
-    </section>
+      {online ? (
+        'Online'
+      ) : (
+        <>
+          <span
+            aria-hidden="true"
+            className="mt-[5px] size-2 flex-none rounded-full bg-warn"
+          />
+          Offline. You can read saved chats; asking needs a connection.
+        </>
+      )}
+    </p>
   )
 }
 
-/** The signed-in account, linking to its settings, like the top-bar menu. */
+/** The signed-in account, linking to its settings. */
 function ProfileRow() {
   const { user } = useAuth()
   if (!user) return null
   const email = user.email || 'Your account'
-  const initial = (user.email[0] ?? '?').toUpperCase()
   return (
-    <div className="mt-5 border-t border-line pt-3">
+    <div className="mt-4 border-t border-line pt-3">
       <Link
         to="/account"
-        // One name for voice control and screen readers; the visible lines
-        // read as two separate fragments otherwise.
+        // One name for voice control and screen readers.
         aria-label={`${email}, Account settings`}
         className="flex min-h-11 items-center gap-[11px] rounded-[10px] px-2.5 py-1.5 hover:bg-tint"
       >
         <span
           aria-hidden="true"
-          className="flex size-[34px] flex-none items-center justify-center rounded-full bg-tint text-[13px] font-semibold text-accent"
+          className="flex size-[34px] flex-none items-center justify-center rounded-full bg-line text-[11px] font-semibold text-fg"
         >
-          {initial}
+          {initialsFor(user.email)}
         </span>
-        <span className="min-w-0 leading-[1.5]">
-          <span className="block truncate text-[13px] font-medium">
-            {email}
-          </span>
-          <span className="block text-xs text-muted">Account settings</span>
+        <span className="min-w-0 flex-1 truncate text-[13px] leading-[1.5] font-medium">
+          {email}
         </span>
+        <svg {...ICON} width={16} height={16} className="flex-none text-muted">
+          <path d="m7 15 5 5 5-5" />
+          <path d="m7 9 5-5 5 5" />
+        </svg>
       </Link>
     </div>
   )
 }
 
-/** Persistent navigation: brand, screens, recent chats and device status. */
+/** Persistent navigation: brand, screens, recent chats and the account. */
 export default function Sidebar() {
   const { documents } = useLibraryContext()
 
@@ -263,7 +261,7 @@ export default function Sidebar() {
       <RecentChats />
 
       <div className="mt-auto pt-8">
-        <DeviceStatus />
+        <OfflineNotice />
       </div>
       <ProfileRow />
     </div>

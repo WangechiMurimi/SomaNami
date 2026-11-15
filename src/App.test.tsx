@@ -493,12 +493,20 @@ describe('app shell and navigation', () => {
     expect(open).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('shows whether the device is online', async () => {
+  it('announces the connection, with a visible notice only when offline', async () => {
     await renderApp()
 
-    expect(
-      screen.getByRole('region', { name: 'On this device' }),
-    ).toHaveTextContent('Online')
+    expect(screen.getByRole('status')).toHaveTextContent('Online')
+    expect(screen.getByRole('status')).toHaveClass('sr-only')
+  })
+
+  it('hides and shows the sidebar on wide screens', async () => {
+    await renderApp()
+    const toggle = screen.getByRole('button', { name: 'Hide sidebar' })
+
+    await userEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(toggle).toHaveAccessibleName('Show sidebar')
   })
 
   it('links to every screen from the sidebar', async () => {

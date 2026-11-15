@@ -14,15 +14,6 @@ beforeEach(() => {
 })
 
 describe('Account-aware device copy', () => {
-  it('says the sidebar’s materials are saved to the account on this device', async () => {
-    await renderSignedInApp('/')
-    expect(
-      screen.getByRole('region', { name: 'On this device' }),
-    ).toHaveTextContent(
-      'Your materials and chats are saved to your account on this device and work offline.',
-    )
-  })
-
   it.each([
     ['/chat/missing', 'We can’t find that material'],
     ['/chats/missing', 'We can’t find that chat'],

@@ -99,46 +99,31 @@ describe('needs-mfa', () => {
 })
 
 describe('signed in', () => {
-  it('opens the account page in the shell, with an account menu', async () => {
+  it('opens the account page in the shell from the profile row', async () => {
     installFakeSupabase({ session: fakeSession({ email: 'me@example.com' }) })
-    renderAt('/account')
+    renderAt('/library')
+    await userEvent.click(
+      await screen.findByRole('link', {
+        name: 'me@example.com, Account settings',
+      }),
+    )
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Account' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: /Account menu/ }))
-    expect(screen.getByRole('link', { name: 'Account' })).toHaveAttribute(
-      'href',
-      '/account',
-    )
   })
 
-  it('signs out from the account menu', async () => {
+  it('signs out from the account page', async () => {
     const { auth } = installFakeSupabase({
       session: fakeSession({ email: 'me@example.com' }),
     })
-    renderAt('/library')
-    const menu = await screen.findByRole('button', { name: /Account menu/ })
-    expect(menu).toHaveTextContent('me@example.com')
-    expect(menu).toHaveAttribute('aria-expanded', 'false')
-
-    await userEvent.click(menu)
-    expect(menu).toHaveAttribute('aria-expanded', 'true')
-    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+    renderAt('/account')
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Sign out' }),
+    )
 
     expect(auth.signOut).toHaveBeenCalledWith({ scope: 'local' })
     await signInHeading()
     expect(currentLocation()).toBe('/sign-in')
-  })
-
-  it('closes the account menu with Escape', async () => {
-    installFakeSupabase({ session: fakeSession() })
-    renderAt('/')
-    const menu = await screen.findByRole('button', { name: /Account menu/ })
-    await userEvent.click(menu)
-    await userEvent.keyboard('{Escape}')
-    expect(menu).toHaveAttribute('aria-expanded', 'false')
-    expect(menu).toHaveFocus()
   })
 })
