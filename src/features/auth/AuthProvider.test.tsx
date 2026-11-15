@@ -187,6 +187,89 @@ describe('stale session checks', () => {
   })
 })
 
+describe('Google and emailed links', () => {
+  it('starts Google sign-in with a callback that carries a safe next', async () => {
+    const { auth } = installFakeSupabase()
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.status).toBe('signed-out'))
+
+    await expect(result.current.signInWithGoogle('/library')).resolves.toEqual({
+      ok: true,
+    })
+    expect(auth.signInWithOAuth).toHaveBeenCalledWith({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=%2Flibrary`,
+      },
+    })
+
+    await result.current.signInWithGoogle('//evil.example')
+    expect(auth.signInWithOAuth).toHaveBeenLastCalledWith({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    })
+  })
+
+  it('maps a disabled Google provider', async () => {
+    const { auth } = installFakeSupabase()
+    auth.signInWithOAuth.mockResolvedValueOnce({
+      data: { provider: 'google', url: null },
+      error: new AuthApiError('off', 400, 'provider_disabled'),
+    } as never)
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.status).toBe('signed-out'))
+    await expect(result.current.signInWithGoogle()).resolves.toEqual({
+      ok: false,
+      error: 'provider-unavailable',
+    })
+  })
+
+  it('signs in once a link’s code is exchanged', async () => {
+    const { auth } = installFakeSupabase()
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.status).toBe('signed-out'))
+
+    await act(async () => {
+      await expect(result.current.exchangeCode('abc')).resolves.toEqual({
+        ok: true,
+      })
+    })
+    expect(auth.exchangeCodeForSession).toHaveBeenCalledWith('abc')
+    // Already signed in when the promise resolves, so callers can navigate.
+    expect(result.current.status).toBe('signed-in')
+  })
+
+  it('maps a code opened in another browser', async () => {
+    const { auth } = installFakeSupabase()
+    auth.exchangeCodeForSession.mockResolvedValueOnce({
+      data: { session: null, user: null },
+      error: new AuthApiError('missing', 400, 'pkce_code_verifier_not_found'),
+    })
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.status).toBe('signed-out'))
+    await expect(result.current.exchangeCode('abc')).resolves.toEqual({
+      ok: false,
+      error: 'link-expired',
+    })
+  })
+
+  it('exposes the name Google gave, for prefilling only', async () => {
+    installFakeSupabase({ session: fakeSession({ name: '  Ada L ' }) })
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.status).toBe('signed-in'))
+    expect(result.current.user).toEqual({
+      id: 'user-1',
+      email: 'learner@example.com',
+      name: 'Ada L',
+    })
+    // The offline cache keeps only what it did before.
+    expect(readLastUser()).toEqual({
+      id: 'user-1',
+      email: 'learner@example.com',
+    })
+  })
+})
+
 describe('profile record', () => {
   it('is forgotten on sign-out, like the last user', async () => {
     installFakeSupabase({ session: fakeSession() })
@@ -241,7 +324,7 @@ describe('account actions', () => {
       password: 'pw',
       options: {
         captchaToken: 'tok',
-        emailRedirectTo: `${window.location.origin}/sign-in`,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     })
   })
@@ -277,7 +360,7 @@ describe('account actions', () => {
     })
     expect(auth.resetPasswordForEmail).toHaveBeenCalledWith('a@example.com', {
       captchaToken: 'tok',
-      redirectTo: `${window.location.origin}/update-password`,
+      redirectTo: `${window.location.origin}/auth/callback?next=%2Fupdate-password`,
     })
 
     auth.resetPasswordForEmail.mockResolvedValueOnce({
@@ -338,6 +421,12 @@ describe('without a Supabase project', () => {
       result.current.requestPasswordReset({ email: 'a', captchaToken: 't' }),
     ).resolves.toEqual(notConfigured)
     await expect(result.current.updatePassword('x')).resolves.toEqual(
+      notConfigured,
+    )
+    await expect(result.current.signInWithGoogle()).resolves.toEqual(
+      notConfigured,
+    )
+    await expect(result.current.exchangeCode('c')).resolves.toEqual(
       notConfigured,
     )
   })

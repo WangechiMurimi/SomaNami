@@ -11,12 +11,15 @@ type Listener = (event: AuthChangeEvent, session: Session | null) => void
 export interface FakeUser {
   id?: string
   email?: string
+  /** The name Google would put in the user's metadata. */
+  name?: string
 }
 
 /** A session shaped like Supabase's, for tests. Holds no real token. */
 export function fakeSession({
   id = 'user-1',
   email = 'learner@example.com',
+  name,
 }: FakeUser = {}): Session {
   return {
     access_token: `token-${id}`,
@@ -29,7 +32,7 @@ export function fakeSession({
       email,
       aud: 'authenticated',
       app_metadata: {},
-      user_metadata: {},
+      user_metadata: name ? { full_name: name } : {},
       created_at: '2026-01-01T00:00:00Z',
     },
   } as Session
@@ -90,6 +93,21 @@ export function installFakeSupabase({
       return { data: { session: next, user: next.user }, error: null }
     }),
     signUp: vi.fn(() => ok({ session: null, user: null })),
+    // The real call sends the browser to Google; the fake only reports it.
+    signInWithOAuth: vi.fn(() =>
+      ok({ provider: 'google', url: 'https://accounts.example/authorize' }),
+    ),
+    // Any code works once, like a real one, and signs in a fresh session.
+    exchangeCodeForSession: vi.fn<
+      (code: string) => Promise<{
+        data: { session: Session | null; user: Session['user'] | null }
+        error: Error | null
+      }>
+    >(async () => {
+      const next = fakeSession()
+      emit('SIGNED_IN', next)
+      return { data: { session: next, user: next.user }, error: null }
+    }),
     signOut: vi.fn(async () => {
       emit('SIGNED_OUT', null)
       return { error: null }

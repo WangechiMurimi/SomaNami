@@ -96,6 +96,15 @@ describe('details step', () => {
     expect(screen.getByRole('checkbox')).not.toBeChecked()
   })
 
+  it('starts from the name Google gave, if any', async () => {
+    installFakeSupabase({
+      session: fakeSession({ name: 'Ada Lovelace' }),
+      profile: null,
+    })
+    page()
+    expect(await nameField()).toHaveValue('Ada Lovelace')
+  })
+
   it('explains a failed save without leaving the page', async () => {
     const { db } = installFakeSupabase({
       session: fakeSession(),

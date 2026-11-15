@@ -133,6 +133,41 @@ describe('SignInPage', () => {
     expect(auth.signInWithPassword).not.toHaveBeenCalled()
   })
 
+  it('offers Google first, passing next along', async () => {
+    const { auth } = installFakeSupabase()
+    page('/sign-in?next=%2Flibrary')
+    const google = await screen.findByRole('button', {
+      name: 'Continue with Google',
+    })
+    await userEvent.click(google)
+    expect(auth.signInWithOAuth).toHaveBeenCalledWith({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=%2Flibrary`,
+      },
+    })
+    expect(google).toHaveTextContent('Opening Google…')
+    expect(google).toBeDisabled()
+  })
+
+  it('explains when Google sign-in can’t start', async () => {
+    const { auth } = installFakeSupabase()
+    auth.signInWithOAuth.mockResolvedValueOnce({
+      data: { provider: 'google', url: null },
+      error: new AuthApiError('off', 400, 'provider_disabled'),
+    } as never)
+    page()
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Continue with Google' }),
+    )
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Google sign-in isn’t available',
+    )
+    expect(
+      screen.getByRole('button', { name: 'Continue with Google' }),
+    ).toBeEnabled()
+  })
+
   it('skips the form when already signed in', async () => {
     installFakeSupabase({ session: fakeSession() })
     page('/sign-in?next=%2Faccount')

@@ -43,6 +43,18 @@ describe('sign-up', () => {
     ).toHaveAttribute('href', '/your-data')
   })
 
+  it('offers Google as well as email', async () => {
+    const { auth } = installFakeSupabase()
+    page()
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Continue with Google' }),
+    )
+    expect(auth.signInWithOAuth).toHaveBeenCalledWith({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    })
+  })
+
   it('creates the account with only email, password and captcha', async () => {
     const { auth } = installFakeSupabase()
     installFakeTurnstile()

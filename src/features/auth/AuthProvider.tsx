@@ -13,6 +13,7 @@ import { AuthContext } from './auth-context.ts'
 import { toAuthErrorCode } from './auth-errors.ts'
 import { forgetCompletedProfile } from './completed-profile.ts'
 import { clearLastUser, readLastUser, writeLastUser } from './last-user.ts'
+import { safeNextPath } from './safe-next.ts'
 
 type Snapshot =
   | { phase: 'loading' }
@@ -33,10 +34,27 @@ const fail = (error: unknown): AuthResult => ({
   error: toAuthErrorCode(error),
 })
 
-const toAuthUser = (session: Session): AuthUser => ({
-  id: session.user.id,
-  email: session.user.email ?? '',
-})
+/** The display name an identity provider put in the user's metadata, if any. */
+function providerName(session: Session): string | undefined {
+  const meta = session.user.user_metadata as Record<string, unknown> | undefined
+  const name = meta?.full_name ?? meta?.name
+  return typeof name === 'string' && name.trim() ? name.trim() : undefined
+}
+
+const toAuthUser = (session: Session): AuthUser => {
+  const name = providerName(session)
+  return {
+    id: session.user.id,
+    email: session.user.email ?? '',
+    ...(name ? { name } : {}),
+  }
+}
+
+/** Where every emailed or provider link returns, optionally carrying `next`. */
+const callbackUrl = (next = '/') =>
+  next === '/'
+    ? `${origin()}/auth/callback`
+    : `${origin()}/auth/callback?next=${encodeURIComponent(next)}`
 
 const origin = () => window.location.origin
 
@@ -53,7 +71,9 @@ function keepUnchanged(prev: Snapshot, next: Snapshot): Snapshot {
     return prev.phase === next.phase && prev.phase !== 'session' ? prev : next
   }
   const sameUser =
-    prev.user.id === next.user.id && prev.user.email === next.user.email
+    prev.user.id === next.user.id &&
+    prev.user.email === next.user.email &&
+    prev.user.name === next.user.name
   if (!sameUser) return next
   if (prev.stale === next.stale) return prev
   return { ...next, user: prev.user }
@@ -198,7 +218,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         const { error } = await auth.signUp({
           email,
           password,
-          options: { captchaToken, emailRedirectTo: `${origin()}/sign-in` },
+          options: { captchaToken, emailRedirectTo: callbackUrl() },
         })
         if (!error) return OK
         const code = toAuthErrorCode(error)
@@ -206,6 +226,20 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         // test which emails are registered (Supabase does the same when
         // email confirmation is on).
         return code === 'email-in-use' ? OK : { ok: false, error: code }
+      },
+      async signInWithGoogle(next = '/') {
+        const { error } = await auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo: callbackUrl(safeNextPath(next)) },
+        })
+        return error ? fail(error) : OK
+      },
+      async exchangeCode(code) {
+        const { data, error } = await auth.exchangeCodeForSession(code)
+        if (error) return fail(error)
+        // Update status before resolving, so the callback can navigate at once.
+        if (data.session) applySession(data.session)
+        return OK
       },
       async signOut({ scope = 'local' } = {}) {
         try {
@@ -225,7 +259,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       async requestPasswordReset({ email, captchaToken }) {
         const { error } = await auth.resetPasswordForEmail(email, {
           captchaToken,
-          redirectTo: `${origin()}/update-password`,
+          redirectTo: callbackUrl('/update-password'),
         })
         if (!error) return OK
         const code = toAuthErrorCode(error)
@@ -254,6 +288,8 @@ const notConfiguredValue: AuthContextValue = {
   user: null,
   signIn: notReady,
   signUp: notReady,
+  signInWithGoogle: notReady,
+  exchangeCode: notReady,
   signOut: async () => {},
   requestPasswordReset: notReady,
   updatePassword: notReady,

@@ -50,6 +50,13 @@ Add a migration with `supabase migration new <name>`. The hosted database is
 not updated by CI: after a migration is merged, apply it with
 `supabase db push` (once, after `supabase link`).
 
+Google sign-in locally needs a Google OAuth web client whose authorised
+redirect URI is `http://127.0.0.1:54321/auth/v1/callback`. Put its id and
+secret in `supabase/.env` (gitignored) as
+`SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` and
+`SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`, then restart with `npm run db:start`.
+Email and password sign-in works without them.
+
 ## Scripts
 
 | Script                 | What it does                                          |

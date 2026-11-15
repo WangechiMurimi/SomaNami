@@ -15,6 +15,11 @@ export interface AuthUser {
   /** Supabase user id (UUID); also names the user's local store. */
   id: string
   email: string
+  /**
+   * The name Google gave, used only to prefill the details step. Users can
+   * edit it in their metadata, so it is never trusted for anything else.
+   */
+  name?: string
 }
 
 /** Failure reasons the UI can word for people; never reveals whether an account exists. */
@@ -24,6 +29,9 @@ export type AuthErrorCode =
   | 'email-in-use'
   | 'weak-password'
   | 'captcha-failed'
+  | 'oauth-cancelled'
+  | 'link-expired'
+  | 'provider-unavailable'
   | 'rate-limited'
   | 'offline'
   | 'not-configured'
@@ -56,6 +64,13 @@ export interface AuthContextValue {
   user: AuthUser | null
   signIn(input: SignInInput): Promise<AuthResult>
   signUp(input: SignUpInput): Promise<AuthResult>
+  /**
+   * Sends the browser to Google; it comes back to /auth/callback and then to
+   * `next`. Resolves only if leaving failed.
+   */
+  signInWithGoogle(next?: string): Promise<AuthResult>
+  /** Finishes a Google, confirmation or recovery link by exchanging its one-time code. */
+  exchangeCode(code: string): Promise<AuthResult>
   /** `global` signs out every device; `local` only this one. */
   signOut(options?: { scope?: 'local' | 'global' }): Promise<void>
   requestPasswordReset(input: PasswordResetInput): Promise<AuthResult>

@@ -47,27 +47,27 @@ export default function DetailsPage() {
   const [submitting, setSubmitting] = useState(false)
 
   const userId = user?.id ?? null
+  const suggestedName = user?.name ?? ''
   const online = status === 'signed-in'
 
   // Prefill from a row saved earlier, so an account missing one answer only
-  // has to give that one. A failed read just leaves the form empty.
+  // has to give that one, else from Google's name (only a starting point).
+  // The form stays hidden until then, so nothing typed is overwritten.
   useEffect(() => {
     if (!online || userId === null) return
     let active = true
     getProfile(userId)
+      .catch(() => null)
       .then((profile) => {
-        if (!active || !profile) return
-        setDisplayName((name) => name || (profile.displayName ?? ''))
-        setAge13Plus((checked) => checked || profile.age13Plus)
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setLoadedFor(userId)
+        if (!active) return
+        setDisplayName(profile?.displayName || suggestedName)
+        setAge13Plus(profile?.age13Plus ?? false)
+        setLoadedFor(userId)
       })
     return () => {
       active = false
     }
-  }, [online, userId])
+  }, [online, userId, suggestedName])
 
   if (!online || userId === null) {
     return (

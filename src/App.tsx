@@ -6,6 +6,7 @@ import RequireProfile from './features/auth/RequireProfile.tsx'
 import UserStoreGate from './features/auth/UserStoreGate.tsx'
 import LibraryProvider from './features/library/LibraryProvider.tsx'
 import AccountPage from './pages/AccountPage.tsx'
+import AuthCallbackPage from './pages/AuthCallbackPage.tsx'
 import ChatPage from './pages/ChatPage.tsx'
 import ConversationPage from './pages/ConversationPage.tsx'
 import ConversationsPage from './pages/ConversationsPage.tsx'
@@ -58,6 +59,7 @@ export function AppRoutes() {
         <Route path="sign-up" element={<SignUpPage />} />
         <Route path="forgot-password" element={<ForgotPasswordPage />} />
         <Route path="update-password" element={<UpdatePasswordPage />} />
+        <Route path="auth/callback" element={<AuthCallbackPage />} />
         <Route path="your-data" element={<DataHandlingPage />} />
         <Route element={<RequireAuth />}>
           <Route path="welcome/details" element={<DetailsPage />} />
