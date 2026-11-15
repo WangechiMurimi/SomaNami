@@ -64,7 +64,7 @@ export default function AddSourcesDialog({
   return (
     <Dialog
       title={`Add sources to ${workspace.name}`}
-      description="Chats in this workspace answer only from its sources."
+      description="Pick files from My library, or upload new ones."
       onClose={onClose}
     >
       {available.length > 0 ? (

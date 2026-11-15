@@ -455,6 +455,20 @@ describe('New workspace', () => {
     expect(steps.getAllByRole('listitem')[0]).toHaveTextContent(', done')
   })
 
+  it('states the source limit once, without privacy or offline claims', async () => {
+    await open('/workspaces/new')
+    await userEvent.type(name(), 'Biology')
+    await userEvent.click(next())
+
+    expect(
+      screen.getByText(/Chats here answer only from what you add/),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Locked to your content/)).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/offline|private|Nothing outside/i),
+    ).not.toBeInTheDocument()
+  })
+
   it('explains why links cannot be added yet', async () => {
     await open('/workspaces/new')
     await userEvent.type(name(), 'Biology')
