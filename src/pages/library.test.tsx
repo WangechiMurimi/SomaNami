@@ -12,7 +12,15 @@ import {
   saveDocument,
   setStorageAdapter,
 } from '../lib/storage/index.ts'
+import { syncOnce } from '../lib/sync/engine.ts'
 import type { DocumentKind, Workspace } from '../types/contracts.ts'
+
+// The cloud's answer is each test's to decide; by default it confirms
+// everything, as a reachable cloud would.
+vi.mock('../lib/sync/engine.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/sync/engine.ts')>()),
+  syncOnce: vi.fn(),
+}))
 
 let biology: Workspace
 
@@ -23,6 +31,7 @@ const material = (id: string, kind: DocumentKind, workspaceId = biology.id) =>
   )
 
 beforeEach(async () => {
+  vi.mocked(syncOnce).mockResolvedValue({ pulled: 0, pushed: 0, pending: 0 })
   setStorageAdapter(createMemoryAdapter())
   biology = await createWorkspace({ name: 'Biology' })
   await material('cells', 'pdf')
@@ -155,5 +164,49 @@ describe('Removing a material (US-08 AC5)', () => {
     ).not.toBeInTheDocument()
     expect(await getConversation(solo.id)).toBeUndefined()
     expect((await getConversation(shared.id))?.materialIds).toEqual(['notes'])
+  })
+
+  const removeCells = async () => {
+    await renderSignedInApp()
+    await userEvent.click(await removeButton('cells.pdf'))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveTextContent(
+      /deleted from your account and all your devices, original file included/,
+    )
+    await within(dialog).findByRole('button', { name: 'Remove' })
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Remove' }),
+    )
+  }
+
+  it('says it was deleted once the cloud confirms (#147)', async () => {
+    await removeCells()
+
+    expect(await screen.findByText('‘cells.pdf’ deleted')).toHaveAttribute(
+      'role',
+      'status',
+    )
+    expect(syncOnce).toHaveBeenCalled()
+  })
+
+  it('says exactly what happened when the cloud can’t confirm yet', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await renderSignedInApp()
+    // Let the sync that runs on opening finish before the cloud goes away.
+    await vi.waitFor(() => expect(syncOnce).toHaveBeenCalled())
+    vi.mocked(syncOnce).mockRejectedValue(new Error('offline'))
+
+    await userEvent.click(await removeButton('cells.pdf'))
+    const dialog = await screen.findByRole('alertdialog')
+    await userEvent.click(
+      await within(dialog).findByRole('button', { name: 'Remove' }),
+    )
+
+    expect(
+      await screen.findByText(
+        '‘cells.pdf’ was deleted from this device. It will be erased from your account the next time you’re online.',
+      ),
+    ).toBeInTheDocument()
+    expect(await getDocument('cells')).toBeUndefined()
   })
 })
