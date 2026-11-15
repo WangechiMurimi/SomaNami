@@ -129,11 +129,21 @@ describe('Home quick start', () => {
     ).toHaveValue('Who built the roads?')
   })
 
-  it('points the first step’s upload link at the composer', async () => {
+  it('sets the heading, the grounding note and the composer in order', async () => {
     await renderSignedInApp()
 
+    const main = screen.getByRole('main')
+    const heading = within(main).getByRole('heading', {
+      level: 1,
+      name: 'What would you like to explore today?',
+    })
+    const note = within(main).getByText(/stays grounded in your materials/)
+    const composer = screen.getByRole('region', { name: 'Start a chat' })
     expect(
-      screen.getByRole('link', { name: 'Upload materials' }),
-    ).toHaveAttribute('href', '#start')
+      heading.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      note.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
   })
 })

@@ -20,6 +20,8 @@ import { useDocumentUpload } from '../upload/use-document-upload.ts'
 
 const STEPS = ['Name and topic', 'Add materials'] as const
 
+const LABEL = 'text-base leading-[1.5] font-semibold'
+const HINT = 'text-[15px] leading-[1.5] text-muted'
 const FIELD =
   'h-12 w-full rounded-[10px] border border-edge bg-surface px-3.5 text-base text-fg'
 const SECONDARY =
@@ -29,15 +31,17 @@ const PRIMARY =
 
 function StepIndicator({ current }: { current: number }) {
   return (
-    <ol aria-label="Steps" className="flex flex-wrap items-center gap-3">
+    <ol aria-label="Steps" className="flex w-full items-center gap-3">
       {STEPS.map((label, index) => {
         const done = index < current
         const active = index === current
+        const last = index === STEPS.length - 1
         return (
           <li
             key={label}
             aria-current={active ? 'step' : undefined}
-            className="flex items-center gap-2.5"
+            // Every step but the last grows, so its connector fills the row.
+            className={`flex min-w-0 items-center gap-2.5 ${last ? 'flex-none' : 'flex-1'}`}
           >
             <span
               className={`flex size-8 flex-none items-center justify-center rounded-full border-[1.5px] text-sm font-semibold ${
@@ -51,15 +55,15 @@ function StepIndicator({ current }: { current: number }) {
               {done ? <Check size={15} strokeWidth={2.6} /> : index + 1}
             </span>
             <span
-              className={`text-[15px] ${active ? 'font-semibold text-fg' : 'text-muted'}`}
+              className={`truncate text-[15px] leading-[1.5] ${active ? 'font-semibold text-fg' : 'text-muted'}`}
             >
               {label}
               {done && <span className="sr-only">, done</span>}
             </span>
-            {index < STEPS.length - 1 && (
+            {!last && (
               <span
                 aria-hidden="true"
-                className={`ml-0.5 h-[1.5px] w-10 ${done ? 'bg-accent' : 'bg-line'}`}
+                className={`mr-1 ml-0.5 h-[1.5px] min-w-6 flex-1 ${done ? 'bg-accent' : 'bg-line'}`}
               />
             )}
           </li>
@@ -156,17 +160,17 @@ export default function NewWorkspaceWizard() {
               <h2
                 ref={heading}
                 tabIndex={-1}
-                className="text-2xl leading-[1.3] font-medium outline-none"
+                className="text-[22px] leading-[1.3] font-semibold outline-none"
               >
-                What’s this workspace about?
+                Set up your workspace
               </h2>
-              <p className="text-[15px] leading-[1.6] text-muted">
-                Give it a name you’ll recognise. The topic shows as a tag so you
-                can find it later.
+              <p className="text-base leading-[1.6] text-muted">
+                Name your workspace and choose a topic to help keep your
+                materials organised.
               </p>
             </div>
             <div className="flex flex-col gap-2">
-              <label htmlFor={`${id}-name`} className="text-[15px] font-medium">
+              <label htmlFor={`${id}-name`} className={LABEL}>
                 Workspace name
               </label>
               <input
@@ -180,8 +184,12 @@ export default function NewWorkspaceWizard() {
                   if (nameError) setNameError(null)
                 }}
                 aria-invalid={nameError ? true : undefined}
-                aria-describedby={nameError ? `${id}-name-error` : undefined}
-                placeholder="e.g. Memory & learning"
+                aria-describedby={
+                  nameError
+                    ? `${id}-name-error ${id}-name-hint`
+                    : `${id}-name-hint`
+                }
+                placeholder="e.g. Cognitive psychology"
                 className={FIELD}
               />
               {nameError && (
@@ -189,22 +197,33 @@ export default function NewWorkspaceWizard() {
                   {nameError}
                 </p>
               )}
+              <p id={`${id}-name-hint`} className={HINT}>
+                Choose a name that helps you recognise this workspace.
+              </p>
             </div>
             <div className="flex flex-col gap-2">
               <label
                 htmlFor={`${id}-topic`}
-                className="text-[15px] font-medium"
+                className={`${LABEL} flex items-center gap-2`}
               >
-                Topic <span className="font-normal text-muted">(optional)</span>
+                Topic
+                <span className="rounded-full bg-tile px-2.5 py-0.5 text-xs leading-[1.5] font-medium text-muted">
+                  Optional
+                </span>
               </label>
               <input
                 id={`${id}-topic`}
                 type="text"
                 value={topic}
                 onChange={(event) => setTopic(event.target.value)}
-                placeholder="e.g. Cognitive psychology"
+                aria-describedby={`${id}-topic-hint`}
+                placeholder="e.g. Memory and learning"
                 className={FIELD}
               />
+              <p id={`${id}-topic-hint`} className={HINT}>
+                What you want to explore first. You can start chats on other
+                topics later.
+              </p>
             </div>
           </form>
         ) : (
@@ -320,7 +339,7 @@ export default function NewWorkspaceWizard() {
             </Link>
           ) : (
             <button type="button" onClick={back} className={SECONDARY}>
-              <ArrowLeft size={16} />
+              <ArrowLeft size={14} strokeWidth={2.2} />
               Back
             </button>
           )}
@@ -330,8 +349,8 @@ export default function NewWorkspaceWizard() {
             </span>
             {step === 0 ? (
               <button type="submit" form={`${id}-step-1`} className={PRIMARY}>
-                Next
-                <ArrowRight size={16} />
+                Continue
+                <ArrowRight size={14} strokeWidth={2.2} />
               </button>
             ) : (
               <button
@@ -341,7 +360,7 @@ export default function NewWorkspaceWizard() {
                 className={PRIMARY}
               >
                 {saving ? 'Creating…' : 'Create workspace'}
-                <ArrowRight size={16} />
+                <Check size={14} strokeWidth={2.2} />
               </button>
             )}
           </div>

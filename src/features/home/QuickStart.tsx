@@ -20,7 +20,7 @@ const withQuestion = (path: string, question: string) =>
  * question opens New chat in the workspace it should use, asking which one
  * when more than one has materials.
  */
-export default function QuickStart({ id }: { id: string }) {
+export default function QuickStart() {
   const fieldId = useId()
   const navigate = useNavigate()
   const { documents } = useLibraryContext()
@@ -55,7 +55,7 @@ export default function QuickStart({ id }: { id: string }) {
   }
 
   return (
-    <section id={id} aria-label="Start a chat" className="scroll-mt-8">
+    <section aria-label="Start a chat">
       <div className="flex flex-col gap-4">
         <Composer
           label="Ask a question or share what you’re reading"

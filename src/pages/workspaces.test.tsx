@@ -22,13 +22,23 @@ const open = (path: string) => renderSignedInApp(path)
 const main = () => within(screen.getByRole('main'))
 
 describe('Workspaces grid', () => {
+  it('names the page in the top bar', async () => {
+    await open('/workspaces')
+
+    const trail = await screen.findByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(trail).getByText('Workspaces')).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+  })
+
   it('offers to start a workspace when there are none', async () => {
     await open('/workspaces')
 
     const list = await main().findByRole('list', { name: 'Your workspaces' })
     expect(within(list).getAllByRole('listitem')).toHaveLength(1)
     expect(
-      within(list).getByRole('heading', { name: 'Start a new workspace' }),
+      within(list).getByRole('heading', { name: 'Start something new' }),
     ).toBeInTheDocument()
     expect(
       within(list).getByRole('link', { name: 'Create workspace' }),
@@ -70,7 +80,7 @@ describe('Workspaces grid', () => {
 
 describe('New workspace', () => {
   const name = () => screen.getByLabelText('Workspace name')
-  const next = () => screen.getByRole('button', { name: 'Next' })
+  const next = () => screen.getByRole('button', { name: 'Continue' })
 
   it('asks for a name before moving on', async () => {
     await open('/workspaces/new')
@@ -78,9 +88,25 @@ describe('New workspace', () => {
     await userEvent.click(next())
 
     expect(name()).toHaveAttribute('aria-invalid', 'true')
-    expect(name()).toHaveAccessibleDescription('Give your workspace a name.')
+    expect(name()).toHaveAccessibleDescription(/^Give your workspace a name\. /)
     expect(name()).toHaveFocus()
     expect(screen.getByText('Step 1 of 2')).toBeInTheDocument()
+  })
+
+  it('shows the trail back to Workspaces in the top bar', async () => {
+    await open('/workspaces/new')
+
+    const trail = within(
+      await screen.findByRole('navigation', { name: 'Breadcrumb' }),
+    )
+    expect(trail.getByRole('link', { name: 'Workspaces' })).toHaveAttribute(
+      'href',
+      '/workspaces',
+    )
+    expect(trail.getByText('Create a workspace')).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
   })
 
   it('goes back to step one with the name kept', async () => {
@@ -191,7 +217,7 @@ describe('New workspace', () => {
     await userEvent.click(screen.getByRole('link', { name: 'Cancel' }))
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Workspaces' }),
+      await screen.findByRole('heading', { level: 1, name: 'Your workspaces' }),
     ).toBeInTheDocument()
     expect(await listWorkspaces()).toEqual([])
   })
