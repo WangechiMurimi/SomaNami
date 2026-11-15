@@ -1,6 +1,10 @@
 import { useSyncExternalStore } from 'react'
 
-function subscribe(onChange: () => void): () => void {
+/**
+ * Calls `onChange` whenever the browser goes online or offline; returns the
+ * unsubscribe function. For code outside React, such as sync.
+ */
+export function subscribeToConnectivity(onChange: () => void): () => void {
   window.addEventListener('online', onChange)
   window.addEventListener('offline', onChange)
   return () => {
@@ -9,7 +13,8 @@ function subscribe(onChange: () => void): () => void {
   }
 }
 
-const getSnapshot = () => navigator.onLine
+/** Whether the browser believes it is online (see `useOnline` for the caveat). */
+export const isOnline = (): boolean => navigator.onLine
 // Rendering without a browser (tests, prerender) assumes a connection.
 const getServerSnapshot = () => true
 
@@ -19,5 +24,9 @@ const getServerSnapshot = () => true
  * as "probably"; the chat route still handles failed requests itself.
  */
 export function useOnline(): boolean {
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+  return useSyncExternalStore(
+    subscribeToConnectivity,
+    isOnline,
+    getServerSnapshot,
+  )
 }
