@@ -1,16 +1,30 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderSignedInApp } from '../features/auth/testing/render-app.tsx'
 import {
   createConversation,
   createMemoryAdapter,
   createWorkspace,
+  DEFAULT_WORKSPACE,
+  getDocument,
+  getWorkspace,
   listWorkspaceDocuments,
   listWorkspaces,
   saveDocument,
   setStorageAdapter,
+  setWorkspacePinned,
 } from '../lib/storage/index.ts'
+import type { NewDocument, Workspace } from '../types/contracts.ts'
+
+const doc = (id: string, name: string): NewDocument => ({
+  id,
+  name,
+  size: 1,
+  kind: 'text',
+  pageCount: null,
+  chunks: [],
+})
 
 beforeEach(() => {
   setStorageAdapter(createMemoryAdapter())
@@ -73,8 +87,215 @@ describe('Workspaces grid', () => {
     expect(card).toHaveTextContent('Cognitive psychology')
     expect(card).toHaveTextContent('1 material · 1 chat')
     expect(
-      within(card).getByRole('link', { name: 'Open Memory & learning' }),
+      within(card).getByRole('link', { name: 'Memory & learning' }),
     ).toHaveAttribute('href', `/workspaces/${workspace.id}`)
+  })
+
+  it('never lists the default workspace that holds loose chats', async () => {
+    await saveDocument({ ...doc('loose', 'Loose.txt') })
+    await createWorkspace({ name: 'Biology' })
+    await open('/workspaces')
+
+    const list = await main().findByRole('list', { name: 'Your workspaces' })
+    await within(list).findByRole('heading', { name: 'Biology' })
+    expect(
+      within(list)
+        .getAllByRole('heading', { level: 2 })
+        .map((h) => h.textContent),
+    ).toEqual(['Biology', 'Start something new'])
+  })
+
+  it('lists pinned workspaces first', async () => {
+    await createWorkspace({ name: 'Older' })
+    const pinned = await createWorkspace({ name: 'Pinned one' })
+    await createWorkspace({ name: 'Newest' })
+    await setWorkspacePinned(pinned.id, true)
+    await open('/workspaces')
+
+    const list = await main().findByRole('list', { name: 'Your workspaces' })
+    await within(list).findByRole('heading', { name: 'Pinned one' })
+    const names = within(list)
+      .getAllByRole('heading', { level: 2 })
+      .map((h) => h.textContent)
+    expect(names[0]).toBe('Pinned one')
+    expect(within(list).getAllByRole('listitem')[0]).toHaveTextContent('Pinned')
+  })
+})
+
+describe('Workspace card menu', () => {
+  let biology: Workspace
+
+  beforeEach(async () => {
+    biology = await createWorkspace({ name: 'Biology' })
+  })
+
+  const menuButton = () =>
+    main().findByRole('button', { name: 'Actions for Biology' })
+  const openMenu = async () => {
+    await userEvent.click(await menuButton())
+    return within(screen.getByRole('menu', { name: 'Actions for Biology' }))
+  }
+
+  it('is a menu button that closes with Escape and returns focus', async () => {
+    await open('/workspaces')
+    const button = await menuButton()
+    expect(button).toHaveAttribute('aria-haspopup', 'menu')
+    expect(button).toHaveAttribute('aria-expanded', 'false')
+
+    const menu = await openMenu()
+    expect(button).toHaveAttribute('aria-expanded', 'true')
+    expect(
+      menu.getAllByRole('menuitem').map((item) => item.textContent),
+    ).toEqual([
+      'Open',
+      'Add sources',
+      'Remove sources',
+      'Rename',
+      'Pin',
+      'Delete',
+    ])
+    expect(menu.getByRole('menuitem', { name: 'Open' })).toHaveFocus()
+
+    await userEvent.keyboard('{ArrowDown}')
+    expect(menu.getByRole('menuitem', { name: 'Add sources' })).toHaveFocus()
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(button).toHaveFocus()
+  })
+
+  it('opens the workspace', async () => {
+    await open('/workspaces')
+    const menu = await openMenu()
+    await userEvent.click(menu.getByRole('menuitem', { name: 'Open' }))
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Biology' }),
+    ).toBeInTheDocument()
+  })
+
+  it('pins and unpins the workspace', async () => {
+    await open('/workspaces')
+    await userEvent.click(
+      (await openMenu()).getByRole('menuitem', { name: 'Pin' }),
+    )
+    await vi.waitFor(async () =>
+      expect((await getWorkspace(biology.id))?.pinned).toBe(true),
+    )
+
+    const menu = await openMenu()
+    await userEvent.click(menu.getByRole('menuitem', { name: 'Unpin' }))
+    await vi.waitFor(async () =>
+      expect((await getWorkspace(biology.id))?.pinned).toBe(false),
+    )
+  })
+
+  it('renames the workspace', async () => {
+    await open('/workspaces')
+    await userEvent.click(
+      (await openMenu()).getByRole('menuitem', { name: 'Rename' }),
+    )
+
+    const dialog = within(
+      screen.getByRole('dialog', { name: 'Rename Biology' }),
+    )
+    const field = dialog.getByLabelText('Workspace name')
+    expect(field).toHaveFocus()
+    await userEvent.clear(field)
+    await userEvent.click(dialog.getByRole('button', { name: 'Save' }))
+    expect(field).toHaveAccessibleDescription('Give your workspace a name.')
+
+    await userEvent.type(field, 'Cell biology')
+    await userEvent.click(dialog.getByRole('button', { name: 'Save' }))
+
+    expect(
+      await main().findByRole('heading', { name: 'Cell biology' }),
+    ).toBeInTheDocument()
+    expect((await getWorkspace(biology.id))?.name).toBe('Cell biology')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('asks before deleting and says the chats and materials go too', async () => {
+    await saveDocument(doc('cells', 'Cells.txt'), biology.id)
+    await createConversation({
+      workspaceId: biology.id,
+      materialIds: ['cells'],
+    })
+    await open('/workspaces')
+    await userEvent.click(
+      (await openMenu()).getByRole('menuitem', { name: 'Delete' }),
+    )
+
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete Biology?' })
+    expect(dialog).toHaveTextContent(
+      'This deletes the workspace, its 1 chat and its 1 material.',
+    )
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Cancel' }),
+    )
+    expect(await getWorkspace(biology.id)).toBeDefined()
+
+    await userEvent.click(
+      (await openMenu()).getByRole('menuitem', { name: 'Delete' }),
+    )
+    await userEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Delete workspace',
+      }),
+    )
+
+    await vi.waitFor(async () =>
+      expect(await getWorkspace(biology.id)).toBeUndefined(),
+    )
+    expect(await getDocument('cells')).toBeUndefined()
+    expect(
+      main().queryByRole('heading', { name: 'Biology' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('adds Library files to the workspace', async () => {
+    await saveDocument(doc('loose', 'Loose notes.txt'))
+    await open('/workspaces')
+    await userEvent.click(
+      (await openMenu()).getByRole('menuitem', { name: 'Add sources' }),
+    )
+
+    const dialog = within(
+      screen.getByRole('dialog', { name: 'Add sources to Biology' }),
+    )
+    expect(dialog.getByLabelText('Upload a document')).toBeInTheDocument()
+    await userEvent.click(dialog.getByRole('checkbox', { name: /Loose notes/ }))
+    await userEvent.click(dialog.getByRole('button', { name: 'Add 1 source' }))
+
+    await vi.waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    )
+    expect((await getDocument('loose'))?.workspaceId).toBe(biology.id)
+    expect(await main().findByText('1 material · 0 chats')).toBeInTheDocument()
+  })
+
+  it('removes sources back to My library', async () => {
+    await saveDocument(doc('cells', 'Cells.txt'), biology.id)
+    await open('/workspaces')
+    await userEvent.click(
+      (await openMenu()).getByRole('menuitem', { name: 'Remove sources' }),
+    )
+
+    const dialog = within(
+      screen.getByRole('dialog', { name: 'Remove sources from Biology' }),
+    )
+    expect(
+      screen.getByRole('dialog', { name: 'Remove sources from Biology' }),
+    ).toHaveAccessibleDescription(/stay in My library/)
+    await userEvent.click(dialog.getByRole('checkbox', { name: /Cells\.txt/ }))
+    await userEvent.click(
+      dialog.getByRole('button', { name: 'Remove 1 source' }),
+    )
+
+    await vi.waitFor(async () =>
+      expect((await getDocument('cells'))?.workspaceId).toBe(
+        DEFAULT_WORKSPACE.id,
+      ),
+    )
   })
 })
 
