@@ -6,6 +6,7 @@ import { useAuth } from '../features/auth/auth-context.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
 import { useOnline } from '../lib/connectivity/use-online.ts'
 import { initialsFor } from './initials.ts'
+import BrandMark from '../components/BrandMark.tsx'
 
 const RECENT_LIMIT = 3
 
@@ -175,20 +176,7 @@ export default function Sidebar() {
         to="/"
         className="flex items-center gap-[9px] self-start rounded-[10px] pl-[9px]"
       >
-        <svg width="39" height="39" viewBox="0 0 39 39" aria-hidden="true">
-          <rect width="39" height="39" rx="10" className="fill-accent" />
-          <g
-            transform="translate(9 9) scale(0.875)"
-            fill="none"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="stroke-on-accent"
-          >
-            <path d="M12 7v14" />
-            <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
-          </g>
-        </svg>
+        <BrandMark />
         <span className="font-brand text-2xl leading-[1.5] font-bold">
           SomaNami
         </span>
