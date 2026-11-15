@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
+import { useBreadcrumbs } from '../app/breadcrumbs.ts'
 import Composer from '../components/Composer.tsx'
 import { Check, Lock, Plus } from '../components/icons.tsx'
 import { chatPath, titleFrom } from '../features/chat/conversation-materials.ts'
@@ -23,6 +24,11 @@ function NewChat({
   preselected: string | null
   initialQuestion: string
 }) {
+  useBreadcrumbs([
+    { label: 'Workspaces', to: '/workspaces' },
+    { label: workspace.name, to: `/workspaces/${workspace.id}` },
+    { label: 'New chat' },
+  ])
   const navigate = useNavigate()
   // Until the user picks, a chat opened from one material uses that one, and
   // a chat opened from the workspace uses all of them.

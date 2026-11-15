@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { Lock } from '../../components/icons.tsx'
 import { retrieveChunks } from '../../lib/retrieval/index.ts'
 import type { Passage, StoredDocument } from '../../types/contracts.ts'
 import ChatPanel from './ChatPanel.tsx'
@@ -47,6 +48,14 @@ export default function ConversationChat({
       initialQuestion={initialQuestion}
       onAnswered={onAnswered}
       addMaterialTo={`/workspaces/${workspaceId}`}
+      scope={
+        <span className="ml-1 flex items-center gap-1.5 rounded-full bg-tint px-2.5 py-1 text-[13px] leading-[1.5] text-accent">
+          <Lock size={14} strokeWidth={1.9} />
+          {materials.length === 1
+            ? '1 material'
+            : `${materials.length} materials`}
+        </span>
+      }
     />
   )
 }
