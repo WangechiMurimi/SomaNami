@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
 import Composer from '../components/Composer.tsx'
-import { Check, Lock, Plus } from '../components/icons.tsx'
+import { Check, Plus } from '../components/icons.tsx'
 import { chatPath, titleFrom } from '../features/chat/conversation-materials.ts'
 import { WAYS_IN } from '../features/chat/ways-in.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
@@ -77,6 +77,7 @@ function NewChat({
       const conversation = await createConversation({
         workspaceId: workspace.id,
         materialIds: chosen,
+        // TODO(#NEW-7): let the LLM title the chat from its first question.
         title: titleFrom(question),
       })
       navigate(chatPath(conversation), { state: { question: question.trim() } })
@@ -90,15 +91,8 @@ function NewChat({
   return (
     <div className="mx-auto flex max-w-[54rem] flex-col gap-8">
       <div>
-        <p className="inline-flex items-center gap-1.5 rounded-full bg-tint px-3 py-1.5 text-[13px] text-accent">
-          <Lock size={14} />
-          Locked to your content
-        </p>
-        <h1 className={`${H1} mt-4`}>What would you like to understand?</h1>
-        <p className={LEDE}>
-          This chat only sees the materials you pick below. It won’t look
-          anywhere else.
-        </p>
+        <h1 className={H1}>What would you like to understand?</h1>
+        <p className={LEDE}>Answers come from the materials you pick below.</p>
       </div>
 
       <div className="flex flex-col gap-3">
