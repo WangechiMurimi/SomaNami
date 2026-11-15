@@ -1,18 +1,20 @@
 import { useEffect, useId, useState } from 'react'
 import { Link } from 'react-router'
 import ConfirmDialog from '../components/ConfirmDialog.tsx'
-import { ArrowRight, Lock, Trash } from '../components/icons.tsx'
+import { useBreadcrumbs } from '../app/breadcrumbs.ts'
+import { ArrowRight, Trash } from '../components/icons.tsx'
 import { newChatPath } from '../features/chat/conversation-materials.ts'
+import KindIcon from '../features/library/KindIcon.tsx'
 import { KIND_LABEL } from '../features/library/kind-label.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
 import UploadSection from '../features/upload/UploadSection.tsx'
 import { useWorkspaces } from '../features/workspaces/use-workspaces.ts'
 import { DEFAULT_WORKSPACE, listConversations } from '../lib/storage/index.ts'
 import type { DocumentKind, StoredDocument } from '../types/contracts.ts'
-import { H1, H2, LEDE } from './page-heading.ts'
+import { H1, LEDE } from './page-heading.ts'
 
 const HEADER =
-  'px-5 py-3 text-left text-xs font-medium tracking-[0.06em] text-muted uppercase'
+  'px-5 py-3.5 text-left text-xs font-medium tracking-[0.06em] text-muted uppercase'
 
 const FILTERS: { label: string; kind: DocumentKind | null }[] = [
   { label: 'All', kind: null },
@@ -105,6 +107,7 @@ export default function LibraryPage() {
   const [kind, setKind] = useState<DocumentKind | null>(null)
   const [target, setTarget] = useState<string>(DEFAULT_WORKSPACE.id)
   const [removing, setRemoving] = useState<StoredDocument | null>(null)
+  useBreadcrumbs([{ label: 'My library' }])
 
   const shown = kind
     ? documents.filter((document) => document.kind === kind)
@@ -118,8 +121,8 @@ export default function LibraryPage() {
     : [DEFAULT_WORKSPACE, ...workspaces]
 
   return (
-    <div className="flex flex-col gap-12">
-      <div className="flex flex-wrap items-end justify-between gap-6">
+    <div className="flex flex-col gap-10">
+      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
         <div>
           <h1 className={H1}>My library</h1>
           <p className={LEDE}>
@@ -127,24 +130,15 @@ export default function LibraryPage() {
             materials.
           </p>
         </div>
-        <a
-          href="#library-upload"
-          className="inline-flex h-11 items-center gap-[9px] rounded-[10px] bg-accent px-[18px] text-sm font-medium text-on-accent transition-opacity hover:opacity-90"
-        >
-          Upload materials
-        </a>
-      </div>
-
-      <div id="library-upload" className="flex scroll-mt-8 flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <label htmlFor={`${id}-target`} className="text-[15px] font-medium">
+        <div className="flex min-w-0 flex-col gap-2">
+          <label htmlFor={`${id}-target`} className="text-sm font-medium">
             Add to workspace
           </label>
           <select
             id={`${id}-target`}
             value={target}
             onChange={(event) => setTarget(event.target.value)}
-            className="h-11 rounded-[10px] border border-edge bg-surface px-3 text-[15px] text-fg"
+            className="h-11 max-w-full rounded-[10px] border border-edge bg-surface px-3 text-[15px] text-fg"
           >
             {targets.map((workspace) => (
               <option key={workspace.id} value={workspace.id}>
@@ -153,20 +147,11 @@ export default function LibraryPage() {
             ))}
           </select>
         </div>
-        <UploadSection key={target} workspaceId={target} />
-        <p className="flex items-center gap-2 text-[13px] text-muted">
-          <Lock size={14} strokeWidth={1.9} />
-          Locked to your content
-        </p>
       </div>
 
-      <section
-        aria-labelledby="materials-heading"
-        className="flex flex-col gap-4"
-      >
-        <h2 id="materials-heading" className={H2}>
-          Materials
-        </h2>
+      <UploadSection key={target} workspaceId={target} />
+
+      <section aria-label="Materials" className="flex flex-col gap-4">
         {status === 'loading' ? (
           <p role="status" className="text-muted">
             Opening your library…
@@ -189,10 +174,10 @@ export default function LibraryPage() {
                     type="button"
                     aria-pressed={kind === filter.kind}
                     onClick={() => setKind(filter.kind)}
-                    className={`inline-flex h-11 items-center rounded-full border px-4 text-sm font-medium ${
+                    className={`inline-flex h-11 items-center rounded-full border px-3.5 text-sm transition-colors ${
                       kind === filter.kind
-                        ? 'border-accent bg-tint text-accent'
-                        : 'border-edge text-muted hover:text-fg'
+                        ? 'border-accent bg-tint font-semibold text-accent'
+                        : 'border-edge bg-surface text-muted hover:text-fg'
                     }`}
                   >
                     {filter.label}
@@ -204,20 +189,20 @@ export default function LibraryPage() {
               </span>
             </div>
             <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-              <table className="w-full min-w-[40rem] border-collapse text-sm">
+              <table className="w-full min-w-[40rem] border-collapse text-left">
                 <caption className="sr-only">Your materials</caption>
                 <thead>
                   <tr>
-                    <th scope="col" className={HEADER}>
+                    <th scope="col" className={`${HEADER} w-[38%]`}>
                       Name
                     </th>
-                    <th scope="col" className={HEADER}>
+                    <th scope="col" className={`${HEADER} w-[17%]`}>
                       Type
                     </th>
-                    <th scope="col" className={HEADER}>
+                    <th scope="col" className={`${HEADER} w-[25%]`}>
                       Workspace
                     </th>
-                    <th scope="col" className={HEADER}>
+                    <th scope="col" className={`${HEADER} w-[20%]`}>
                       <span className="sr-only">Actions</span>
                     </th>
                   </tr>
@@ -225,13 +210,16 @@ export default function LibraryPage() {
                 <tbody>
                   {shown.map((document) => (
                     <tr key={document.id} className="border-t border-line">
-                      <td className="max-w-[20rem] truncate px-5 py-3.5 font-medium">
-                        {document.name}
+                      <td className="px-5 py-3.5">
+                        <span className="flex max-w-[22rem] min-w-0 items-center gap-3 text-[15px] leading-[1.5] font-medium text-fg">
+                          <KindIcon kind={document.kind} />
+                          <span className="truncate">{document.name}</span>
+                        </span>
                       </td>
-                      <td className="px-5 py-3.5 text-muted">
+                      <td className="px-5 py-3.5 text-sm text-muted">
                         {KIND_LABEL[document.kind]}
                       </td>
-                      <td className="px-5 py-3.5 text-muted">
+                      <td className="px-5 py-3.5 text-sm text-muted">
                         <Link
                           to={`/workspaces/${document.workspaceId}`}
                           className="hover:text-fg hover:underline"
@@ -239,11 +227,11 @@ export default function LibraryPage() {
                           {workspaceName(document.workspaceId)}
                         </Link>
                       </td>
-                      <td className="px-5 py-2">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-5 py-1.5">
+                        <div className="flex items-center justify-end gap-1">
                           <Link
                             to={newChatPath(document.workspaceId, document.id)}
-                            className="flex items-center gap-[7px] text-[13px] font-semibold text-accent hover:underline"
+                            className="inline-flex min-h-11 items-center gap-[7px] px-1 text-[13px] font-semibold whitespace-nowrap text-accent hover:underline"
                           >
                             Ask about this
                             <span className="sr-only">: {document.name}</span>
@@ -252,7 +240,7 @@ export default function LibraryPage() {
                           <button
                             type="button"
                             onClick={() => setRemoving(document)}
-                            className="inline-flex size-11 items-center justify-center rounded-[10px] text-muted hover:bg-warn-soft hover:text-warn"
+                            className="inline-flex size-11 flex-none items-center justify-center rounded-[10px] text-muted hover:bg-warn-soft hover:text-warn"
                           >
                             <Trash size={17} strokeWidth={1.8} />
                             <span className="sr-only">

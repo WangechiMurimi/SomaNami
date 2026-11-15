@@ -33,6 +33,26 @@ beforeEach(async () => {
 const table = () => screen.findByRole('table', { name: 'Your materials' })
 
 describe('Library', () => {
+  it('names the page in the top bar’s breadcrumb', async () => {
+    await renderSignedInApp()
+    const trail = await screen.findByRole('navigation', { name: 'Breadcrumb' })
+    await within(trail).findByText('My library')
+  })
+
+  it('offers the real file types as filters', async () => {
+    await renderSignedInApp()
+    await table()
+    const filters = within(
+      screen.getByRole('group', { name: 'Filter by type' }),
+    )
+    expect(filters.getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'All',
+      'PDF',
+      'Word',
+      'Text',
+    ])
+  })
+
   it('shows each material’s type and workspace', async () => {
     await renderSignedInApp()
 
