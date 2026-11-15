@@ -4,8 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ChatPanel from './ChatPanel.tsx'
 import { askQuestion, ChatError } from './chat-client.ts'
 import type { ChatTurn } from './use-chat.ts'
-import { AuthContext } from '../auth/auth-context.ts'
-import type { AuthContextValue, AuthStatus } from '../../types/auth.ts'
 import type { ChatReply } from '../../types/contracts.ts'
 
 vi.mock('./chat-client.ts', async (importOriginal) => ({
@@ -22,26 +20,18 @@ const PASSAGES = [
   },
 ]
 
-/** Only `status` matters to the panel; the account actions are never called. */
-const authAs = (status: AuthStatus) =>
-  ({
-    status,
-    user: { id: 'user-1', email: 'learner@example.test' },
-  }) as AuthContextValue
-
 function setup({
-  status = 'signed-in',
   initialMessages,
-}: { status?: AuthStatus; initialMessages?: ChatTurn[] } = {}) {
+  initialQuestion,
+}: { initialMessages?: ChatTurn[]; initialQuestion?: string } = {}) {
   const user = userEvent.setup()
   render(
-    <AuthContext.Provider value={authAs(status)}>
-      <ChatPanel
-        documents={[{ id: 'doc-1', name: 'biology.pdf' }]}
-        selectPassages={() => PASSAGES}
-        initialMessages={initialMessages}
-      />
-    </AuthContext.Provider>,
+    <ChatPanel
+      documents={[{ id: 'doc-1', name: 'biology.pdf' }]}
+      selectPassages={() => PASSAGES}
+      initialMessages={initialMessages}
+      initialQuestion={initialQuestion}
+    />,
   )
   return {
     user,
@@ -237,8 +227,8 @@ describe('ChatPanel', () => {
 
   it('shows a failed request as an alert with a working retry', async () => {
     vi.mocked(askQuestion).mockRejectedValueOnce(
-      new ChatError('We couldn’t reach the answer service.', {
-        code: 'offline',
+      new ChatError('Couldn’t get an answer. Try again.', {
+        code: 'network',
       }),
     )
     const { user, box, send } = setup()
@@ -247,7 +237,7 @@ describe('ChatPanel', () => {
     await user.click(send)
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('We couldn’t reach the answer service.')
+    expect(alert).toHaveTextContent('Couldn’t get an answer. Try again.')
 
     vi.mocked(askQuestion).mockResolvedValueOnce({
       answer: 'Light drives photosynthesis.',
@@ -266,71 +256,30 @@ describe('ChatPanel', () => {
     expect(screen.getAllByText('Why?')).toHaveLength(1)
   })
 
-  describe('while signed in offline', () => {
-    const saved: ChatTurn[] = [
-      { id: 'q', role: 'user', content: 'What is ATP?' },
-      {
-        id: 'a',
-        role: 'assistant',
-        content: 'The cell’s energy currency.',
-        answerable: true,
-        citations: [],
-      },
-    ]
-
-    it('keeps the saved conversation readable', () => {
-      setup({ status: 'signed-in-offline', initialMessages: saved })
-
-      const log = screen.getByRole('region', { name: 'Conversation' })
-      expect(within(log).getByText('What is ATP?')).toBeVisible()
-      expect(within(log).getByText('The cell’s energy currency.')).toBeVisible()
+  it('asks the question it was opened with, once', async () => {
+    vi.mocked(askQuestion).mockResolvedValue({
+      answer: 'Light drives photosynthesis.',
+      citations: [],
+      answerable: true,
     })
+    setup({ initialQuestion: 'Why do leaves need light?' })
 
-    it('explains that asking needs a connection, and blocks sending', async () => {
-      const { user, box, send } = setup({ status: 'signed-in-offline' })
+    expect(
+      await screen.findByRole('article', {
+        name: 'Answer from your materials',
+      }),
+    ).toBeVisible()
+    expect(askQuestion).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(askQuestion).mock.calls[0]?.[0].question).toBe(
+      'Why do leaves need light?',
+    )
+  })
 
-      const offline = 'You’re offline. Reconnect to ask questions.'
-      expect(screen.getByRole('status')).toHaveTextContent(offline)
-      // Typing a draft stays possible; Send says why it's unavailable.
-      expect(send).toBeDisabled()
-      expect(send).toHaveAccessibleDescription(offline)
+  it('never shows an offline state', () => {
+    setup()
 
-      await user.type(box, 'Why?{Enter}')
-      expect(askQuestion).not.toHaveBeenCalled()
-    })
-
-    it('hides "Try again" once the connection drops', async () => {
-      vi.mocked(askQuestion).mockRejectedValue(
-        new ChatError('The answer service had a problem.', { retryable: true }),
-      )
-      const user = userEvent.setup()
-      const panel = (status: AuthStatus) => (
-        <AuthContext.Provider value={authAs(status)}>
-          <ChatPanel selectPassages={() => PASSAGES} />
-        </AuthContext.Provider>
-      )
-      const { rerender } = render(panel('signed-in'))
-      await user.type(
-        screen.getByLabelText('Ask a follow-up about your materials'),
-        'Why?{Enter}',
-      )
-      const alert = await screen.findByRole('alert')
-      expect(
-        within(alert).getByRole('button', { name: 'Try again' }),
-      ).toBeVisible()
-
-      rerender(panel('signed-in-offline'))
-
-      expect(
-        within(alert).queryByRole('button', { name: 'Try again' }),
-      ).not.toBeInTheDocument()
-    })
-
-    it('says nothing about being offline when online', () => {
-      setup()
-
-      expect(screen.queryByText(/You’re offline/)).not.toBeInTheDocument()
-    })
+    expect(screen.queryByText(/offline/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
   it('words an ended session without offering a retry', async () => {
