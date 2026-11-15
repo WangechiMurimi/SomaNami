@@ -40,9 +40,10 @@ Defined in `src/index.css` as CSS variables and exposed to Tailwind as
 Soft backgrounds: `success-soft` `#E4F1E9` / `#1E3328`, `warn-soft` `#FBEDE8` /
 `#3A2420`.
 
-**Theme.** Follows the system until the learner picks one with the theme
-toggle; the choice is stored on the device (`somanami-theme`) and applied as
-`data-theme` on `<html>` before first paint.
+**Theme.** Light, Dark or System, chosen in Account settings (System is the
+default). A fixed choice is stored on the device (`somanami-theme`) and applied
+as `data-theme` on `<html>` before first paint; System removes the attribute so
+the CSS media query follows the OS live.
 
 ## Type
 
@@ -50,7 +51,8 @@ Inter 400/500/600 for everything; Manjari 700 for the "SomaNami" wordmark only.
 
 | Role               | Size  | Weight | Line height | Notes          |
 | ------------------ | ----- | ------ | ----------- | -------------- |
-| Page title (H1)    | 45 px | 400    | 1.25        | −0.01em        |
+| Page title (H1)    | 40 px | 400    | 1.25        | −0.01em        |
+| Auth form title    | 32 px | 400    | 1.25        | −0.01em        |
 | Section title (H2) | 22 px | 400    | 1.4         |                |
 | Card title (H3)    | 20 px | 500    | 1.3         |                |
 | Body / lede        | 15 px | 400    | 1.6         | `muted`        |
@@ -75,8 +77,22 @@ the materials can't support are labelled "Not answered from your materials") ·
 Library (a real table with type filters).
 
 The persistent sidebar holds: New workspace, Home, Workspaces, My library,
-Saved conversations, Recent chats, an "On this device" status card, and the
-profile row.
+Saved conversations, Recent chats, an offline notice (shown only while
+offline; the full "On this device" status lives in Account settings), and the
+profile row (initials, account, link to Account settings).
+
+The top bar holds a sidebar toggle (a menu button below `md`), the page's
+breadcrumb trail (`useBreadcrumbs` in `src/app/breadcrumbs.ts`) and Help. Sign
+out and the theme live in Account settings.
+
+Auth screens (sign in, sign up, password reset, MFA) share one two-panel
+layout: a brand panel on `side` with three feature rows and a privacy line, and
+a form column up to 420 px wide. The form comes first on phones and in the
+source order.
+
+Proposed screens not yet built (Create account per #142, Saved conversations,
+chat level/format and edge states, empty states, Help, the data note) are in
+row 2 of the canvas, marked as proposals.
 
 ## Scope
 
