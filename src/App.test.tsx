@@ -14,6 +14,7 @@ import {
   createWorkspace,
   DEFAULT_WORKSPACE,
   saveDocument,
+  setConversationSaved,
   setStorageAdapter,
 } from './lib/storage/index.ts'
 import type { StorageAdapter } from './lib/storage/index.ts'
@@ -264,11 +265,14 @@ describe('asking about a document', () => {
 
   afterEach(() => vi.restoreAllMocks())
 
-  /** Uploads a file, then follows "Ask about this" into its chat. */
+  /** Uploads a file, then clicks it in the library to start a chat. */
   const uploadAndOpen = async (file: File) => {
     await userEvent.upload(input(), file)
+    const table = await screen.findByRole('table', { name: 'Your materials' })
     await userEvent.click(
-      await screen.findByRole('link', { name: 'Ask about this' }),
+      await within(table).findByRole('button', {
+        name: new RegExp(`^${file.name.replace('.', '\\.')}`),
+      }),
     )
   }
 
@@ -364,17 +368,9 @@ describe('asking about a document', () => {
     await uploadAndOpen(
       new File(['Photosynthesis happens in chloroplasts.'], 'plants.txt'),
     )
-    // A new chat about the new material starts empty, with only it chosen.
-    const picker = within(
-      await screen.findByRole('group', { name: 'Materials for this chat' }),
-    )
-    expect(picker.getByRole('button', { name: 'plants.txt' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
-    expect(picker.getByRole('button', { name: 'biology.txt' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
+    // A new chat about the new material starts empty.
+    await screen.findByLabelText(
+      /^Ask (a question|a follow-up) about your materials$/,
     )
     expect(screen.queryByText('They produce ATP.')).not.toBeInTheDocument()
 
@@ -382,7 +378,7 @@ describe('asking about a document', () => {
     await userEvent.click(
       within(screen.getByRole('region', { name: 'Recents' })).getByRole(
         'link',
-        { name: 'What do mitochondria produce?' },
+        { name: /biology\.txt|What do mitochondria produce\?/ },
       ),
     )
     expect(await screen.findByText('They produce ATP.')).toBeInTheDocument()
@@ -453,7 +449,7 @@ describe('app shell and navigation', () => {
     const table = await screen.findByRole('table', { name: 'Your materials' })
     const row = within(table).getByRole('row', { name: /notes\.txt/ })
     expect(row).toHaveTextContent('Text')
-    expect(row).toHaveTextContent('My materials')
+    expect(row).toHaveTextContent('Not in a workspace')
   })
 
   it('explains an empty library', async () => {
@@ -631,16 +627,17 @@ describe('app shell and navigation', () => {
     ).toBeInTheDocument()
   })
 
-  it('lists saved conversations with their material', async () => {
+  it('lists saved conversations with where they live', async () => {
     await saveCells()
-    await chatAbout('doc-1', 'Old question')
+    const chat = await chatAbout('doc-1', 'Old question')
+    await setConversationSaved(chat.id, true)
     window.history.pushState({}, '', '/conversations')
     await renderApp()
 
     const item = await within(screen.getByRole('main')).findByRole('link', {
-      name: /Old question/,
+      name: 'Old question',
     })
-    expect(item).toHaveTextContent('Cells.txt')
+    expect(item.closest('li')).toHaveTextContent('Recents')
   })
 
   it('opens the help page from the top bar', async () => {

@@ -27,6 +27,16 @@ describe('Account-aware device copy', () => {
     expect(screen.queryByText(/saved on another device/)).toBeNull()
   })
 
+  it('makes no offline claim about saved conversations', async () => {
+    await renderSignedInApp('/conversations')
+    expect(
+      await screen.findByText(
+        /Chats you saved from Recents and your workspaces/,
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/offline/)).toBeNull()
+  })
+
   describe('sidebar profile row (#125)', () => {
     it('shows the signed-in account as the account menu', async () => {
       await renderSignedInApp('/')

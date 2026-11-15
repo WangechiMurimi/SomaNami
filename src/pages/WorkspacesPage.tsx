@@ -1,68 +1,52 @@
-import { Link } from 'react-router'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
-import { ArrowRight, Lock, Plus } from '../components/icons.tsx'
+import { ArrowRight, Plus } from '../components/icons.tsx'
 import { useRecentConversations } from '../features/chat/use-recent-conversations.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
+import { userWorkspaces } from '../features/workspaces/user-workspaces.ts'
 import { useWorkspaces } from '../features/workspaces/use-workspaces.ts'
+import WorkspaceActionDialog from '../features/workspaces/WorkspaceActionDialog.tsx'
+import type { DialogAction } from '../features/workspaces/WorkspaceActionDialog.tsx'
+import WorkspaceCard from '../features/workspaces/WorkspaceCard.tsx'
+import type { WorkspaceAction } from '../features/workspaces/WorkspaceMenu.tsx'
+import { setWorkspacePinned } from '../lib/storage/index.ts'
 import type { Workspace } from '../types/contracts.ts'
 import { H1, LEDE } from './page-heading.ts'
 
-const CARD =
-  'flex min-h-[270px] flex-col gap-2.5 rounded-2xl border border-line bg-surface px-6 pt-6 md:px-8 md:pt-8'
-const CARD_TITLE = 'mt-2 text-[22px] leading-[1.3] font-semibold'
-const CARD_BODY = 'text-base leading-[1.6] text-muted'
-
-const count = (n: number, one: string, many: string) =>
-  `${n} ${n === 1 ? one : many}`
-
-function WorkspaceCard({
-  workspace,
-  materials,
-  chats,
-}: {
-  workspace: Workspace
-  materials: number
-  chats: number
-}) {
-  return (
-    <li className={CARD}>
-      {workspace.topic && (
-        <span className="self-start rounded-md bg-tag px-3 py-[5px] text-xs leading-[1.5] font-medium tracking-[0.06em] text-accent uppercase">
-          {workspace.topic}
-        </span>
-      )}
-      <h2 className={CARD_TITLE}>{workspace.name}</h2>
-      {workspace.description && (
-        <p className={CARD_BODY}>{workspace.description}</p>
-      )}
-      <div className="mt-auto flex items-center justify-between gap-3 border-t border-line pt-5 pb-6">
-        <span className="text-sm leading-[1.5] text-muted">
-          {count(materials, 'material', 'materials')} ·{' '}
-          {count(chats, 'chat', 'chats')}
-        </span>
-        <Link
-          to={`/workspaces/${workspace.id}`}
-          className="inline-flex h-11 flex-none items-center gap-2 rounded-[10px] border border-edge bg-surface px-4 text-sm font-medium text-fg hover:bg-tint"
-        >
-          Open <span className="sr-only">{workspace.name}</span>
-          <ArrowRight size={14} strokeWidth={2.2} />
-        </Link>
-      </div>
-    </li>
-  )
-}
-
 /** Every workspace as a card, plus a way to start a new one (US-08 AC1). */
 export default function WorkspacesPage() {
+  const navigate = useNavigate()
   const { workspaces, status } = useWorkspaces()
   const { documents } = useLibraryContext()
   const { conversations } = useRecentConversations()
+  const [dialog, setDialog] = useState<{
+    action: DialogAction
+    workspace: Workspace
+  } | null>(null)
+  const [error, setError] = useState<string | null>(null)
   useBreadcrumbs([{ label: 'Workspaces' }])
 
   const materialsIn = (id: string) =>
     documents.filter(({ workspaceId }) => workspaceId === id).length
   const chatsIn = (id: string) =>
     conversations.filter(({ workspaceId }) => workspaceId === id).length
+
+  const act = (workspace: Workspace, action: WorkspaceAction) => {
+    setError(null)
+    if (action === 'open') {
+      navigate(`/workspaces/${workspace.id}`)
+    } else if (action === 'pin') {
+      setWorkspacePinned(workspace.id, !workspace.pinned).catch(
+        (cause: unknown) => {
+          console.error('Could not pin the workspace', cause)
+          setError('We couldn’t change the pin. Try again.')
+        },
+      )
+    } else {
+      setDialog({ action, workspace })
+    }
+  }
 
   return (
     <div className="flex flex-col gap-9">
@@ -72,6 +56,12 @@ export default function WorkspacesPage() {
           Pick up where you left off, or start exploring something new.
         </p>
       </div>
+
+      {error && (
+        <p role="alert" className="rounded-xl bg-warn-soft p-4 text-warn">
+          {error}
+        </p>
+      )}
 
       {status === 'loading' ? (
         <p role="status" className="text-muted">
@@ -86,20 +76,24 @@ export default function WorkspacesPage() {
           aria-label="Your workspaces"
           className="grid gap-6 [grid-template-columns:repeat(auto-fill,minmax(16.25rem,1fr))]"
         >
-          {workspaces.map((workspace) => (
+          {userWorkspaces(workspaces).map((workspace) => (
             <WorkspaceCard
               key={workspace.id}
               workspace={workspace}
               materials={materialsIn(workspace.id)}
               chats={chatsIn(workspace.id)}
+              onAction={(action) => act(workspace, action)}
             />
           ))}
           {/* Spans the row so starting something new reads as its own action. */}
           <li className="col-span-full flex flex-col gap-2.5 rounded-2xl border-[1.5px] border-dashed border-edge p-6 md:p-8">
             <Plus size={24} strokeWidth={1.8} className="text-accent" />
-            <h2 className={CARD_TITLE}>Start something new</h2>
-            <p className={CARD_BODY}>
-              Create a space for your materials, questions and ideas.
+            <h2 className="mt-2 text-[22px] leading-[1.3] font-semibold">
+              Start something new
+            </h2>
+            <p className="text-base leading-[1.6] text-muted">
+              Gather the sources for one subject. Its chats answer only from
+              what you add.
             </p>
             <Link
               to="/workspaces/new"
@@ -112,11 +106,14 @@ export default function WorkspacesPage() {
         </ul>
       )}
 
-      <p className="flex items-center gap-2 text-[13px] text-muted">
-        <Lock size={14} strokeWidth={1.9} />
-        Each workspace is locked to its own materials. Nothing is shared between
-        them.
-      </p>
+      {dialog && (
+        <WorkspaceActionDialog
+          action={dialog.action}
+          workspace={dialog.workspace}
+          chats={chatsIn(dialog.workspace.id)}
+          onClose={() => setDialog(null)}
+        />
+      )}
     </div>
   )
 }

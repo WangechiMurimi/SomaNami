@@ -7,7 +7,6 @@ import {
   Check,
   Clipboard,
   LinkIcon,
-  Lock,
   Trash,
 } from '../../components/icons.tsx'
 import { createWorkspace } from '../../lib/storage/index.ts'
@@ -237,8 +236,8 @@ export default function NewWorkspaceWizard() {
                 Add the materials it should learn from
               </h2>
               <p className="text-[15px] leading-[1.6] text-muted">
-                This workspace will only know what you add here. You can add
-                more at any time.
+                Chats here answer only from what you add. You can add more at
+                any time.
               </p>
             </div>
 
@@ -315,11 +314,6 @@ export default function NewWorkspaceWizard() {
                 </ul>
               </section>
             )}
-
-            <p className="flex items-center gap-2 rounded-[10px] bg-tint px-3.5 py-3 text-sm text-accent">
-              <Lock size={16} strokeWidth={1.9} />
-              Locked to your content. Nothing outside these materials is used.
-            </p>
           </div>
         )}
 

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   deleteDocument,
+  deleteWorkspace,
   listDocuments,
+  moveDocument,
   saveDocument,
 } from '../../lib/storage/index.ts'
 import type { NewDocument, StoredDocument } from '../../types/contracts.ts'
@@ -61,5 +63,25 @@ export function useLibrary() {
     setDocuments((current) => current.filter((document) => document.id !== id))
   }, [])
 
-  return { documents, status, add, remove }
+  /**
+   * Files a material into another workspace (Add / Remove sources). It stays
+   * in the library either way; only the workspace it belongs to changes.
+   */
+  const move = useCallback(async (id: string, workspaceId: string) => {
+    const moved = await moveDocument(id, workspaceId)
+    setDocuments((current) =>
+      current.map((document) => (document.id === id ? moved : document)),
+    )
+    return moved
+  }, [])
+
+  /** Deletes a workspace with its chats and materials, and drops them here. */
+  const removeWorkspace = useCallback(async (workspaceId: string) => {
+    await deleteWorkspace(workspaceId)
+    setDocuments((current) =>
+      current.filter((document) => document.workspaceId !== workspaceId),
+    )
+  }, [])
+
+  return { documents, status, add, remove, move, removeWorkspace }
 }

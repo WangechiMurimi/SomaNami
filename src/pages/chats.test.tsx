@@ -86,9 +86,6 @@ describe('Workspace page', () => {
     const materials = await materialsRegion()
     expect(materials.getByLabelText(/cells\.txt/)).toBeChecked()
     expect(materials.getByLabelText(/plants\.txt/)).toBeChecked()
-    expect(
-      materials.getByText(/uses only these 2 materials/),
-    ).toBeInTheDocument()
 
     const chats = within(screen.getByRole('region', { name: 'Chats' }))
     expect(
@@ -145,7 +142,7 @@ describe('Workspace page', () => {
     const materials = await materialsRegion()
 
     await userEvent.click(materials.getByLabelText(/plants\.txt/))
-    expect(screen.getByText('1 of 2 materials')).toBeInTheDocument()
+    expect(materials.getByLabelText(/plants\.txt/)).not.toBeChecked()
     await userEvent.type(
       screen.getByLabelText('Ask about Biology'),
       'What makes ATP?{Enter}',
