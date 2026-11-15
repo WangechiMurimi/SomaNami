@@ -14,13 +14,15 @@ import {
 import { useAuth } from '../features/auth/auth-context.ts'
 import { authErrorMessage } from '../features/auth/auth-errors.ts'
 import {
+  AUTH_FOOTER,
   FIELD_ERROR,
+  FOOTER_LINK,
   INPUT,
   INPUT_ERROR,
   INPUT_OK,
   LABEL,
   MIN_PASSWORD,
-  PRIMARY_BUTTON,
+  SUBMIT_BUTTON,
   TEXT_LINK,
 } from '../features/auth/auth-ui.ts'
 import { useCaptcha } from '../features/auth/use-captcha.ts'
@@ -94,7 +96,7 @@ export default function SignUpPage() {
   return (
     <AuthLayout
       title="Create your account"
-      lede="Your materials stay private to you, on this device."
+      lede="Start learning from your own materials."
     >
       {!isAuthConfigured() ? (
         <FormAlert>{authErrorMessage('not-configured')}</FormAlert>
@@ -114,9 +116,9 @@ export default function SignUpPage() {
           }}
         />
       )}
-      <p className="mt-8 text-[15px] text-muted">
+      <p className={AUTH_FOOTER}>
         Already have an account?{' '}
-        <Link to="/sign-in" className={TEXT_LINK}>
+        <Link to="/sign-in" className={FOOTER_LINK}>
           Sign in
         </Link>
       </p>
@@ -210,7 +212,7 @@ function BirthStep({
           />
         </div>
       </fieldset>
-      <button type="submit" className={`${PRIMARY_BUTTON} mt-6`}>
+      <button type="submit" className={`${SUBMIT_BUTTON} mt-6`}>
         Continue
       </button>
     </form>
@@ -273,8 +275,9 @@ function AccountStep({ onSent }: { onSent: (email: string) => void }) {
       ref={formRef}
       noValidate
       onSubmit={handleSubmit}
-      className="flex flex-col gap-5"
+      className="flex flex-col gap-4"
     >
+      {/* TODO(#142): "Continue with Google" and an "or" divider go here. */}
       {formError && <FormAlert>{formError}</FormAlert>}
       <TextField
         id="sign-up-email"
@@ -333,7 +336,11 @@ function AccountStep({ onSent }: { onSent: (email: string) => void }) {
         )}
       </div>
       <Turnstile onToken={captcha.onToken} resetKey={captcha.resetKey} />
-      <button type="submit" disabled={submitting} className={PRIMARY_BUTTON}>
+      <button
+        type="submit"
+        disabled={submitting}
+        className={`${SUBMIT_BUTTON} mt-2`}
+      >
         {submitting ? 'Creating your account…' : 'Create account'}
       </button>
     </form>

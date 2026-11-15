@@ -8,7 +8,12 @@ import TextField from '../features/auth/TextField.tsx'
 import Turnstile from '../features/auth/Turnstile.tsx'
 import { useAuth } from '../features/auth/auth-context.ts'
 import { authErrorMessage } from '../features/auth/auth-errors.ts'
-import { PRIMARY_BUTTON, TEXT_LINK } from '../features/auth/auth-ui.ts'
+import {
+  AUTH_FOOTER,
+  FOOTER_LINK,
+  SMALL_LINK,
+  SUBMIT_BUTTON,
+} from '../features/auth/auth-ui.ts'
 import { safeNextPath, verifyPathFor } from '../features/auth/safe-next.ts'
 import { useCaptcha } from '../features/auth/use-captcha.ts'
 import { useFocusFirstError } from '../features/auth/use-focus-first-error.ts'
@@ -71,8 +76,8 @@ export default function SignInPage() {
 
   return (
     <AuthLayout
-      title="Sign in"
-      lede="Welcome back. Your materials are waiting on this device."
+      title="Welcome back"
+      lede="Sign in to keep exploring your materials."
     >
       {!configured ? (
         <FormAlert>{authErrorMessage('not-configured')}</FormAlert>
@@ -81,8 +86,9 @@ export default function SignInPage() {
           ref={formRef}
           noValidate
           onSubmit={handleSubmit}
-          className="flex flex-col gap-5"
+          className="flex flex-col gap-4"
         >
+          {/* TODO(#142): "Continue with Google" and an "or" divider go here. */}
           {formError && <FormAlert>{formError}</FormAlert>}
           <TextField
             id="sign-in-email"
@@ -103,25 +109,25 @@ export default function SignInPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             error={fieldErrors.password}
+            labelAside={
+              <Link to="/forgot-password" className={SMALL_LINK}>
+                Forgot your password?
+              </Link>
+            }
           />
-          <p className="-mt-2 text-[14px]">
-            <Link to="/forgot-password" className={TEXT_LINK}>
-              Forgot your password?
-            </Link>
-          </p>
           <Turnstile onToken={captcha.onToken} resetKey={captcha.resetKey} />
           <button
             type="submit"
             disabled={submitting}
-            className={PRIMARY_BUTTON}
+            className={`${SUBMIT_BUTTON} mt-2`}
           >
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
       )}
-      <p className="mt-8 text-[15px] text-muted">
+      <p className={AUTH_FOOTER}>
         New to SomaNami?{' '}
-        <Link to="/sign-up" className={TEXT_LINK}>
+        <Link to="/sign-up" className={FOOTER_LINK}>
           Create an account
         </Link>
       </p>
