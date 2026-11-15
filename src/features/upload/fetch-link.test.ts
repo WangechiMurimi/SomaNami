@@ -170,6 +170,26 @@ describe('fetchLink', () => {
     })
   })
 
+  it.each([502, 503, 504])(
+    'says the server could not be reached on a bare %i',
+    async (status) => {
+      mockFetch(new Response('Bad Gateway', { status }))
+      const error = await rejection(fetchLink('https://example.org/a'))
+      expect(error).toMatchObject({
+        code: 'server-unreachable',
+        retryable: true,
+      })
+      expect(error.message).toMatch(/couldn’t reach the SomaNami server/)
+    },
+  )
+
+  it('still trusts our own not-configured answer', async () => {
+    mockFetch(fail('not-configured', 503))
+    expect(await rejection(fetchLink('https://example.org/a'))).toMatchObject({
+      code: 'not-configured',
+    })
+  })
+
   it('treats an unknown failure as temporarily unavailable', async () => {
     mockFetch(fail('something-new', 500))
     expect(await rejection(fetchLink('https://example.org/a'))).toMatchObject({

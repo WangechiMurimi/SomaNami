@@ -12,6 +12,8 @@ export const LINK_MAX_MEGABYTES = 5
 
 const PASTE_INSTEAD = 'Copy the text and use Paste text instead.'
 const UPLOAD_INSTEAD = 'Download the file and upload it instead.'
+const SERVER_UNREACHABLE =
+  'We couldn’t reach the SomaNami server. Try again in a moment.'
 
 /**
  * What the learner sees for each failure, and whether retrying the same link
@@ -168,13 +170,23 @@ async function post(url: string, token: string): Promise<Response> {
 
 async function failureFrom(response: Response): Promise<UploadError> {
   let code: unknown
+  let fromOurApi = false
   try {
     code = ((await response.json()) as { error?: unknown }).error
+    fromOurApi = true
   } catch {
     // A proxy or crash page instead of our JSON; fall back to the status.
   }
   if (isErrorCode(code)) return failure(code)
   if (response.status === 429) return failure('rate-limited')
+  // No JSON from us at all: a gateway answered because our API is down or
+  // unreachable (in development, the Vite proxy's 502 when the server isn't
+  // running). Saying "not available" here sent people looking in the wrong place.
+  if (!fromOurApi && response.status >= 500) {
+    return new UploadError('server-unreachable', SERVER_UNREACHABLE, {
+      retryable: true,
+    })
+  }
   return failure('not-configured')
 }
 
