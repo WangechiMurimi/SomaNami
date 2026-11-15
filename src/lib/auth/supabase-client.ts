@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { authStorage } from './auth-storage.ts'
 
 export interface SupabaseConfig {
   url: string
@@ -27,7 +28,13 @@ let client: SupabaseClient | null | undefined
 export function getSupabaseClient(): SupabaseClient | null {
   if (client === undefined) {
     const config = readSupabaseConfig()
-    client = config ? createClient(config.url, config.publishableKey) : null
+    client = config
+      ? createClient(config.url, config.publishableKey, {
+          // Routes the session to localStorage or sessionStorage, following
+          // the "Keep me signed in" choice.
+          auth: { storage: authStorage },
+        })
+      : null
   }
   return client
 }
