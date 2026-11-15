@@ -15,6 +15,16 @@ export const PRIMARY_BUTTON =
 /** The one submit on a sign-in screen: taller than PRIMARY_BUTTON, as drawn. */
 export const SUBMIT_BUTTON =
   'inline-flex h-12 w-full items-center justify-center rounded-[10px] bg-accent px-[18px] text-[15px] font-semibold text-on-accent transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60'
+/** "Continue with Google": outlined so the form's own submit stays the strongest button. */
+export const GOOGLE_BUTTON =
+  'inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-[10px] border border-edge bg-surface px-4 text-[15px] font-medium text-fg transition-colors hover:bg-tint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60'
+/** A labelled checkbox row ("Keep me signed in", "I'm 13 or older"); 44px tall to tap. */
+export const CHECKBOX_ROW =
+  'flex min-h-11 cursor-pointer items-start gap-3 py-2.5 text-[15px] leading-[1.5] text-fg'
+export const CHECKBOX = 'mt-0.5 size-5 flex-none accent-accent'
+/** "Step 1 of 2" above a multi-step form. */
+export const STEP_LABEL =
+  'text-xs leading-[1.5] font-medium tracking-[0.06em] text-muted uppercase'
 export const SECONDARY_BUTTON =
   'inline-flex h-11 items-center justify-center rounded-[10px] border border-edge px-[18px] text-sm font-medium text-fg transition-colors hover:bg-tint'
 export const TEXT_LINK =

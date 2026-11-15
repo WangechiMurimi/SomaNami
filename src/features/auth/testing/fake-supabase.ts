@@ -87,6 +87,10 @@ export function installFakeSupabase({
       emit('SIGNED_IN', next)
       return { data: { session: next, user: next.user }, error: null }
     }),
+    // The real call navigates away; tests only check how it was asked.
+    signInWithOAuth: vi.fn(() =>
+      ok({ provider: 'google', url: 'https://accounts.example/auth' }),
+    ),
     signUp: vi.fn(() => ok({ session: null, user: null })),
     signOut: vi.fn(async () => {
       emit('SIGNED_OUT', null)

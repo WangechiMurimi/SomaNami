@@ -1,12 +1,14 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
-import { Lock } from '../../components/icons.tsx'
 import { H1, LEDE } from '../../pages/page-heading.ts'
 import BrandMark from '../../components/BrandMark.tsx'
+import { SMALL_LINK, STEP_LABEL } from './auth-ui.ts'
 
 interface AuthLayoutProps {
   title: string
   lede?: ReactNode
+  /** Small line above the title, such as "Step 1 of 2". */
+  eyebrow?: string
   children: ReactNode
   /** Single wide column for reading pages such as Privacy and Terms. */
   wide?: boolean
@@ -15,7 +17,7 @@ interface AuthLayoutProps {
 const FEATURES = [
   {
     title: 'Add your materials',
-    body: 'Upload documents, paste text or link to an article you’re reading.',
+    body: 'Upload documents, paste text or link to an article.',
     icon: (
       <>
         <path d="M12 13v8" />
@@ -25,8 +27,8 @@ const FEATURES = [
     ),
   },
   {
-    title: 'Ask about them',
-    body: 'Ask questions and follow-ups. Answers point to the parts of your materials they come from.',
+    title: 'Ask, then follow up',
+    body: 'Every answer points back to the passage it came from.',
     icon: (
       <>
         <circle cx="12" cy="12" r="10" />
@@ -36,7 +38,7 @@ const FEATURES = [
     ),
   },
   {
-    title: 'Explain it your way',
+    title: 'Your level, your format',
     body: 'Choose how simple or detailed an explanation is, and switch to another format to see it differently.',
     icon: (
       <>
@@ -79,8 +81,8 @@ function BrandPanel() {
             Learn from your own materials.
           </p>
           <p className="text-base leading-[1.6] text-muted">
-            SomaNami answers from what you add, and shows you where each answer
-            came from.
+            Answers come only from what you add, with the source shown under
+            each one.
           </p>
         </div>
         <ul className="flex flex-col gap-5">
@@ -113,12 +115,12 @@ function BrandPanel() {
           ))}
         </ul>
       </div>
-      {/* Deliberately not "stays private": storage is moving, so promise only
-          what holds today and after the move. */}
-      <p className="flex items-center gap-2 text-sm leading-[1.5] text-muted">
-        <Lock size={15} strokeWidth={1.9} className="flex-none" />
-        Your materials belong to your account, and you can delete them at any
-        time.
+      {/* A link, not a promise: the product's one claim is where answers come
+          from, and the details of data handling live on their own page. */}
+      <p className="text-sm leading-[1.5]">
+        <Link to="/privacy" className={SMALL_LINK}>
+          How your data is handled
+        </Link>
       </p>
     </section>
   )
@@ -132,6 +134,7 @@ function BrandPanel() {
 export default function AuthLayout({
   title,
   lede,
+  eyebrow,
   children,
   wide = false,
 }: AuthLayoutProps) {
@@ -157,6 +160,7 @@ export default function AuthLayout({
       <main className="flex min-w-0 flex-col px-4 pt-8 pb-12 sm:px-8 lg:flex-[1_1_480px] lg:items-center lg:justify-center lg:py-12">
         <BrandLink className="mb-10 lg:hidden" />
         <div className="mx-auto w-full max-w-[420px]">
+          {eyebrow && <p className={`${STEP_LABEL} mb-2`}>{eyebrow}</p>}
           <h1 className="font-display text-[2rem] leading-[1.25] font-normal tracking-[-0.01em]">
             {title}
           </h1>

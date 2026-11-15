@@ -22,7 +22,7 @@ describe('LegacyImportDialog', () => {
       name: 'Move the materials already on this device into your account?',
     })
     expect(dialog).toHaveAttribute('aria-modal', 'true')
-    expect(dialog).toHaveAccessibleDescription(/stay on this device/i)
+    expect(dialog).toHaveAccessibleDescription(/puts them in your library/i)
   })
 
   it('starts with focus on the first choice', () => {

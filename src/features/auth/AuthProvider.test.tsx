@@ -1,6 +1,7 @@
 import { AuthApiError, AuthRetryableFetchError } from '@supabase/supabase-js'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readKeepSignedIn } from '../../lib/auth/auth-storage.ts'
 import { setSupabaseClient } from '../../lib/auth/supabase-client.ts'
 import AuthProvider from './AuthProvider.tsx'
 import { useAuth } from './auth-context.ts'
@@ -295,6 +296,63 @@ describe('account actions', () => {
     expect(result.current.status).toBe('signed-in')
   })
 
+  it('saves the keep-signed-in choice before signing in', async () => {
+    const { auth } = installFakeSupabase()
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.status).toBe('signed-out'))
+
+    auth.signInWithPassword.mockImplementationOnce(async () => {
+      // Supabase saves the session during this call, so the choice must
+      // already be in place.
+      expect(readKeepSignedIn()).toBe(false)
+      return { data: { session: null, user: null }, error: null } as never
+    })
+    await act(() => result.current.signIn({ ...SIGN_IN, keepSignedIn: false }))
+    expect(auth.signInWithPassword).toHaveBeenCalledOnce()
+
+    await act(() => result.current.signIn(SIGN_IN))
+    expect(readKeepSignedIn()).toBe(true)
+  })
+
+  it('continues with Google, back to the app', async () => {
+    const { auth } = installFakeSupabase()
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.status).toBe('signed-out'))
+
+    await expect(
+      result.current.signInWithGoogle({ keepSignedIn: false }),
+    ).resolves.toEqual({ ok: true })
+    expect(auth.signInWithOAuth).toHaveBeenCalledWith({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    })
+    expect(readKeepSignedIn()).toBe(false)
+  })
+
+  it('maps a Google sign-in that cannot start', async () => {
+    const { auth } = installFakeSupabase()
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.status).toBe('signed-out'))
+
+    auth.signInWithOAuth.mockResolvedValueOnce({
+      data: { provider: 'google', url: null },
+      error: new AuthApiError(
+        'Provider is not enabled',
+        400,
+        'validation_failed',
+      ),
+    } as never)
+    await expect(result.current.signInWithGoogle()).resolves.toEqual({
+      ok: false,
+      error: 'unknown',
+    })
+    auth.signInWithOAuth.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    await expect(result.current.signInWithGoogle()).resolves.toEqual({
+      ok: false,
+      error: 'offline',
+    })
+  })
+
   it('signs up with only the age outcome and consent time', async () => {
     const { auth } = installFakeSupabase()
     const { result } = renderAuth()
@@ -406,6 +464,9 @@ describe('without a Supabase project', () => {
 
     const notConfigured = { ok: false, error: 'not-configured' }
     await expect(result.current.signIn(SIGN_IN)).resolves.toEqual(notConfigured)
+    await expect(result.current.signInWithGoogle()).resolves.toEqual(
+      notConfigured,
+    )
     await expect(
       result.current.signUp({ ...SIGN_IN, consentedAt: 'now' }),
     ).resolves.toEqual(notConfigured)

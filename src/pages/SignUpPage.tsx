@@ -1,27 +1,22 @@
 import { useState } from 'react'
-import type { FormEvent } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import { Link, Navigate } from 'react-router'
 import AuthLayout from '../features/auth/AuthLayout.tsx'
 import FormAlert from '../features/auth/FormAlert.tsx'
+import GoogleButton from '../features/auth/GoogleButton.tsx'
 import PasswordField from '../features/auth/PasswordField.tsx'
 import TextField from '../features/auth/TextField.tsx'
 import Turnstile from '../features/auth/Turnstile.tsx'
-import {
-  isAgeBlocked,
-  isOldEnough,
-  markAgeBlocked,
-} from '../features/auth/age-gate.ts'
 import { useAuth } from '../features/auth/auth-context.ts'
 import { authErrorMessage } from '../features/auth/auth-errors.ts'
 import {
   AUTH_FOOTER,
+  CHECKBOX,
+  CHECKBOX_ROW,
   FIELD_ERROR,
   FOOTER_LINK,
-  INPUT,
-  INPUT_ERROR,
-  INPUT_OK,
-  LABEL,
   MIN_PASSWORD,
+  SECONDARY_BUTTON,
   SUBMIT_BUTTON,
   TEXT_LINK,
 } from '../features/auth/auth-ui.ts'
@@ -29,50 +24,23 @@ import { useCaptcha } from '../features/auth/use-captcha.ts'
 import { useFocusFirstError } from '../features/auth/use-focus-first-error.ts'
 import { isAuthConfigured } from '../lib/auth/is-configured.ts'
 
-const MONTHS = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-]
+type Step = 'account' | 'details' | 'sent'
+type Method = 'email' | 'google'
 
-type Step = 'birth' | 'blocked' | 'account' | 'sent'
-
-/** Account creation: a neutral age screen, then email, password and consent. */
+/**
+ * Account creation in two steps: Google or email and password first, then
+ * the 13+ confirmation and consent. No birth date is ever asked for.
+ */
 export default function SignUpPage() {
   const { status } = useAuth()
-  const [step, setStep] = useState<Step>(() =>
-    isAgeBlocked() ? 'blocked' : 'birth',
-  )
-  const [sentTo, setSentTo] = useState('')
+  const [step, setStep] = useState<Step>('account')
+  const [method, setMethod] = useState<Method>('email')
+  // Kept here, not in the step, so Back returns to a filled-in form.
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
 
   if (status === 'signed-in' || status === 'signed-in-offline') {
     return <Navigate to="/" replace />
-  }
-
-  if (step === 'blocked') {
-    return (
-      <AuthLayout
-        title="SomaNami is for learners 13 and older"
-        lede="Thanks for wanting to learn with us. You’re welcome to come back once you’ve turned 13."
-      >
-        <p className="text-[15px] text-muted">
-          Read how we look after learners in our{' '}
-          <Link to="/privacy" className={TEXT_LINK}>
-            Privacy Notice
-          </Link>
-          .
-        </p>
-      </AuthLayout>
-    )
   }
 
   if (step === 'sent') {
@@ -81,7 +49,7 @@ export default function SignUpPage() {
         title="Check your email"
         lede={
           <>
-            We’ve sent a link to <strong className="text-fg">{sentTo}</strong>.
+            We’ve sent a link to <strong className="text-fg">{email}</strong>.
             Open it to confirm your account, then sign in.
           </>
         }
@@ -93,181 +61,87 @@ export default function SignUpPage() {
     )
   }
 
+  const configured = isAuthConfigured()
+
   return (
     <AuthLayout
-      title="Create your account"
-      lede="Start learning from your own materials."
+      eyebrow={
+        configured ? `Step ${step === 'account' ? 1 : 2} of 2` : undefined
+      }
+      title={step === 'account' ? 'Create your account' : 'A little about you'}
+      lede={
+        step === 'account'
+          ? 'Start with Google, or use an email and password.'
+          : 'We only ask for what the app uses.'
+      }
     >
-      {!isAuthConfigured() ? (
+      {!configured ? (
         <FormAlert>{authErrorMessage('not-configured')}</FormAlert>
-      ) : step === 'birth' ? (
-        <BirthStep
-          onPass={() => setStep('account')}
-          onBlock={() => {
-            markAgeBlocked()
-            setStep('blocked')
+      ) : step === 'account' ? (
+        <AccountStep
+          email={email}
+          password={password}
+          onEmailChange={setEmail}
+          onPasswordChange={setPassword}
+          onContinue={(chosen) => {
+            setMethod(chosen)
+            setStep('details')
           }}
         />
       ) : (
-        <AccountStep
-          onSent={(email) => {
-            setSentTo(email)
-            setStep('sent')
-          }}
+        <DetailsStep
+          method={method}
+          email={email.trim()}
+          password={password}
+          onBack={() => setStep('account')}
+          onSent={() => setStep('sent')}
         />
       )}
-      <p className={AUTH_FOOTER}>
-        Already have an account?{' '}
-        <Link to="/sign-in" className={FOOTER_LINK}>
-          Sign in
-        </Link>
-      </p>
+      {step === 'account' && (
+        <p className={AUTH_FOOTER}>
+          Already have an account?{' '}
+          <Link to="/sign-in" className={FOOTER_LINK}>
+            Sign in
+          </Link>
+        </p>
+      )}
     </AuthLayout>
   )
 }
 
-/**
- * Asks only for month and year, and keeps them only in this component:
- * nothing about the date leaves it, just pass or block.
- */
-function BirthStep({
-  onPass,
-  onBlock,
-}: {
-  onPass: () => void
-  onBlock: () => void
-}) {
-  const [month, setMonth] = useState('')
-  const [year, setYear] = useState('')
-  const [errors, setErrors] = useState<{ month?: string; year?: string }>({})
+interface AccountStepProps {
+  email: string
+  password: string
+  onEmailChange: (email: string) => void
+  onPasswordChange: (password: string) => void
+  onContinue: (method: Method) => void
+}
+
+/** Step 1: choose Google, or give an email and password. Nothing is sent yet. */
+function AccountStep({
+  email,
+  password,
+  onEmailChange,
+  onPasswordChange,
+  onContinue,
+}: AccountStepProps) {
   const { formRef, reportError } = useFocusFirstError<HTMLFormElement>()
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>(
+    {},
+  )
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const now = new Date()
-    const y = Number(year)
-    const m = Number(month)
     const next: typeof errors = {}
-    if (!m) next.month = 'Choose the month you were born.'
-    if (
-      !/^\d{4}$/.test(year) ||
-      y < now.getFullYear() - 120 ||
-      y > now.getFullYear() ||
-      (y === now.getFullYear() && m > now.getMonth() + 1)
-    ) {
-      next.year = 'Enter the year you were born.'
-    }
-    setErrors(next)
-    if (next.month || next.year) return reportError()
-    if (isOldEnough({ month: m, year: y }, now)) onPass()
-    else onBlock()
-  }
-
-  return (
-    <form ref={formRef} noValidate onSubmit={handleSubmit}>
-      <fieldset>
-        <legend className="text-[15px] leading-[1.5] font-medium text-fg">
-          When were you born?
-        </legend>
-        <p className="mt-1 text-[13px] text-muted">
-          We only use this to check who can make an account, and we don’t keep
-          it.
-        </p>
-        <div className="mt-4 grid grid-cols-[3fr_2fr] gap-3">
-          <div>
-            <label htmlFor="birth-month" className={LABEL}>
-              Month
-            </label>
-            <select
-              id="birth-month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              aria-invalid={errors.month ? true : undefined}
-              aria-describedby={errors.month ? 'birth-month-error' : undefined}
-              className={`${INPUT} ${errors.month ? INPUT_ERROR : INPUT_OK}`}
-            >
-              <option value="">Choose…</option>
-              {MONTHS.map((name, i) => (
-                <option key={name} value={i + 1}>
-                  {name}
-                </option>
-              ))}
-            </select>
-            {errors.month && (
-              <p id="birth-month-error" className={FIELD_ERROR}>
-                {errors.month}
-              </p>
-            )}
-          </div>
-          <TextField
-            id="birth-year"
-            label="Year"
-            inputMode="numeric"
-            autoComplete="off"
-            maxLength={4}
-            placeholder="YYYY"
-            value={year}
-            onChange={(e) => setYear(e.target.value.replace(/\D/g, ''))}
-            error={errors.year}
-          />
-        </div>
-      </fieldset>
-      <button type="submit" className={`${SUBMIT_BUTTON} mt-6`}>
-        Continue
-      </button>
-    </form>
-  )
-}
-
-interface AccountErrors {
-  email?: string
-  password?: string
-  consent?: string
-}
-
-function AccountStep({ onSent }: { onSent: (email: string) => void }) {
-  const { signUp } = useAuth()
-  const captcha = useCaptcha()
-  const { formRef, reportError } = useFocusFirstError<HTMLFormElement>()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [consent, setConsent] = useState(false)
-  const [errors, setErrors] = useState<AccountErrors>({})
-  const [formError, setFormError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const next: AccountErrors = {}
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
       next.email = 'Enter an email address like name@example.com.'
     }
     if (password.length < MIN_PASSWORD) {
       next.password = `Use at least ${MIN_PASSWORD} characters.`
     }
-    if (!consent) {
-      next.consent = 'Agree to the Terms and Privacy Notice to continue.'
-    }
     setErrors(next)
-    setFormError(null)
-    if (next.email || next.password || next.consent) return reportError()
-    if (captcha.token === null) {
-      setFormError('Complete the security check, then try again.')
-      return reportError()
-    }
-
-    setSubmitting(true)
-    const result = await signUp({
-      email: email.trim(),
-      password,
-      captchaToken: captcha.token,
-      consentedAt: new Date().toISOString(),
-    })
-    setSubmitting(false)
-    if (result.ok) return onSent(email.trim())
-    captcha.renew()
-    setFormError(authErrorMessage(result.error))
-    reportError()
+    if (next.email || next.password) return reportError()
+    onContinue('email')
   }
 
   return (
@@ -277,8 +151,7 @@ function AccountStep({ onSent }: { onSent: (email: string) => void }) {
       onSubmit={handleSubmit}
       className="flex flex-col gap-4"
     >
-      {/* TODO(#142): "Continue with Google" and an "or" divider go here. */}
-      {formError && <FormAlert>{formError}</FormAlert>}
+      <GoogleButton onClick={() => onContinue('google')} />
       <TextField
         id="sign-up-email"
         label="Email"
@@ -287,7 +160,7 @@ function AccountStep({ onSent }: { onSent: (email: string) => void }) {
         autoComplete="email"
         inputMode="email"
         value={email}
-        onChange={(e) => setEmail(e.target.value)}
+        onChange={(e) => onEmailChange(e.target.value)}
         error={errors.email}
       />
       <PasswordField
@@ -298,51 +171,194 @@ function AccountStep({ onSent }: { onSent: (email: string) => void }) {
         minLength={MIN_PASSWORD}
         hint={`At least ${MIN_PASSWORD} characters. A short phrase works well.`}
         value={password}
-        onChange={(e) => setPassword(e.target.value)}
+        onChange={(e) => onPasswordChange(e.target.value)}
         error={errors.password}
       />
-      <div>
-        <div className="flex items-start gap-3">
-          <input
-            id="sign-up-consent"
-            type="checkbox"
-            checked={consent}
-            onChange={(e) => setConsent(e.target.checked)}
-            aria-invalid={errors.consent ? true : undefined}
-            aria-describedby={
-              errors.consent ? 'sign-up-consent-error' : undefined
-            }
-            className="mt-0.5 size-5 flex-none accent-accent"
-          />
-          <label
-            htmlFor="sign-up-consent"
-            className="text-[15px] leading-[1.5]"
-          >
-            I agree to the{' '}
-            <Link to="/terms" target="_blank" className={TEXT_LINK}>
-              Terms
-            </Link>{' '}
-            and{' '}
-            <Link to="/privacy" target="_blank" className={TEXT_LINK}>
-              Privacy Notice
-            </Link>
-            .
-          </label>
-        </div>
-        {errors.consent && (
-          <p id="sign-up-consent-error" className={FIELD_ERROR}>
-            {errors.consent}
-          </p>
-        )}
-      </div>
-      <Turnstile onToken={captcha.onToken} resetKey={captcha.resetKey} />
-      <button
-        type="submit"
-        disabled={submitting}
-        className={`${SUBMIT_BUTTON} mt-2`}
-      >
-        {submitting ? 'Creating your account…' : 'Create account'}
+      <button type="submit" className={`${SUBMIT_BUTTON} mt-2`}>
+        Continue
       </button>
     </form>
+  )
+}
+
+interface DetailsErrors {
+  age?: string
+  consent?: string
+}
+
+interface DetailsStepProps {
+  method: Method
+  email: string
+  password: string
+  onBack: () => void
+  onSent: () => void
+}
+
+/** Step 2: the 13+ confirmation and consent, then the account is created. */
+function DetailsStep({
+  method,
+  email,
+  password,
+  onBack,
+  onSent,
+}: DetailsStepProps) {
+  const { signUp, signInWithGoogle } = useAuth()
+  const captcha = useCaptcha()
+  const { formRef, reportError } = useFocusFirstError<HTMLFormElement>()
+  const [oldEnough, setOldEnough] = useState(false)
+  const [consent, setConsent] = useState(false)
+  const [errors, setErrors] = useState<DetailsErrors>({})
+  const [formError, setFormError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const next: DetailsErrors = {}
+    if (!oldEnough) {
+      next.age = 'SomaNami is for learners 13 and older.'
+    }
+    if (!consent) {
+      next.consent = 'Agree to the Terms and Privacy Notice to continue.'
+    }
+    setErrors(next)
+    setFormError(null)
+    if (next.age || next.consent) return reportError()
+
+    if (method === 'google') {
+      setSubmitting(true)
+      // TODO(#143): Google accounts can't carry sign-up metadata, so record
+      // `age_13_plus` and the consent time on the profile once it exists.
+      const result = await signInWithGoogle()
+      // On success the browser is already leaving for Google; stay busy.
+      if (!result.ok) {
+        setSubmitting(false)
+        setFormError(authErrorMessage(result.error))
+        reportError()
+      }
+      return
+    }
+
+    if (captcha.token === null) {
+      setFormError('Complete the security check, then try again.')
+      return reportError()
+    }
+    setSubmitting(true)
+    const result = await signUp({
+      email,
+      password,
+      captchaToken: captcha.token,
+      consentedAt: new Date().toISOString(),
+    })
+    setSubmitting(false)
+    if (result.ok) return onSent()
+    captcha.renew()
+    setFormError(authErrorMessage(result.error))
+    reportError()
+  }
+
+  const submitLabel =
+    method === 'google'
+      ? submitting
+        ? 'Opening Google…'
+        : 'Continue with Google'
+      : submitting
+        ? 'Creating your account…'
+        : 'Create account'
+
+  return (
+    <form
+      ref={formRef}
+      noValidate
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-4"
+    >
+      {formError && <FormAlert>{formError}</FormAlert>}
+      {/* TODO(#143): "What should we call you?" goes here once profiles can store it. */}
+      <Checkbox
+        id="sign-up-age"
+        checked={oldEnough}
+        onChange={setOldEnough}
+        error={errors.age}
+      >
+        I’m 13 or older
+      </Checkbox>
+      <Checkbox
+        id="sign-up-consent"
+        checked={consent}
+        onChange={setConsent}
+        error={errors.consent}
+      >
+        I agree to the{' '}
+        <Link to="/terms" target="_blank" className={TEXT_LINK}>
+          Terms
+        </Link>{' '}
+        and{' '}
+        <Link to="/privacy" target="_blank" className={TEXT_LINK}>
+          Privacy Notice
+        </Link>
+        .
+      </Checkbox>
+      <div className="rounded-xl border border-line bg-surface p-4 text-sm leading-[1.6] text-muted">
+        SomaNami answers only from the sources you add, and you can delete them
+        at any time.{' '}
+        <Link to="/privacy" target="_blank" className={TEXT_LINK}>
+          How your data is handled
+        </Link>
+      </div>
+      {method === 'email' && (
+        <Turnstile onToken={captcha.onToken} resetKey={captcha.resetKey} />
+      )}
+      <div className="mt-2 flex gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className={`${SECONDARY_BUTTON} h-12 flex-none bg-surface`}
+        >
+          Back
+        </button>
+        <button
+          type="submit"
+          disabled={submitting}
+          className={`${SUBMIT_BUTTON} flex-1`}
+        >
+          {submitLabel}
+        </button>
+      </div>
+    </form>
+  )
+}
+
+interface CheckboxProps {
+  id: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+  error?: string
+  children: ReactNode
+}
+
+/** A required checkbox with its error tied to it for screen readers. */
+function Checkbox({ id, checked, onChange, error, children }: CheckboxProps) {
+  const errorId = `${id}-error`
+  return (
+    <div>
+      {/* Not wrapping the input: the label holds links, which must stay separate tap targets. */}
+      <div className={CHECKBOX_ROW}>
+        <input
+          id={id}
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
+          className={CHECKBOX}
+        />
+        <label htmlFor={id}>{children}</label>
+      </div>
+      {error && (
+        <p id={errorId} className={FIELD_ERROR}>
+          {error}
+        </p>
+      )}
+    </div>
   )
 }

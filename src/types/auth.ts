@@ -38,13 +38,20 @@ export interface SignInInput {
   email: string
   password: string
   captchaToken: string
+  /** False ends the session when the browser closes. Defaults to true. */
+  keepSignedIn?: boolean
 }
 
-export interface SignUpInput extends SignInInput {
+export interface GoogleSignInInput {
+  /** False ends the session when the browser closes. Defaults to true. */
+  keepSignedIn?: boolean
+}
+
+export interface SignUpInput extends Omit<SignInInput, 'keepSignedIn'> {
   /** ISO time the user accepted the Terms and Privacy Notice. */
   consentedAt: string
-  // The age screen runs before this call; only its outcome is ever stored
-  // (as `age_13_plus: true`), never the birth date.
+  // The form requires an "I'm 13 or older" confirmation before this call;
+  // only that outcome is stored (as `age_13_plus: true`), never a birth date.
 }
 
 export interface PasswordResetInput {
@@ -81,6 +88,11 @@ export interface AuthContextValue {
   /** Set for `needs-mfa`, `signed-in` and `signed-in-offline`. */
   user: AuthUser | null
   signIn(input: SignInInput): Promise<AuthResult>
+  /**
+   * Leaves for Google's sign-in page and comes back to the app signed in.
+   * Resolves `ok` once the redirect starts; only a failure to start returns.
+   */
+  signInWithGoogle(input?: GoogleSignInInput): Promise<AuthResult>
   signUp(input: SignUpInput): Promise<AuthResult>
   /** `global` signs out every device; `local` only this one. */
   signOut(options?: { scope?: 'local' | 'global' }): Promise<void>
