@@ -6,7 +6,12 @@ import AuthLayout from '../AuthLayout.tsx'
 import FormAlert from '../FormAlert.tsx'
 import { useAuth } from '../auth-context.ts'
 import { authErrorMessage } from '../auth-errors.ts'
-import { PRIMARY_BUTTON, SECONDARY_BUTTON, TEXT_LINK } from '../auth-ui.ts'
+import {
+  AUTH_FOOTER,
+  FOOTER_LINK,
+  SECONDARY_BUTTON,
+  SUBMIT_BUTTON,
+} from '../auth-ui.ts'
 import { safeNextPath, signInPathFor } from '../safe-next.ts'
 import { useFocusFirstError } from '../use-focus-first-error.ts'
 import CodeField from './CodeField.tsx'
@@ -78,12 +83,12 @@ function ChallengeForm() {
           // account changed under us, and signing in again sorts it out.
           <FormAlert>{authErrorMessage('unknown')}</FormAlert>
         ))}
-      <p className="mt-8 text-[15px] text-muted">
+      <p className={AUTH_FOOTER}>
         Not your account?{' '}
         <button
           type="button"
           onClick={() => void signOut()}
-          className={`${TEXT_LINK} cursor-pointer`}
+          className={`${FOOTER_LINK} cursor-pointer`}
         >
           Use a different account
         </button>
@@ -138,7 +143,7 @@ function CodeForm({ factors, verify }: CodeFormProps) {
       ref={formRef}
       noValidate
       onSubmit={handleSubmit}
-      className="flex flex-col gap-5"
+      className="flex flex-col gap-4"
     >
       {formError && <FormAlert>{formError}</FormAlert>}
       {factors.length > 1 && (
@@ -172,7 +177,11 @@ function CodeForm({ factors, verify }: CodeFormProps) {
         onChange={setCode}
         error={fieldError}
       />
-      <button type="submit" disabled={submitting} className={PRIMARY_BUTTON}>
+      <button
+        type="submit"
+        disabled={submitting}
+        className={`${SUBMIT_BUTTON} mt-2`}
+      >
         {submitting ? 'Verifying…' : 'Verify'}
       </button>
     </form>
