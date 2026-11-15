@@ -58,20 +58,36 @@ write_files:
       # Learner passages travel in request bodies, which Caddy never logs.
       __DOMAIN__ {
           @unauthorized not header Authorization "Bearer {$SOMANAMI_API_KEY}"
-          @allowed path /api/chat /api/embed /api/tags
 
-          # `route` keeps these in written order: auth first, then the allowlist.
+          # Default deny: anything that isn't exactly one of the three calls the
+          # app makes. Each `not` block negates its own AND, and the blocks are
+          # ANDed, so this reads "neither GET /api/tags nor POST chat/embed".
+          # Admin routes (/api/pull, /api/delete, /api/create, ...) land here.
+          @forbidden {
+              not {
+                  method GET
+                  path /api/tags
+              }
+              not {
+                  method POST
+                  path /api/chat /api/embed
+              }
+          }
+
+          # `route` keeps these in written order. Auth runs first, so callers
+          # without the token can't probe which routes exist.
           route {
               respond @unauthorized "Unauthorized" 401
+              respond @forbidden "Not found" 404
               request_body {
                   max_size 4MB
               }
-              reverse_proxy @allowed 127.0.0.1:11434 {
+              reverse_proxy 127.0.0.1:11434 {
                   # Ollama bound to loopback rejects unfamiliar Host headers.
                   header_up Host localhost:11434
+                  # The gateway credential stops here; Ollama never needs it.
+                  header_up -Authorization
               }
-              # Admin routes (/api/pull, /api/delete, /api/create, ...) end here.
-              respond "Not found" 404
           }
       }
 
