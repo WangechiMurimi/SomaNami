@@ -8,7 +8,6 @@ import type {
   AuthResult,
   AuthStatus,
   AuthUser,
-  MfaApi,
 } from '../../types/auth.ts'
 import { AuthContext } from './auth-context.ts'
 import { toAuthErrorCode } from './auth-errors.ts'
@@ -20,7 +19,6 @@ type Snapshot =
   | {
       phase: 'session'
       user: AuthUser
-      needsMfa: boolean
       /** The saved session couldn't be refreshed (offline at boot). */
       stale: boolean
     }
@@ -39,21 +37,6 @@ const toAuthUser = (session: Session): AuthUser => ({
   email: session.user.email ?? '',
 })
 
-/** Whether this session still owes an authenticator code. */
-async function needsMfa(
-  supabase: SupabaseClient,
-  session: Session,
-): Promise<boolean> {
-  const { data, error } =
-    await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-  if (!error && data) {
-    return data.currentLevel === 'aal1' && data.nextLevel === 'aal2'
-  }
-  // Fail closed for accounts with an authenticator: better to ask for the
-  // code again than to open the app without it.
-  return session.user.factors?.some((f) => f.status === 'verified') ?? false
-}
-
 const origin = () => window.location.origin
 
 // A promise that never settles: drops a result whose effect was cleaned up.
@@ -71,22 +54,16 @@ function keepUnchanged(prev: Snapshot, next: Snapshot): Snapshot {
   const sameUser =
     prev.user.id === next.user.id && prev.user.email === next.user.email
   if (!sameUser) return next
-  if (prev.needsMfa === next.needsMfa && prev.stale === next.stale) return prev
+  if (prev.stale === next.stale) return prev
   return { ...next, user: prev.user }
 }
 
-/** The snapshot for a live session: signed in, or still owing an MFA code. */
-async function snapshotFor(
-  supabase: SupabaseClient,
-  session: Session,
-): Promise<Snapshot> {
-  return {
-    phase: 'session',
-    user: toAuthUser(session),
-    needsMfa: await needsMfa(supabase, session),
-    stale: false,
-  }
-}
+/** The snapshot for a live session. */
+const snapshotFor = (session: Session): Snapshot => ({
+  phase: 'session',
+  user: toAuthUser(session),
+  stale: false,
+})
 
 /**
  * The snapshot for whatever session this device has saved. supabase-js keeps
@@ -96,10 +73,10 @@ async function snapshotFor(
  */
 async function restoreSnapshot(supabase: SupabaseClient): Promise<Snapshot> {
   const { data, error } = await supabase.auth.getSession()
-  if (data.session) return snapshotFor(supabase, data.session)
+  if (data.session) return snapshotFor(data.session)
   const lastUser = readLastUser()
   if (error && toAuthErrorCode(error) === 'offline' && lastUser) {
-    return { phase: 'session', user: lastUser, needsMfa: false, stale: true }
+    return { phase: 'session', user: lastUser, stale: true }
   }
   return SIGNED_OUT
 }
@@ -120,11 +97,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   // The one place snapshots land, so the offline cache always matches state.
   const commit = useCallback((next: Snapshot) => {
     if (next.phase === 'signed-out') clearLastUser()
-    // Only a fully signed-in user may come back offline later.
-    if (next.phase === 'session' && !next.stale) {
-      if (next.needsMfa) clearLastUser()
-      else writeLastUser(next.user)
-    }
+    if (next.phase === 'session' && !next.stale) writeLastUser(next.user)
     setSnapshot((prev) => keepUnchanged(prev, next))
   }, [])
 
@@ -144,10 +117,8 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const applySession = useCallback(
-    async (session: Session) => {
-      if (supabase) await commitLater(snapshotFor(supabase, session))
-    },
-    [supabase, commitLater],
+    (session: Session) => commit(snapshotFor(session)),
+    [commit],
   )
 
   useEffect(() => {
@@ -164,7 +135,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       // (it holds a lock), so evaluate the session on the next tick.
       if (session) {
         setTimeout(() => {
-          if (active) void applySession(session)
+          if (active) applySession(session)
         }, 0)
       }
     })
@@ -195,59 +166,15 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       ? 'loading'
       : snapshot.phase === 'signed-out'
         ? 'signed-out'
-        : snapshot.needsMfa
-          ? 'needs-mfa'
-          : online && !snapshot.stale
-            ? 'signed-in'
-            : 'signed-in-offline'
+        : online && !snapshot.stale
+          ? 'signed-in'
+          : 'signed-in-offline'
 
   const user = snapshot.phase === 'session' ? snapshot.user : null
 
   const value = useMemo<AuthContextValue>(() => {
     if (!supabase) return notConfiguredValue
     const auth = supabase.auth
-
-    const mfa: MfaApi = {
-      async listFactors() {
-        const { data, error } = await auth.mfa.listFactors()
-        if (error) throw error
-        return data.all
-          .filter((factor) => factor.factor_type === 'totp')
-          .map((factor) => ({
-            id: factor.id,
-            friendlyName: factor.friendly_name ?? null,
-            status: factor.status === 'verified' ? 'verified' : 'unverified',
-          }))
-      },
-      async enrollTotp(friendlyName) {
-        const { data, error } = await auth.mfa.enroll({
-          factorType: 'totp',
-          friendlyName,
-        })
-        if (error) throw error
-        const qr = data.totp.qr_code
-        return {
-          factorId: data.id,
-          // Supabase returns raw SVG markup; older versions returned a data URI.
-          qrCode: qr.startsWith('data:')
-            ? qr
-            : `data:image/svg+xml;utf-8,${qr}`,
-          secret: data.totp.secret,
-        }
-      },
-      async verify(factorId, code) {
-        const { error } = await auth.mfa.challengeAndVerify({ factorId, code })
-        if (error) return fail(error)
-        // The session is now aal2; re-read it so `needs-mfa` clears at once.
-        const { data } = await auth.getSession()
-        if (data.session) await applySession(data.session)
-        return OK
-      },
-      async unenroll(factorId) {
-        const { error } = await auth.mfa.unenroll({ factorId })
-        return error ? fail(error) : OK
-      },
-    }
 
     return {
       status,
@@ -260,7 +187,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         })
         if (error) return fail(error)
         // Update status before resolving, so the caller can navigate at once.
-        if (data.session) await applySession(data.session)
+        if (data.session) applySession(data.session)
         return OK
       },
       async signUp({ email, password, captchaToken, consentedAt }) {
@@ -314,7 +241,6 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         const { error } = await auth.updateUser({ password })
         return error ? fail(error) : OK
       },
-      mfa,
     }
   }, [supabase, status, user, applySession, signedOut])
 
@@ -332,11 +258,4 @@ const notConfiguredValue: AuthContextValue = {
   signOut: async () => {},
   requestPasswordReset: notReady,
   updatePassword: notReady,
-  mfa: {
-    listFactors: async () => [],
-    enrollTotp: () =>
-      Promise.reject(new Error('Sign-in is not set up on this copy yet')),
-    verify: notReady,
-    unenroll: notReady,
-  },
 }

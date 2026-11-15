@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -84,17 +84,6 @@ describe('signed out', () => {
     installFakeSupabase({ session: fakeSession() })
     renderAt('/library')
     expect(screen.getByRole('status')).toHaveTextContent('Loading')
-  })
-})
-
-describe('needs-mfa', () => {
-  it('sends shell routes to the code screen', async () => {
-    installFakeSupabase({ session: fakeSession({ mfa: true }) })
-    renderAt('/library')
-    // The code screen itself belongs to WS-E; only the redirect is checked here.
-    await waitFor(() =>
-      expect(currentLocation()).toBe('/sign-in/verify?next=%2Flibrary'),
-    )
   })
 })
 
