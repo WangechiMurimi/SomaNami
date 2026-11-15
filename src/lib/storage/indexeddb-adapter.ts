@@ -1,5 +1,6 @@
 import type {
   Change,
+  Guard,
   Removal,
   StorageAdapter,
   StorageRecord,
@@ -330,6 +331,48 @@ export function createIndexedDbAdapter(
         else store.delete(change.key)
       }
       await done
+    },
+
+    async guardedCommit(guards: readonly Guard[], changes: readonly Change[]) {
+      if (guards.length === 0 && changes.length === 0) return true
+      const database = await db()
+      const storeNames = [
+        ...new Set([
+          ...guards.map((g) => g.storeName),
+          ...changes.map((c) => c.storeName),
+        ]),
+      ]
+      const transaction = database.transaction(storeNames, 'readwrite')
+      let applied = false
+      const done = new Promise<boolean>((resolve, reject) => {
+        transaction.oncomplete = () => resolve(applied)
+        transaction.onerror = () => reject(transaction.error)
+        transaction.onabort = () => reject(transaction.error)
+      })
+      // Requests issued from request callbacks keep the transaction open, so
+      // the reads and the writes they decide on commit as one unit.
+      let pending = guards.length
+      let holds = true
+      const write = () => {
+        if (!holds) return
+        for (const change of changes) {
+          const store = transaction.objectStore(change.storeName)
+          if (change.type === 'put') store.put(change.record)
+          else store.delete(change.key)
+        }
+        applied = true
+      }
+      if (pending === 0) write()
+      for (const { storeName, key, field, equals } of guards) {
+        const request = transaction.objectStore(storeName).get(key)
+        request.onsuccess = () => {
+          const record = request.result as Record<string, unknown> | undefined
+          if (record?.[field] !== equals) holds = false
+          pending -= 1
+          if (pending === 0) write()
+        }
+      }
+      return done
     },
 
     async close() {
