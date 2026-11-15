@@ -11,6 +11,7 @@ import { setSupabaseClient } from './lib/auth/supabase-client.ts'
 import {
   createConversation,
   createMemoryAdapter,
+  createWorkspace,
   DEFAULT_WORKSPACE,
   saveDocument,
   setStorageAdapter,
@@ -46,7 +47,11 @@ beforeEach(() => {
   window.history.pushState({}, '', '/')
 })
 
-afterEach(() => setSupabaseClient(undefined))
+afterEach(() => {
+  setSupabaseClient(undefined)
+  // The sidebar remembers its collapsed state in localStorage.
+  localStorage.clear()
+})
 
 /** Renders the app and waits for the saved session to be restored. */
 async function renderApp() {
@@ -375,7 +380,7 @@ describe('asking about a document', () => {
 
     // The earlier chat is still there to continue.
     await userEvent.click(
-      within(screen.getByRole('region', { name: 'Recent chats' })).getByRole(
+      within(screen.getByRole('region', { name: 'Recents' })).getByRole(
         'link',
         { name: 'What do mitochondria produce?' },
       ),
@@ -493,20 +498,54 @@ describe('app shell and navigation', () => {
     expect(open).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('announces the connection, with a visible notice only when offline', async () => {
+  it('shows no connection status anywhere', async () => {
     await renderApp()
 
-    expect(screen.getByRole('status')).toHaveTextContent('Online')
-    expect(screen.getByRole('status')).toHaveClass('sr-only')
+    expect(screen.queryByText(/offline|online/i)).toBeNull()
+    expect(screen.queryByRole('status')).toBeNull()
   })
 
-  it('hides and shows the sidebar on wide screens', async () => {
+  it('collapses the sidebar to an icon rail and back', async () => {
     await renderApp()
-    const toggle = screen.getByRole('button', { name: 'Hide sidebar' })
+    const toggle = screen.getByRole('button', { name: 'Collapse sidebar' })
 
     await userEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    expect(toggle).toHaveAccessibleName('Show sidebar')
+    expect(toggle).toHaveAccessibleName('Expand sidebar')
+    expect(screen.getByRole('complementary', { name: 'Sidebar' })).toHaveClass(
+      'w-20',
+    )
+    // Icons only, but every destination keeps its name and a tooltip.
+    const nav = within(screen.getByRole('navigation', { name: 'Main' }))
+    expect(nav.getByRole('link', { name: 'Workspaces' })).toHaveAttribute(
+      'title',
+      'Workspaces',
+    )
+    expect(
+      nav.getByRole('link', { name: 'My library, 0 materials' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'New workspace' })).toHaveAttribute(
+      'title',
+      'New workspace',
+    )
+    expect(screen.queryByRole('region', { name: 'Recents' })).toBeNull()
+
+    await userEvent.click(toggle)
+    expect(toggle).toHaveAccessibleName('Collapse sidebar')
+    expect(screen.getByRole('region', { name: 'Recents' })).toBeInTheDocument()
+  })
+
+  it('remembers a collapsed sidebar the next time the app opens', async () => {
+    const first = await renderApp()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Collapse sidebar' }),
+    )
+    first.unmount()
+
+    await renderApp()
+    expect(
+      screen.getByRole('button', { name: 'Expand sidebar' }),
+    ).toBeInTheDocument()
   })
 
   it('links to every screen from the sidebar', async () => {
@@ -534,8 +573,39 @@ describe('app shell and navigation', () => {
     await renderApp()
 
     expect(
-      await screen.findByText('Chats you start will appear here.'),
+      await screen.findByText('Chats you start from Home will appear here.'),
     ).toBeInTheDocument()
+  })
+
+  it('lists only loose chats under Recents, never a workspace’s chats', async () => {
+    await saveCells()
+    await chatAbout('doc-1', 'Loose question?')
+    const workspace = await createWorkspace({ name: 'Biology' })
+    await saveDocument(
+      {
+        id: 'doc-2',
+        name: 'Genes.txt',
+        size: 10,
+        kind: 'text',
+        pageCount: null,
+        chunks: [],
+      },
+      workspace.id,
+    )
+    await createConversation({
+      workspaceId: workspace.id,
+      materialIds: ['doc-2'],
+      title: 'Workspace question?',
+    })
+    await renderApp()
+
+    const recents = within(screen.getByRole('region', { name: 'Recents' }))
+    expect(
+      await recents.findByRole('link', { name: 'Loose question?' }),
+    ).toBeInTheDocument()
+    expect(
+      recents.queryByRole('link', { name: 'Workspace question?' }),
+    ).toBeNull()
   })
 
   it('lists recent chats, newest first, and opens one', async () => {
@@ -548,7 +618,7 @@ describe('app shell and navigation', () => {
     now.mockRestore()
     await renderApp()
 
-    const recent = within(screen.getByRole('region', { name: 'Recent chats' }))
+    const recent = within(screen.getByRole('region', { name: 'Recents' }))
     const links = await recent.findAllByRole('link', { name: /\?$/ })
     expect(links.map((link) => link.textContent)).toEqual([
       'Why mitosis?',

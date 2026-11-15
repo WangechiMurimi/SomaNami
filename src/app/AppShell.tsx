@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router'
 import { BreadcrumbContext, type Crumb } from './breadcrumbs.ts'
 import Sidebar from './Sidebar.tsx'
+import { useSidebarCollapsed } from './sidebar-preference.ts'
 
 const ICON = {
   viewBox: '0 0 24 24',
@@ -50,8 +51,8 @@ function Breadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
 
 /**
  * The layout every screen shares: sidebar, top bar and the main column. On
- * wide screens the sidebar can be hidden; below the md breakpoint it opens as
- * an overlay from the menu button instead.
+ * wide screens the sidebar collapses to an icon rail and remembers that
+ * choice; below the md breakpoint it opens as an overlay drawer instead.
  */
 export default function AppShell() {
   const { pathname } = useLocation()
@@ -60,7 +61,9 @@ export default function AppShell() {
   const [openOn, setOpenOn] = useState<string | null>(null)
   const menuOpen = openOn === pathname
   const setMenuOpen = (open: boolean) => setOpenOn(open ? pathname : null)
-  const [sidebarHidden, setSidebarHidden] = useState(false)
+  const [collapsed, setCollapsed] = useSidebarCollapsed()
+  // The drawer always shows the full sidebar; the rail is a wide-screen view.
+  const rail = collapsed && !menuOpen
   const [crumbs, setCrumbs] = useState<Crumb[]>([])
 
   return (
@@ -71,11 +74,11 @@ export default function AppShell() {
           aria-label="Sidebar"
           className={`${
             menuOpen ? 'fixed inset-y-0 left-0 z-20 flex' : 'hidden'
-          } w-[260px] flex-none flex-col border-r border-line bg-side ${
-            sidebarHidden ? '' : 'md:static md:flex'
-          }`}
+          } ${
+            rail ? 'w-20' : 'w-[260px]'
+          } flex-none flex-col border-r border-line bg-side md:sticky md:top-0 md:flex md:h-screen`}
         >
-          <Sidebar />
+          <Sidebar rail={rail} />
         </aside>
         {menuOpen && (
           <button
@@ -102,10 +105,10 @@ export default function AppShell() {
             </button>
             <button
               type="button"
-              aria-label={sidebarHidden ? 'Show sidebar' : 'Hide sidebar'}
-              aria-expanded={!sidebarHidden}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-expanded={!collapsed}
               aria-controls="app-sidebar"
-              onClick={() => setSidebarHidden(!sidebarHidden)}
+              onClick={() => setCollapsed(!collapsed)}
               className={`${TOP_BUTTON} hidden md:inline-flex`}
             >
               <svg {...ICON} width="22" height="22" strokeWidth="1.7">

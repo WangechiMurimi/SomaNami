@@ -99,13 +99,16 @@ describe('needs-mfa', () => {
 })
 
 describe('signed in', () => {
-  it('opens the account page in the shell from the profile row', async () => {
+  it('opens the account page in the shell from the account menu', async () => {
     installFakeSupabase({ session: fakeSession({ email: 'me@example.com' }) })
     renderAt('/library')
     await userEvent.click(
-      await screen.findByRole('link', {
-        name: 'me@example.com, Account settings',
+      await screen.findByRole('button', {
+        name: 'me@example.com, account menu',
       }),
+    )
+    await userEvent.click(
+      screen.getByRole('menuitem', { name: 'Account settings' }),
     )
     expect(
       await screen.findByRole('heading', {

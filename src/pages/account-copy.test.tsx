@@ -46,13 +46,12 @@ describe('Account-aware device copy', () => {
   })
 
   describe('sidebar profile row (#125)', () => {
-    it('shows the signed-in account and links to Account', async () => {
+    it('shows the signed-in account as the account menu', async () => {
       await renderSignedInApp('/')
-      const link = screen.getByRole('link', {
-        name: 'learner@example.com, Account settings',
+      const trigger = screen.getByRole('button', {
+        name: 'learner@example.com, account menu',
       })
-      expect(link).toHaveAttribute('href', '/account')
-      expect(link).toHaveTextContent('L')
+      expect(trigger).toHaveTextContent('L')
     })
 
     it('no longer says there is no account', async () => {
