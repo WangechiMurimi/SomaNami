@@ -19,7 +19,7 @@ import {
 } from '../../features/auth/mfa/factor-label.ts'
 import { useFactors } from '../../features/auth/mfa/use-factors.ts'
 import type { MfaFactor, TotpEnrollment } from '../../types/auth.ts'
-import { H2 } from '../page-heading.ts'
+import { CARD, CARD_TITLE } from './account-ui.ts'
 
 const START_ID = 'mfa-start'
 const NOTICE = '#mfa-notice [role="status"]'
@@ -144,19 +144,19 @@ export default function MfaSection() {
   const on = verified.length > 0
 
   return (
-    <section aria-labelledby="account-mfa">
+    <section aria-labelledby="account-mfa" className={CARD}>
       <div className="flex flex-wrap items-center gap-3">
-        <h2 id="account-mfa" className={H2}>
+        <h2 id="account-mfa" className={CARD_TITLE}>
           Two-step verification
         </h2>
         {list && <StatusPill on={on} />}
       </div>
-      <p className="mt-3 max-w-[40rem] text-[15px] leading-[1.6] text-muted">
+      <p className="text-sm leading-[1.55] text-muted">
         After your password, SomaNami asks for a code from an authenticator app
         on your phone, so a stolen password alone can’t open your account.
       </p>
 
-      <div className="mt-5 flex flex-col gap-5">
+      <div className="flex flex-col gap-5 empty:hidden">
         {notice && (
           <div id="mfa-notice">
             <FormAlert tone="success">{notice}</FormAlert>
@@ -228,8 +228,8 @@ export default function MfaSection() {
             onClick={() => void startEnrolment()}
             className={
               on
-                ? `${SECONDARY_BUTTON} mt-5 disabled:opacity-60`
-                : `${PRIMARY_BUTTON} mt-5 sm:w-auto`
+                ? `${SECONDARY_BUTTON} self-start disabled:opacity-60`
+                : `${PRIMARY_BUTTON} sm:w-auto sm:self-start`
             }
           >
             {starting

@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route } from 'react-router'
 import {
@@ -27,20 +27,8 @@ vi.mock('../../lib/storage/index.ts', async (importOriginal) => ({
   removeUserStore: vi.fn(),
 }))
 
-// Shared by both fakes, so a test can assert the order calls happened in.
-let calls: string[]
-
 function setup() {
-  calls = []
   const fake = installFakeSupabase({ session: fakeSession({ id: 'user-7' }) })
-  const signOut = fake.auth.signOut.getMockImplementation()!
-  fake.auth.signOut.mockImplementation(async (...args) => {
-    calls.push('signOut')
-    return signOut(...args)
-  })
-  vi.mocked(removeUserStore).mockImplementation(async (userId) => {
-    calls.push(`removeUserStore:${userId}`)
-  })
   renderAt('/account', <Route path="/account" element={<SessionsSection />} />)
   return fake
 }
@@ -82,58 +70,16 @@ describe('SessionsSection', () => {
     expect(screen.getByText(/connect to the internet/i)).toBeInTheDocument()
   })
 
-  it('asks before removing materials, and Cancel keeps everything', async () => {
-    const { auth } = setup()
-    await userEvent.click(
-      await screen.findByRole('button', {
-        name: 'Sign out and remove my materials from this device',
-      }),
+  it('says which account is signed in', async () => {
+    installFakeSupabase({
+      session: fakeSession({ id: 'user-7', email: 'me@example.com' }),
+    })
+    renderAt(
+      '/account',
+      <Route path="/account" element={<SessionsSection />} />,
     )
-    const dialog = screen.getByRole('alertdialog')
-    expect(dialog).toHaveAccessibleName(/remove your materials/i)
-    expect(removeUserStore).not.toHaveBeenCalled()
-
-    await userEvent.click(
-      within(dialog).getByRole('button', { name: 'Cancel' }),
-    )
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
-    expect(removeUserStore).not.toHaveBeenCalled()
-    expect(auth.signOut).not.toHaveBeenCalled()
-  })
-
-  it('removes this user’s materials, then signs out', async () => {
-    setup()
-    await userEvent.click(
-      await screen.findByRole('button', {
-        name: 'Sign out and remove my materials from this device',
-      }),
-    )
-    await userEvent.click(
-      within(screen.getByRole('alertdialog')).getByRole('button', {
-        name: 'Remove and sign out',
-      }),
-    )
-    expect(await redirectedTo()).toBe('/sign-in')
-    expect(calls).toEqual(['removeUserStore:user-7', 'signOut'])
-  })
-
-  it('stays signed in and says so when the materials can’t be removed', async () => {
-    const { auth } = setup()
-    vi.mocked(removeUserStore).mockRejectedValueOnce(new Error('blocked'))
-    await userEvent.click(
-      await screen.findByRole('button', {
-        name: 'Sign out and remove my materials from this device',
-      }),
-    )
-    await userEvent.click(
-      within(screen.getByRole('alertdialog')).getByRole('button', {
-        name: 'Remove and sign out',
-      }),
-    )
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      /couldn’t remove/i,
-    )
-    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
-    expect(auth.signOut).not.toHaveBeenCalled()
+    expect(
+      await screen.findByText('Signed in as me@example.com.'),
+    ).toBeInTheDocument()
   })
 })

@@ -20,7 +20,7 @@ import {
   renderAt,
 } from '../../features/auth/testing/render-routes.tsx'
 import UserStoreGate from '../../features/auth/UserStoreGate.tsx'
-import SessionsSection from './SessionsSection.tsx'
+import RemoveFromDevice from './RemoveFromDevice.tsx'
 
 // Runs against real per-user IndexedDB stores (fake-indexeddb), so it covers
 // what the unit tests mock away: the store closing under a mounted app.
@@ -37,12 +37,14 @@ async function renderWithMaterial() {
       path="/account"
       element={
         <UserStoreGate>
-          <SessionsSection />
+          <RemoveFromDevice />
         </UserStoreGate>
       }
     />,
   )
-  await screen.findByRole('heading', { name: 'Sign out' })
+  await screen.findByRole('button', {
+    name: 'Sign out and remove my materials from this device',
+  })
   await saveDocument(
     {
       id: 'notes',
@@ -69,7 +71,7 @@ async function confirmRemoval() {
   )
 }
 
-describe('SessionsSection with real storage', () => {
+describe('RemoveFromDevice with real storage', () => {
   beforeEach(() => {
     factory = new IDBFactory()
     vi.stubGlobal('indexedDB', factory)

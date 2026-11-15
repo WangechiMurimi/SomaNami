@@ -108,7 +108,10 @@ describe('signed in', () => {
       }),
     )
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Account' }),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Account settings',
+      }),
     ).toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument()
   })
