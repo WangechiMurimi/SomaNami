@@ -1,6 +1,7 @@
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { setKeepSignedIn } from '../../lib/auth/auth-storage.ts'
 import { getSupabaseClient } from '../../lib/auth/supabase-client.ts'
 import { useOnline } from '../../lib/connectivity/use-online.ts'
 import type {
@@ -252,7 +253,9 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     return {
       status,
       user,
-      async signIn({ email, password, captchaToken }) {
+      async signIn({ email, password, captchaToken, keepSignedIn = true }) {
+        // Set first: it decides which store Supabase saves the session to.
+        setKeepSignedIn(keepSignedIn)
         const { data, error } = await auth.signInWithPassword({
           email,
           password,
@@ -262,6 +265,20 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         // Update status before resolving, so the caller can navigate at once.
         if (data.session) await applySession(data.session)
         return OK
+      },
+      async signInWithGoogle({ keepSignedIn = true } = {}) {
+        // The choice is read again when Google sends the visitor back, so it
+        // must be saved before leaving.
+        setKeepSignedIn(keepSignedIn)
+        try {
+          const { error } = await auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo: origin() },
+          })
+          return error ? fail(error) : OK
+        } catch (error) {
+          return fail(error)
+        }
       },
       async signUp({ email, password, captchaToken, consentedAt }) {
         const { error } = await auth.signUp({
@@ -328,6 +345,7 @@ const notConfiguredValue: AuthContextValue = {
   status: 'signed-out',
   user: null,
   signIn: notReady,
+  signInWithGoogle: notReady,
   signUp: notReady,
   signOut: async () => {},
   requestPasswordReset: notReady,
