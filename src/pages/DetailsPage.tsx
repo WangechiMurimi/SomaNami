@@ -10,6 +10,7 @@ import {
   toAuthErrorCode,
 } from '../features/auth/auth-errors.ts'
 import {
+  CHECKBOX,
   FIELD_ERROR,
   PRIMARY_BUTTON,
   TEXT_LINK,
@@ -146,7 +147,7 @@ export default function DetailsPage() {
               aria-describedby={
                 fieldErrors.age ? 'details-age-error' : undefined
               }
-              className="mt-0.5 size-5 flex-none accent-accent"
+              className={CHECKBOX}
             />
             <label htmlFor="details-age" className="text-[15px] leading-[1.5]">
               I’m 13 or older
