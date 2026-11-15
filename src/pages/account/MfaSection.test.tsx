@@ -256,7 +256,7 @@ describe('MfaSection: turning it on', () => {
     auth.mfa.enroll.mockRejectedValueOnce(new TypeError('Failed to fetch'))
     await turnOn()
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'You’re offline. Reconnect, then try again.',
+      'We couldn’t reach SomaNami. Check your connection and try again.',
     )
   })
 
@@ -266,7 +266,7 @@ describe('MfaSection: turning it on', () => {
     auth.mfa.listFactors.mockRejectedValueOnce(new TypeError('Failed to fetch'))
     renderAt('/account', <Route path="/account" element={<MfaSection />} />)
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'You’re offline. Reconnect, then try again.',
+      'We couldn’t reach SomaNami. Check your connection and try again.',
     )
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(

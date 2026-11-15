@@ -112,7 +112,7 @@ describe('step 2: details', () => {
     expect(auth.signUp).not.toHaveBeenCalled()
   })
 
-  it('requires agreeing to the Terms and Privacy Notice', async () => {
+  it('requires agreeing to the Terms and the data note', async () => {
     const { auth } = installFakeSupabase()
     page()
     await fillAccount()
@@ -130,7 +130,7 @@ describe('step 2: details', () => {
       '/terms',
     )
     expect(
-      screen.getByRole('link', { name: 'Privacy Notice' }),
+      screen.getByRole('link', { name: 'how your data is handled' }),
     ).toHaveAttribute('href', '/privacy')
   })
 

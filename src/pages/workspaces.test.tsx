@@ -489,7 +489,7 @@ describe('New workspace', () => {
       screen.getByLabelText('Upload a document'),
       new File(['Mitochondria produce ATP.'], 'cells.txt'),
     )
-    await screen.findByText('✓ Ready to explore')
+    await screen.findByText('✓ Added')
 
     await userEvent.click(screen.getByRole('button', { name: 'Paste text' }))
     await userEvent.type(screen.getByLabelText(/Title/), 'Seminar notes')

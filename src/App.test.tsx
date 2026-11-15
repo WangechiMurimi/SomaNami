@@ -81,17 +81,17 @@ describe('document upload', () => {
     expect(input()).toHaveAttribute('accept', '.pdf,.docx,.txt,.md')
   })
 
-  it('shows a ready state with passage count after a valid upload', async () => {
+  it('shows an added state after a valid upload', async () => {
     await renderApp()
     const file = new File(['first\n\nsecond'], 'class-notes.txt', {
       type: 'text/plain',
     })
     await userEvent.upload(input(), file)
 
-    expect(await screen.findByText('✓ Ready to explore')).toBeInTheDocument()
+    expect(await screen.findByText('✓ Added')).toBeInTheDocument()
     // The library table lists it too; check the upload's own status.
     expect(uploadRegion().getByText('class-notes.txt')).toBeInTheDocument()
-    expect(screen.getByText(/2 passages indexed/)).toBeInTheDocument()
+    expect(uploadRegion().getByText(/^Text · /)).toBeInTheDocument()
   })
 
   it('shows the file name while it is being processed', async () => {
@@ -106,7 +106,7 @@ describe('document upload', () => {
     expect(input()).toBeDisabled()
 
     finish(parsedPdf)
-    expect(await screen.findByText('✓ Ready to explore')).toBeInTheDocument()
+    expect(await screen.findByText('✓ Added')).toBeInTheDocument()
     expect(screen.getByText(/PDF · 1 pages/)).toBeInTheDocument()
   })
 
@@ -144,7 +144,7 @@ describe('document upload', () => {
 
     // No refresh or dismiss needed: choosing another file replaces the error.
     await userEvent.upload(input(), new File(['notes'], 'notes.txt'))
-    expect(await screen.findByText('✓ Ready to explore')).toBeInTheDocument()
+    expect(await screen.findByText('✓ Added')).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
@@ -177,7 +177,7 @@ describe('document upload', () => {
     expect(alert).toHaveTextContent('Couldn’t process')
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
 
-    expect(await screen.findByText('✓ Ready to explore')).toBeInTheDocument()
+    expect(await screen.findByText('✓ Added')).toBeInTheDocument()
     expect(parsePdf).toHaveBeenCalledTimes(2)
   })
 
@@ -185,10 +185,8 @@ describe('document upload', () => {
     await renderApp()
     await userEvent.upload(input(), new File([DOCX_FIXTURE], 'ball.docx'))
 
-    expect(await screen.findByText('✓ Ready to explore')).toBeInTheDocument()
-    expect(
-      screen.getByText(/DOCX · 1 KB · 2 passages indexed/),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('✓ Added')).toBeInTheDocument()
+    expect(screen.getByText(/DOCX · 1 KB/)).toBeInTheDocument()
   })
 
   it('does not offer Try again for a damaged file', async () => {
@@ -218,7 +216,7 @@ describe('document upload', () => {
       await screen.findByRole('button', { name: 'Dismiss' }),
     )
 
-    expect(screen.queryByText('✓ Ready to explore')).not.toBeInTheDocument()
+    expect(screen.queryByText('✓ Added')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /My library/ })).toHaveTextContent(
       '1',
     )
@@ -442,7 +440,7 @@ describe('app shell and navigation', () => {
     startInLibrary()
     await renderApp()
     await userEvent.upload(input(), new File(['one\n\ntwo'], 'notes.txt'))
-    await screen.findByText('✓ Ready to explore')
+    await screen.findByText('✓ Added')
 
     await userEvent.click(screen.getByRole('link', { name: /My library/ }))
 

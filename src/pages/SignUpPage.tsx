@@ -218,7 +218,8 @@ function DetailsStep({
       next.age = 'SomaNami is for learners 13 and older.'
     }
     if (!consent) {
-      next.consent = 'Agree to the Terms and Privacy Notice to continue.'
+      next.consent =
+        'Agree to the Terms and how your data is handled to continue.'
     }
     setErrors(next)
     setFormError(null)
@@ -294,7 +295,7 @@ function DetailsStep({
         </Link>{' '}
         and{' '}
         <Link to="/privacy" target="_blank" className={TEXT_LINK}>
-          Privacy Notice
+          how your data is handled
         </Link>
         .
       </Checkbox>

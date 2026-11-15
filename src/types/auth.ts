@@ -48,7 +48,7 @@ export interface GoogleSignInInput {
 }
 
 export interface SignUpInput extends Omit<SignInInput, 'keepSignedIn'> {
-  /** ISO time the user accepted the Terms and Privacy Notice. */
+  /** ISO time the user accepted the Terms and the data note. */
   consentedAt: string
   // The form requires an "I'm 13 or older" confirmation before this call;
   // only that outcome is stored (as `age_13_plus: true`), never a birth date.

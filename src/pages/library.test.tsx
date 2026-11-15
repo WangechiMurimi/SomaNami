@@ -174,7 +174,7 @@ describe('Library', () => {
       screen.getByLabelText('Upload a document'),
       new File(['Ribosomes make proteins.'], 'ribosomes.txt'),
     )
-    await screen.findByText('✓ Ready to explore')
+    await screen.findByText('✓ Added')
 
     expect(
       (await listWorkspaceDocuments(biology.id)).map(({ name }) => name),

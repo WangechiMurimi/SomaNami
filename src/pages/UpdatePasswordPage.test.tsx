@@ -82,11 +82,13 @@ describe('UpdatePasswordPage', () => {
     )
   })
 
-  it('explains that changing the password needs a connection', async () => {
+  it('explains that changing the password needs to reach SomaNami', async () => {
     installFakeSupabase({ session: fakeSession() })
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
     page()
-    expect(await screen.findByRole('alert')).toHaveTextContent(/offline/i)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /couldn’t reach SomaNami/i,
+    )
     expect(screen.queryByLabelText('New password')).not.toBeInTheDocument()
     vi.restoreAllMocks()
   })

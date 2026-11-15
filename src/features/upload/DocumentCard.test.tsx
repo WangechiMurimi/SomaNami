@@ -50,8 +50,8 @@ describe('DocumentCard', () => {
 
     const card = screen.getByRole('status')
     expect(card).toHaveTextContent('class-notes.pdf')
-    expect(card).toHaveTextContent('✓ Ready to explore')
-    expect(card).toHaveTextContent('PDF · 3 pages · 2 KB · 2 passages indexed')
+    expect(card).toHaveTextContent('✓ Added')
+    expect(card).toHaveTextContent('PDF · 3 pages · 2 KB')
   })
 
   it('announces progress politely but failures assertively', () => {

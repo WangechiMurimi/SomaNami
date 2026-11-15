@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { H2 } from '../../pages/page-heading.ts'
 
-/** One headed section of the Privacy Notice or Terms. */
+/** One headed section of the data note or Terms. */
 export default function LegalSection({
   title,
   children,
