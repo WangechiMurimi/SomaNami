@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import type { ChangeEvent, DragEvent } from 'react'
-import { ACCEPT_ATTRIBUTE, SUPPORTED_LABEL } from './constants.ts'
+import {
+  ACCEPT_ATTRIBUTE,
+  MAX_FILE_BYTES,
+  SUPPORTED_LABEL,
+} from './constants.ts'
 
 interface UploadZoneProps {
   onFile: (file: File | undefined) => void
@@ -71,7 +75,7 @@ export default function UploadZone({
         or browse your files
       </span>
       <small className="text-[13px] leading-[1.5] text-muted">
-        {SUPPORTED_LABEL}, up to 20 MB
+        {SUPPORTED_LABEL}, up to {MAX_FILE_BYTES / 1024 / 1024} MB
       </small>
     </label>
   )
