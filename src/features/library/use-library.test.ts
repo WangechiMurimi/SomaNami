@@ -2,6 +2,9 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   createMemoryAdapter,
+  createWorkspace,
+  DEFAULT_WORKSPACE,
+  getDocument,
   listDocuments,
   saveDocument,
   setStorageAdapter,
@@ -55,5 +58,32 @@ describe('useLibrary', () => {
     expect(result.current.documents.map((d) => d.name)).toEqual([
       'Alpha v2.txt',
     ])
+  })
+
+  it('moves a document to another workspace and keeps it listed', async () => {
+    await saveDocument(doc('a', 'Alpha.txt'))
+    const workspace = await createWorkspace({ name: 'Biology' })
+    const { result } = renderHook(() => useLibrary())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+
+    await act(() => result.current.move('a', workspace.id))
+    expect(result.current.documents[0]?.workspaceId).toBe(workspace.id)
+
+    await act(() => result.current.move('a', DEFAULT_WORKSPACE.id))
+    expect(result.current.documents).toHaveLength(1)
+    expect((await getDocument('a'))?.workspaceId).toBe(DEFAULT_WORKSPACE.id)
+  })
+
+  it('drops a deleted workspace’s documents and keeps the rest', async () => {
+    const workspace = await createWorkspace({ name: 'Biology' })
+    await saveDocument(doc('a', 'Alpha.txt'), workspace.id)
+    await saveDocument(doc('b', 'Beta.txt'))
+    const { result } = renderHook(() => useLibrary())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+
+    await act(() => result.current.removeWorkspace(workspace.id))
+
+    expect(result.current.documents.map((d) => d.id)).toEqual(['b'])
+    expect(await getDocument('a')).toBeUndefined()
   })
 })
