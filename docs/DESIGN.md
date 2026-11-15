@@ -7,8 +7,10 @@ update whichever is wrong in the same pull request.
 
 ## Principles
 
-- **Your materials, nothing else.** Every surface repeats that answers come only
-  from what the learner added ("Locked to your content").
+- **Your materials, nothing else.** Answers come only from the sources the
+  learner provided (uploads, pasted text, links). Say it lightly, at most once
+  per screen; never in titles or on every message. Make no privacy claims about
+  uploads and show no online/offline status: learners are treated as online.
 - **Calm and readable.** One accent on a warm neutral ground, generous spacing,
   Inter throughout.
 - **Accessible as drawn.** Text ≥ 4.5:1, interactive borders and focus rings
@@ -34,14 +36,14 @@ Defined in `src/index.css` as CSS variables and exposed to Tailwind as
 | `tag`        | `#ECE9F8` | `#2F2D48` | Topic tag background                       |
 | `tile`       | `#F3F1EA` | `#25242E` | "Ways of understanding" tiles              |
 | `success`    | `#2B7350` | `#7AD6A8` | Success text (on `success-soft` ≥ 4.9:1)   |
-| `online`     | `#2F8F5B` | `#5FC98C` | Online status dot (not for text)           |
 | `warn`       | `#9A3B26` | `#F2A58E` | Warnings, unanswerable replies (≥ 6:1)     |
 
 Soft backgrounds: `success-soft` `#E4F1E9` / `#1E3328`, `warn-soft` `#FBEDE8` /
-`#3A2420`.
+`#3A2420`. (The `online` status-dot token was removed with the connection
+status UI.)
 
 **Theme.** Light, Dark or System, chosen in Account settings (System is the
-default). A fixed choice is stored on the device (`somanami-theme`) and applied
+default). A fixed choice is kept in the browser (`somanami-theme`) and applied
 as `data-theme` on `<html>` before first paint; System removes the attribute so
 the CSS media query follows the OS live.
 
@@ -88,26 +90,51 @@ Screen details the code depends on:
 - **Library:** filters use the file types the app records (All · PDF · Word ·
   Text), not notes/readings/slides, which aren't tracked.
 - **Account settings:** cards for Profile (email, read-only until profiles
-  exist), Appearance (theme), Privacy and data ("On this device" status and
-  remove-from-device), Sign out, and Two-step verification.
+  exist), Appearance (theme), Privacy and data (a link to "How your data is
+  handled" and "Remove my materials and sign out", with no privacy promises),
+  Sign out, and Two-step verification. There is no device or connection status.
+- **Help** (`/help`): six numbered topic cards (adding materials, asking and
+  following up, checking the source, workspaces, Recents, saving chats), a
+  panel explaining the "From your materials" and "Not answered from your
+  materials" labels, and a link to the data page. The lede carries the one
+  grounding sentence.
+- **How your data is handled** (public `/privacy`): one reading column of
+  cards (what we keep, where it's stored, how answers are made, removing your
+  data). It states only what the code does; anything unconfirmed (storage and
+  retention, model and hosting, account deletion, contact, date) shows as a
+  visible `[CONFIRM: …]` placeholder for the owner. It never names the
+  development model provider.
 
-The persistent sidebar holds: New workspace, Home, Workspaces, My library,
-Saved conversations, Recent chats, an offline notice (shown only while
-offline; the full "On this device" status lives in Account settings), and the
-profile row (initials, account, link to Account settings).
+The persistent sidebar (260 px, sticky to the viewport) holds: New workspace,
+Home, Workspaces, My library, Saved conversations, Recents, and the account
+menu. Recents lists loose chats only (conversations in the default workspace,
+`isLooseWorkspace`), newest first; chats in a workspace stay with it. The
+account row is a menu button (`aria-haspopup="menu"`) that opens Account
+settings and Log out; arrow keys move between items, and Escape, Tab or a click
+outside close it, with Escape returning focus to the button.
 
-The top bar holds a sidebar toggle (a menu button below `md`), the page's
-breadcrumb trail (`useBreadcrumbs` in `src/app/breadcrumbs.ts`) and Help. Sign
-out and the theme live in Account settings.
+On `md` and up the sidebar collapses to an 80 px icon rail: brand mark, New
+workspace, the four nav icons and the account avatar, each with an accessible
+name and a `title` tooltip; Recents is hidden. The choice persists in
+localStorage (`somanami-sidebar`, default expanded). Below `md` the sidebar is
+an overlay drawer and always shows in full. There is no offline notice or
+connection status anywhere.
+
+The top bar holds the sidebar toggle ("Collapse sidebar" / "Expand sidebar";
+a menu button below `md`), the page's breadcrumb trail (`useBreadcrumbs` in
+`src/app/breadcrumbs.ts`) and Help. The theme lives in Account settings; Log
+out is in the account menu and Account settings.
 
 Auth screens (sign in, sign up, password reset, MFA) share one two-panel
-layout: a brand panel on `side` with three feature rows and a privacy line, and
+layout: a brand panel on `side` with three feature rows and an ownership line, and
 a form column up to 420 px wide. The form comes first on phones and in the
 source order.
 
 Proposed screens not yet built (Create account per #142, Saved conversations,
-chat level/format and edge states, empty states, Help, the data note) are in
-row 2 of the canvas, marked as proposals.
+chat level/format and edge states, empty states) are in row 2 of the canvas,
+marked as proposals. Help and the data note are built from their artboards,
+with copy rewritten for the source-scoping message (see
+`docs/notes/comments.md`).
 
 ## Scope
 

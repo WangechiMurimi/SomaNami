@@ -1,12 +1,11 @@
 import type { ReactNode } from 'react'
 import { Link, NavLink } from 'react-router'
+import BrandMark from '../components/BrandMark.tsx'
 import { chatPath } from '../features/chat/conversation-materials.ts'
 import { useRecentConversations } from '../features/chat/use-recent-conversations.ts'
-import { useAuth } from '../features/auth/auth-context.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
-import { useOnline } from '../lib/connectivity/use-online.ts'
-import { initialsFor } from './initials.ts'
-import BrandMark from '../components/BrandMark.tsx'
+import { isLooseWorkspace } from '../lib/storage/index.ts'
+import UserMenu from './UserMenu.tsx'
 
 const RECENT_LIMIT = 3
 
@@ -28,13 +27,18 @@ const SECTION_LABEL =
 function NavItem({
   to,
   icon,
-  children,
+  label,
+  children = label,
   end = false,
+  rail,
 }: {
   to: string
   icon: ReactNode
-  children: ReactNode
+  /** Plain name, shown as the tooltip in the rail. */
+  label: string
+  children?: ReactNode
   end?: boolean
+  rail: boolean
 }) {
   return (
     <li>
@@ -42,8 +46,11 @@ function NavItem({
       <NavLink
         to={to}
         end={end}
+        title={rail ? label : undefined}
         className={({ isActive }) =>
-          `flex h-[43px] items-center gap-[11px] rounded-[10px] px-3 text-sm transition-colors ${
+          `flex h-[43px] items-center gap-[11px] rounded-[10px] text-sm transition-colors ${
+            rail ? 'justify-center' : 'px-3'
+          } ${
             isActive
               ? 'bg-tint font-semibold text-accent'
               : 'text-muted hover:bg-tint/60 hover:text-fg'
@@ -51,7 +58,12 @@ function NavItem({
         }
       >
         {icon}
-        <span className="flex flex-1 items-center justify-between gap-2">
+        {/* The rail keeps the name for screen readers and voice control. */}
+        <span
+          className={
+            rail ? 'sr-only' : 'flex flex-1 items-center justify-between gap-2'
+          }
+        >
           {children}
         </span>
       </NavLink>
@@ -59,21 +71,28 @@ function NavItem({
   )
 }
 
-function RecentChats() {
-  const { conversations, status } = useRecentConversations(RECENT_LIMIT)
+/**
+ * Loose chats only, newest first. Chats inside a workspace stay with that
+ * workspace, so Recents never lists them.
+ */
+function Recents() {
+  const { conversations, status } = useRecentConversations()
+  const loose = conversations
+    .filter(({ workspaceId }) => isLooseWorkspace(workspaceId))
+    .slice(0, RECENT_LIMIT)
 
   return (
-    <section aria-labelledby="recent-chats-title" className="mt-7 px-2.5">
-      <h2 id="recent-chats-title" className={`${SECTION_LABEL} mb-3`}>
-        Recent chats
+    <section aria-labelledby="recents-title" className="mt-7 px-2.5">
+      <h2 id="recents-title" className={`${SECTION_LABEL} mb-3`}>
+        Recents
       </h2>
-      {status === 'ready' && conversations.length === 0 ? (
+      {status === 'ready' && loose.length === 0 ? (
         <p className="text-xs leading-[18px] text-muted">
-          Chats you start will appear here.
+          Chats you start from Home will appear here.
         </p>
       ) : (
         <ul className="flex flex-col gap-[9px]">
-          {conversations.map((conversation) => (
+          {loose.map((conversation) => (
             <li key={conversation.id}>
               <NavLink
                 to={chatPath(conversation)}
@@ -95,163 +114,117 @@ function RecentChats() {
           ))}
         </ul>
       )}
-      <Link
-        to="/conversations"
-        className="mt-3 inline-block text-xs leading-[18px] text-muted hover:text-accent hover:underline"
-      >
-        View all chats
-      </Link>
     </section>
   )
 }
 
 /**
- * Only shown while offline: the account page carries the full device status,
- * but reading-only mode must stay visible wherever the learner is (US-07).
+ * Persistent navigation: brand, screens, Recents and the account menu. As a
+ * `rail` (the collapsed wide-screen sidebar) it shows icons only.
  */
-function OfflineNotice() {
-  const online = useOnline()
-  return (
-    <p
-      role="status"
-      className={
-        online
-          ? 'sr-only'
-          : 'flex items-start gap-2 rounded-[10px] bg-warn-soft px-3 py-2.5 text-xs leading-[18px] font-medium text-warn'
-      }
-    >
-      {online ? (
-        'Online'
-      ) : (
-        <>
-          <span
-            aria-hidden="true"
-            className="mt-[5px] size-2 flex-none rounded-full bg-warn"
-          />
-          Offline. You can read saved chats; asking needs a connection.
-        </>
-      )}
-    </p>
-  )
-}
-
-/** The signed-in account, linking to its settings. */
-function ProfileRow() {
-  const { user } = useAuth()
-  if (!user) return null
-  const email = user.email || 'Your account'
-  return (
-    <div className="mt-4 border-t border-line pt-3">
-      <Link
-        to="/account"
-        // One name for voice control and screen readers.
-        aria-label={`${email}, Account settings`}
-        className="flex min-h-11 items-center gap-[11px] rounded-[10px] px-2.5 py-1.5 hover:bg-tint"
-      >
-        <span
-          aria-hidden="true"
-          className="flex size-[34px] flex-none items-center justify-center rounded-full bg-line text-[11px] font-semibold text-fg"
-        >
-          {initialsFor(user.email)}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-[13px] leading-[1.5] font-medium">
-          {email}
-        </span>
-        <svg {...ICON} width={16} height={16} className="flex-none text-muted">
-          <path d="m7 15 5 5 5-5" />
-          <path d="m7 9 5-5 5 5" />
-        </svg>
-      </Link>
-    </div>
-  )
-}
-
-/** Persistent navigation: brand, screens, recent chats and the account. */
-export default function Sidebar() {
+export default function Sidebar({ rail = false }: { rail?: boolean }) {
   const { documents } = useLibraryContext()
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto px-[18px] pt-[26px] pb-5">
-      <Link
-        to="/"
-        className="flex items-center gap-[9px] self-start rounded-[10px] pl-[9px]"
-      >
-        <BrandMark />
-        <span className="font-brand text-2xl leading-[1.5] font-bold">
-          SomaNami
-        </span>
-      </Link>
-
-      <Link
-        to="/workspaces/new"
-        className="mt-7 flex h-10 items-center justify-center gap-[9px] rounded-lg bg-accent text-[13px] font-medium text-on-accent transition-opacity hover:opacity-90"
-      >
-        <svg {...ICON} width={15} height={15} strokeWidth={2.4}>
-          <path d="M5 12h14M12 5v14" />
-        </svg>
-        New workspace
-      </Link>
-
-      <nav aria-label="Main" className="mt-7">
-        <ul className="flex flex-col gap-1">
-          <NavItem
-            to="/"
-            end
-            icon={
-              <svg {...ICON}>
-                <rect x="3" y="3" width="7" height="7" rx="1" />
-                <rect x="14" y="3" width="7" height="7" rx="1" />
-                <rect x="14" y="14" width="7" height="7" rx="1" />
-                <rect x="3" y="14" width="7" height="7" rx="1" />
-              </svg>
-            }
-          >
-            Home
-          </NavItem>
-          <NavItem
-            to="/workspaces"
-            icon={
-              <svg {...ICON}>
-                <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z" />
-                <path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1" />
-              </svg>
-            }
-          >
-            Workspaces
-          </NavItem>
-          <NavItem
-            to="/library"
-            icon={
-              <svg {...ICON}>
-                <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2" />
-              </svg>
-            }
-          >
-            My library
-            <span className="text-xs font-normal text-muted">
-              <span className="sr-only">,</span> {documents.length}{' '}
-              <span className="sr-only">materials</span>
+    <div
+      className={`flex h-full flex-col pt-[26px] pb-5 ${
+        rail ? 'px-2.5' : 'px-[18px]'
+      }`}
+    >
+      {/* Only this part scrolls, so the account menu can open over its edge. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <Link
+          to="/"
+          aria-label={rail ? 'SomaNami' : undefined}
+          title={rail ? 'SomaNami' : undefined}
+          className={`flex items-center gap-[9px] rounded-[10px] ${
+            rail ? 'self-center' : 'self-start pl-[9px]'
+          }`}
+        >
+          <BrandMark />
+          {!rail && (
+            <span className="font-brand text-2xl leading-[1.5] font-bold">
+              SomaNami
             </span>
-          </NavItem>
-          <NavItem
-            to="/conversations"
-            icon={
-              <svg {...ICON}>
-                <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
-              </svg>
-            }
-          >
-            Saved conversations
-          </NavItem>
-        </ul>
-      </nav>
+          )}
+        </Link>
 
-      <RecentChats />
+        <Link
+          to="/workspaces/new"
+          aria-label={rail ? 'New workspace' : undefined}
+          title={rail ? 'New workspace' : undefined}
+          className={`mt-7 flex h-10 items-center justify-center gap-[9px] rounded-lg bg-accent text-[13px] font-medium text-on-accent transition-opacity hover:opacity-90 ${
+            rail ? 'mx-auto w-11' : ''
+          }`}
+        >
+          <svg {...ICON} width={15} height={15} strokeWidth={2.4}>
+            <path d="M5 12h14M12 5v14" />
+          </svg>
+          {!rail && 'New workspace'}
+        </Link>
 
-      <div className="mt-auto pt-8">
-        <OfflineNotice />
+        <nav aria-label="Main" className="mt-7">
+          <ul className="flex flex-col gap-1">
+            <NavItem
+              to="/"
+              end
+              rail={rail}
+              label="Home"
+              icon={
+                <svg {...ICON}>
+                  <rect x="3" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="14" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" />
+                </svg>
+              }
+            />
+            <NavItem
+              to="/workspaces"
+              rail={rail}
+              label="Workspaces"
+              icon={
+                <svg {...ICON}>
+                  <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z" />
+                  <path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1" />
+                </svg>
+              }
+            />
+            <NavItem
+              to="/library"
+              rail={rail}
+              label="My library"
+              icon={
+                <svg {...ICON}>
+                  <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2" />
+                </svg>
+              }
+            >
+              My library
+              <span className="text-xs font-normal text-muted">
+                <span className="sr-only">,</span> {documents.length}{' '}
+                <span className="sr-only">materials</span>
+              </span>
+            </NavItem>
+            <NavItem
+              to="/conversations"
+              rail={rail}
+              label="Saved conversations"
+              icon={
+                <svg {...ICON}>
+                  <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+                </svg>
+              }
+            />
+          </ul>
+        </nav>
+
+        {!rail && <Recents />}
       </div>
-      <ProfileRow />
+
+      <div className="mt-4 border-t border-line pt-3">
+        <UserMenu compact={rail} />
+      </div>
     </div>
   )
 }

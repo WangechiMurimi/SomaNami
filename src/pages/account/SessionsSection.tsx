@@ -2,7 +2,6 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { useAuth } from '../../features/auth/auth-context.ts'
-import { useOnline } from '../../lib/connectivity/use-online.ts'
 import { CARD, CARD_TITLE, SECONDARY } from './account-ui.ts'
 
 function Row({
@@ -32,7 +31,6 @@ function Row({
 export default function SessionsSection() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
-  const online = useOnline()
   const [busy, setBusy] = useState(false)
 
   async function finish(scope: 'local' | 'global') {
@@ -65,17 +63,14 @@ export default function SessionsSection() {
             </button>
           }
         >
-          Your materials stay saved to your account on this device for the next
-          time you sign in.
+          Your materials and chats are kept for the next time you sign in.
         </Row>
         <Row
           title="Every device"
           action={
             <button
               type="button"
-              // Offline, the other devices can't be reached, and Supabase would
-              // quietly sign out only this one.
-              disabled={busy || !online}
+              disabled={busy}
               onClick={() => void finish('global')}
               className={SECONDARY}
             >
@@ -83,9 +78,8 @@ export default function SessionsSection() {
             </button>
           }
         >
-          For a device you no longer use or have lost. Other devices sign out
-          the next time they’re online.
-          {!online && ' Connect to the internet to use this.'}
+          For a device you no longer use or have lost. Other devices are signed
+          out the next time they use SomaNami.
         </Row>
       </ul>
     </section>
