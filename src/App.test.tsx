@@ -7,6 +7,10 @@ import {
   fakeSession,
   installFakeSupabase,
 } from './features/auth/testing/fake-supabase.ts'
+import {
+  citeBest,
+  serveChatFromStore,
+} from './features/chat/testing/fake-chat-server.ts'
 import { setSupabaseClient } from './lib/auth/supabase-client.ts'
 import {
   createConversation,
@@ -16,7 +20,6 @@ import {
   setStorageAdapter,
 } from './lib/storage/index.ts'
 import type { StorageAdapter } from './lib/storage/index.ts'
-import type { ChatReply, ChatRequest } from './types/contracts.ts'
 import { parsePdf } from './features/upload/parse-pdf.ts'
 import type { ParsedFile } from './features/upload/parsed-file.ts'
 import { UploadError } from './features/upload/upload-error.ts'
@@ -230,22 +233,8 @@ describe('asking about a document', () => {
       { type: 'text/plain' },
     )
 
-  /** Replies to /api/chat with `reply`, recording each request body sent. */
-  function serveChat(reply: (request: ChatRequest) => ChatReply) {
-    const requests: ChatRequest[] = []
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
-      const request = JSON.parse(String(init?.body)) as ChatRequest
-      requests.push(request)
-      return Response.json(reply(request))
-    })
-    return requests
-  }
-
-  const citeFirst = (request: ChatRequest): ChatReply => ({
-    answer: 'They produce ATP.',
-    answerable: true,
-    citations: request.passages.slice(0, 1),
-  })
+  const serveChat = serveChatFromStore
+  const citeFirst = citeBest('They produce ATP.')
 
   // The first question goes in on New chat, follow-ups in the chat itself.
   const ask = async (question: string) => {
@@ -290,18 +279,13 @@ describe('asking about a document', () => {
 
     expect(await screen.findByText('They produce ATP.')).toBeInTheDocument()
     expect(screen.getByText('biology.txt · Line 1')).toBeInTheDocument()
-    // Retrieval ran in the browser: only the relevant passage was sent.
-    expect(requests[0]?.passages.map((p) => p.text)).toEqual([
-      'Mitochondria produce ATP through cellular respiration.',
-    ])
+    // Only the material's id travels; the server ranks its passages (#148).
+    expect(requests[0]?.materialIds).toHaveLength(1)
+    expect(requests[0]).not.toHaveProperty('passages')
   })
 
-  it('sends no passages when the document does not cover the question', async () => {
-    const requests = serveChat(() => ({
-      answer: 'Your documents don’t seem to cover this.',
-      answerable: false,
-      citations: [],
-    }))
+  it('says so when the document does not cover the question', async () => {
+    const requests = serveChat(citeFirst)
     await renderApp()
     await uploadAndOpen(notes())
 
@@ -310,7 +294,7 @@ describe('asking about a document', () => {
     expect(
       await screen.findByText('Not answered from your materials'),
     ).toBeInTheDocument()
-    expect(requests[0]?.passages).toEqual([])
+    expect(requests[0]?.materialIds).toHaveLength(1)
   })
 
   it('restores the conversation when the app is opened again', async () => {

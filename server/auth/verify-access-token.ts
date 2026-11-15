@@ -48,7 +48,7 @@ export function createAuthenticator({
         requiredClaims: ['exp', 'sub'],
       })
       const user = toUser(payload.sub, payload.aal)
-      return user ? { ok: true, user } : fail('invalid')
+      return user ? { ok: true, user, accessToken: token } : fail('invalid')
     } catch (error) {
       // The token itself is never logged, only that keys were unreachable.
       if (error instanceof errors.JWTExpired) return fail('expired')

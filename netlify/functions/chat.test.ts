@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
 import type { Authenticate } from '../../server/auth/types.ts'
+import type { LoadMaterials } from '../../server/chat/load-materials.ts'
 import type { Answerer } from '../../server/llm/claude-answerer.ts'
 import {
   CHAT_BODY_LIMIT_BYTES as MAX_BODY_BYTES,
@@ -13,13 +14,17 @@ const allow = () =>
   vi.fn<Authenticate>().mockResolvedValue({
     ok: true,
     user: { id: 'user-1', aal: 'aal1' },
+    accessToken: 'token-1',
   })
 
 /** Accepts only requests that carry some Authorization header. */
 const requireHeader: Authenticate = async (header) =>
   header
-    ? { ok: true, user: { id: 'user-1', aal: 'aal1' } }
+    ? { ok: true, user: { id: 'user-1', aal: 'aal1' }, accessToken: 'token-1' }
     : { ok: false, reason: 'missing' }
+
+/** A question naming no materials, which needs neither Supabase nor Claude. */
+const noMaterials = JSON.stringify({ question: 'Why ATP?', materialIds: [] })
 
 const post = (body: string, headers: Record<string, string> = {}) =>
   new Request('https://example.test/api/chat', {
@@ -73,13 +78,49 @@ describe('chat function', () => {
   it('delegates a valid body to the shared handler', async () => {
     const handler = createChatFunction({ answer: null, authenticate: allow() })
 
-    // No passages, so the handler answers without needing an API key.
-    const response = await handler(
-      post(JSON.stringify({ question: 'Why ATP?' })),
-    )
+    // No materials, so the handler answers without needing an API key.
+    const response = await handler(post(noMaterials))
 
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({ answerable: false })
+  })
+
+  it('loads the named materials as the verified user', async () => {
+    const loadMaterials = vi.fn<LoadMaterials>().mockResolvedValue([])
+    const handler = createChatFunction({
+      answer: null,
+      authenticate: allow(),
+      loadMaterials,
+    })
+
+    const response = await handler(
+      post(JSON.stringify({ question: 'Why ATP?', materialIds: ['doc-1'] })),
+    )
+
+    expect(loadMaterials).toHaveBeenCalledWith({
+      userId: 'user-1',
+      accessToken: 'token-1',
+      materialIds: ['doc-1'],
+    })
+    // Nothing loaded, so nothing to answer from.
+    expect(await response.json()).toMatchObject({ answerable: false })
+  })
+
+  it('answers a JSON 502 when materials cannot be loaded', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const handler = createChatFunction({
+      answer: null,
+      authenticate: allow(),
+      loadMaterials: vi.fn<LoadMaterials>().mockRejectedValue(new Error('x')),
+    })
+
+    const response = await handler(
+      post(JSON.stringify({ question: 'Why ATP?', materialIds: ['doc-1'] })),
+    )
+
+    expect(response.status).toBe(502)
+    expect(await response.json()).toEqual({ error: 'materials-unavailable' })
+    vi.restoreAllMocks()
   })
 
   describe('authentication', () => {
@@ -87,11 +128,7 @@ describe('chat function', () => {
       const authenticate = allow()
       const handler = createChatFunction({ answer: null, authenticate })
 
-      await handler(
-        post(JSON.stringify({ question: 'Why ATP?' }), {
-          Authorization: 'Bearer abc.def.ghi',
-        }),
-      )
+      await handler(post(noMaterials, { Authorization: 'Bearer abc.def.ghi' }))
 
       expect(authenticate).toHaveBeenCalledWith('Bearer abc.def.ghi')
     })
@@ -103,9 +140,7 @@ describe('chat function', () => {
         authenticate: requireHeader,
       })
 
-      const response = await handler(
-        post(JSON.stringify({ question: 'Why ATP?' })),
-      )
+      const response = await handler(post(noMaterials))
 
       expect(response.status).toBe(401)
       expect(await response.json()).toEqual({ error: 'unauthenticated' })
@@ -121,9 +156,7 @@ describe('chat function', () => {
         const handler = createChatFunction({ answer: null })
 
         const response = await handler(
-          post(JSON.stringify({ question: 'Why ATP?' }), {
-            Authorization: 'Bearer looks-real',
-          }),
+          post(noMaterials, { Authorization: 'Bearer looks-real' }),
         )
 
         expect(response.status).toBe(503)
@@ -184,7 +217,7 @@ describe('chat function', () => {
       const filler = 'x'.repeat(MAX_BODY_BYTES - 100)
 
       const response = await handler(
-        streamed(JSON.stringify({ question: 'Why?', filler })),
+        streamed(JSON.stringify({ question: 'Why?', materialIds: [], filler })),
       )
 
       expect(response.status).not.toBe(413)
@@ -204,10 +237,8 @@ describe('chat function', () => {
         authenticate: requireHeader,
       })
 
-      expectApiHeaders(await ok(post(JSON.stringify({ question: 'Why?' }))))
-      expectApiHeaders(
-        await refused(post(JSON.stringify({ question: 'Why?' }))),
-      )
+      expectApiHeaders(await ok(post(noMaterials)))
+      expectApiHeaders(await refused(post(noMaterials)))
       expectApiHeaders(await ok(post('{"question":')))
       expectApiHeaders(await chat(new Request('https://example.test/api/chat')))
     })

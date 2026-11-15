@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk'
-import type { ChatRequest } from '../../src/types/contracts.ts'
+import type { AnswerRequest } from './claude-answerer.ts'
 
 /**
  * Fixed system prompt. It carries no per-request content, so it stays
@@ -18,7 +18,7 @@ Earlier turns of the conversation are there so you can understand follow-up ques
 Write for a learner: clear, direct, and no longer than the question needs.`
 
 /** Renders the retrieved passages so the model can cite them by id. */
-export function renderPassages(passages: ChatRequest['passages']): string {
+export function renderPassages(passages: AnswerRequest['passages']): string {
   if (passages.length === 0) return '<passages />'
   const body = passages
     .map(
@@ -30,7 +30,9 @@ export function renderPassages(passages: ChatRequest['passages']): string {
 }
 
 /** Builds the message list: prior turns, then the passages and the question. */
-export function buildMessages(request: ChatRequest): Anthropic.MessageParam[] {
+export function buildMessages(
+  request: AnswerRequest,
+): Anthropic.MessageParam[] {
   // The API requires the first message to be from the user, so drop any
   // leading assistant turns (e.g. a greeting the client kept in history).
   const firstUser = request.history.findIndex((turn) => turn.role === 'user')

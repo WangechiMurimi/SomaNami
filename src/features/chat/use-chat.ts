@@ -2,11 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { askQuestion, ChatError } from './chat-client.ts'
 import { resolveCitations } from './describe-source.ts'
 import type { ResolvedCitation } from './describe-source.ts'
-import type {
-  ChatReply,
-  Passage,
-  StoredDocument,
-} from '../../types/contracts.ts'
+import type { ChatReply, StoredDocument } from '../../types/contracts.ts'
 
 /** A transcript entry as the UI renders it, with citations already resolved. */
 export type ChatTurn =
@@ -28,7 +24,8 @@ export interface ChatErrorState {
 
 export interface UseChatOptions {
   documents?: readonly Pick<StoredDocument, 'id' | 'name'>[]
-  selectPassages?: (question: string) => Passage[]
+  /** The materials the server may draw on for this conversation. */
+  materialIds?: readonly string[]
   /** A transcript restored from storage; read once, on first render. */
   initialMessages?: ChatTurn[]
   /** Runs after each answered question, e.g. to persist the exchange. */
@@ -37,6 +34,9 @@ export interface UseChatOptions {
     reply: ChatReply
   }) => void | Promise<void>
 }
+
+// Stable across renders, so a caller that omits materialIds doesn't rebuild `ask`.
+const NO_MATERIALS: readonly string[] = []
 
 let messageCount = 0
 const nextId = (): string => `chat-message-${++messageCount}`
@@ -60,7 +60,7 @@ function toErrorState(error: unknown): ChatErrorState {
  */
 export function useChat({
   documents = [],
-  selectPassages,
+  materialIds = NO_MATERIALS,
   initialMessages = [],
   onAnswered,
 }: UseChatOptions = {}) {
@@ -101,12 +101,10 @@ export function useChat({
         append({ id: nextId(), role: 'user', content: trimmed })
       }
 
-      const passages = selectPassages ? selectPassages(trimmed) : []
-
       try {
         const reply = await askQuestion({
           question: trimmed,
-          passages,
+          materialIds: [...materialIds],
           history,
         })
         append({
@@ -114,7 +112,13 @@ export function useChat({
           role: 'assistant',
           content: reply.answer,
           answerable: reply.answerable,
-          citations: resolveCitations(reply.citations, passages, documents),
+          // The server returns the passages it cited, so sources resolve even
+          // when this device holds no copy of the material.
+          citations: resolveCitations(
+            reply.citations,
+            reply.passages,
+            documents,
+          ),
         })
         unanswered.current = null
         setStatus('idle')
@@ -132,7 +136,7 @@ export function useChat({
         inFlight.current = false
       }
     },
-    [append, documents, selectPassages, onAnswered],
+    [append, documents, materialIds, onAnswered],
   )
 
   const send = useCallback((question: string) => ask(question), [ask])

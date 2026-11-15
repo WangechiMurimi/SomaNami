@@ -40,6 +40,7 @@ const reply = {
   answer: 'They produce ATP.',
   answerable: true,
   citations: [{ documentId: 'doc-1', chunkId: 'doc-1:0' }],
+  passages: [],
 }
 
 // The document is stored first: a conversation may only use stored materials.
