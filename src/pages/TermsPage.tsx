@@ -59,9 +59,9 @@ export default function TermsPage() {
       </LegalSection>
 
       <p className="mt-12 text-[15px] text-muted">
-        Read how we handle your information in our{' '}
+        Read{' '}
         <Link to="/privacy" className={TEXT_LINK}>
-          Privacy Notice
+          how your data is handled
         </Link>
         .
       </p>

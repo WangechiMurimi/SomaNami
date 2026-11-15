@@ -55,7 +55,7 @@ describe('signed out', () => {
   it.each([
     ['/sign-up', 'Create your account'],
     ['/forgot-password', 'Reset your password'],
-    ['/privacy', 'Privacy Notice'],
+    ['/privacy', 'How your data is handled'],
     ['/terms', 'Terms'],
   ])('serves the public page %s', async (path, heading) => {
     installFakeSupabase()
