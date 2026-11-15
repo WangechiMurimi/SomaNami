@@ -80,7 +80,7 @@ describe('Workspaces grid', () => {
 
 describe('New workspace', () => {
   const name = () => screen.getByLabelText('Workspace name')
-  const next = () => screen.getByRole('button', { name: 'Next' })
+  const next = () => screen.getByRole('button', { name: 'Continue' })
 
   it('asks for a name before moving on', async () => {
     await open('/workspaces/new')
@@ -88,9 +88,25 @@ describe('New workspace', () => {
     await userEvent.click(next())
 
     expect(name()).toHaveAttribute('aria-invalid', 'true')
-    expect(name()).toHaveAccessibleDescription('Give your workspace a name.')
+    expect(name()).toHaveAccessibleDescription(/^Give your workspace a name\. /)
     expect(name()).toHaveFocus()
     expect(screen.getByText('Step 1 of 2')).toBeInTheDocument()
+  })
+
+  it('shows the trail back to Workspaces in the top bar', async () => {
+    await open('/workspaces/new')
+
+    const trail = within(
+      await screen.findByRole('navigation', { name: 'Breadcrumb' }),
+    )
+    expect(trail.getByRole('link', { name: 'Workspaces' })).toHaveAttribute(
+      'href',
+      '/workspaces',
+    )
+    expect(trail.getByText('Create a workspace')).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
   })
 
   it('goes back to step one with the name kept', async () => {
