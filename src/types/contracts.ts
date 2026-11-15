@@ -46,6 +46,8 @@ export interface NewDocument {
 /** A material saved on this device; it belongs to exactly one workspace. */
 export interface StoredDocument extends NewDocument {
   workspaceId: string
+  /** Where the original file is in the `materials` bucket, once uploaded (#145). */
+  storagePath?: string
 }
 
 /** Identifies one chunk; `documentId` is carried so callers can join to the file. */

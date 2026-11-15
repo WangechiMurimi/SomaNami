@@ -42,10 +42,11 @@ function toErrorState(error: unknown): UploadErrorState {
 
 export interface UseDocumentUploadOptions {
   /**
-   * Runs with each parsed document before it is shown as ready, e.g. to save
-   * it. If it throws, the upload is reported as failed.
+   * Runs with each parsed document, and the file it came from, before it is
+   * shown as ready, e.g. to save it. If it throws, the upload is reported as
+   * failed.
    */
-  onReady?: (document: NewDocument) => void | Promise<void>
+  onReady?: (document: NewDocument, file: File) => void | Promise<void>
 }
 
 /** Tracks one upload at a time: idle, processing, ready or error. */
@@ -74,7 +75,7 @@ export function useDocumentUpload({ onReady }: UseDocumentUploadOptions = {}) {
     try {
       const document = await parseDocument(file)
       if (ticket !== latest.current) return
-      await onReadyRef.current?.(document)
+      await onReadyRef.current?.(document, file)
       if (ticket === latest.current) {
         setState({ status: 'ready', document, error: null })
       }
