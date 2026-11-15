@@ -74,7 +74,7 @@ export default function EnrolAuthenticator({
   }
 
   return (
-    <div className="mt-6 rounded-[12px] border border-line bg-surface p-5 md:p-6">
+    <div className="rounded-[12px] border border-line bg-surface p-5 md:p-6">
       <h3
         ref={headingRef}
         tabIndex={-1}
