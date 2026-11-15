@@ -21,7 +21,6 @@
   --color-tile: var(--tile);
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
-  --color-online: var(--online);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
   --font-display: 'Inter', 'Segoe UI', system-ui, sans-serif;
@@ -46,7 +45,6 @@
   --tile: #f3f1ea;
   --success: #2b7350;
   --success-soft: #e4f1e9;
-  --online: #2f8f5b;
   --warn: #9a3b26;
   --warn-soft: #fbede8;
   color-scheme: light;
@@ -69,7 +67,6 @@
     --tile: #25242e;
     --success: #7ad6a8;
     --success-soft: #1e3328;
-    --online: #5fc98c;
     --warn: #f2a58e;
     --warn-soft: #3a2420;
     color-scheme: dark;
@@ -91,7 +88,6 @@
   --tile: #25242e;
   --success: #7ad6a8;
   --success-soft: #1e3328;
-  --online: #5fc98c;
   --warn: #f2a58e;
   --warn-soft: #3a2420;
   color-scheme: dark;
