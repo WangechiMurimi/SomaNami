@@ -70,9 +70,9 @@ describe('document upload', () => {
   it('lists DOCX among the supported formats', async () => {
     await renderApp()
     expect(
-      screen.getByText('PDF, DOCX, TXT or Markdown, up to 20 MB'),
+      screen.getByText('PDF, DOCX, TXT, Markdown or HTML, up to 20 MB'),
     ).toBeInTheDocument()
-    expect(input()).toHaveAttribute('accept', '.pdf,.docx,.txt,.md')
+    expect(input()).toHaveAttribute('accept', '.pdf,.docx,.txt,.md,.html,.htm')
   })
 
   it('shows a ready state with passage count after a valid upload', async () => {

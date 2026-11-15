@@ -20,7 +20,7 @@ export interface Chunk {
   source: Source
 }
 
-export type DocumentKind = 'pdf' | 'docx' | 'text'
+export type DocumentKind = 'pdf' | 'docx' | 'text' | 'web'
 
 /** A parsed, uploaded document as stored locally. */
 /** A topic that groups materials and the conversations about them (US-08). */
