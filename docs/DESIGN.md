@@ -74,7 +74,22 @@ Home · Workspaces · New workspace (2 steps: name and topic, add materials) ·
 Workspace · New chat (pick the materials the chat may use; Send disabled until
 one is picked) · Chat (answers with "From your materials" citations; replies
 the materials can't support are labelled "Not answered from your materials") ·
-Library (a real table with type filters).
+Library (a real table with type filters) · Account settings.
+
+Screen details the code depends on:
+
+- **Workspace:** Chats (each with an "N sources" disclosure and Continue) beside
+  "Your materials". Materials carry checkboxes, and a question asked from the
+  workspace uses only the ticked ones; Send is disabled while none are ticked.
+- **Chat:** a tinted lock chip names the materials in use. Cited passages open
+  in place from their chip. Under the latest grounded answer, "Show another
+  format" (Example, Summary) asks a follow-up in the same chat; there is no
+  server-side format or level setting yet.
+- **Library:** filters use the file types the app records (All · PDF · Word ·
+  Text), not notes/readings/slides, which aren't tracked.
+- **Account settings:** cards for Profile (email, read-only until profiles
+  exist), Appearance (theme), Privacy and data ("On this device" status and
+  remove-from-device), Sign out, and Two-step verification.
 
 The persistent sidebar holds: New workspace, Home, Workspaces, My library,
 Saved conversations, Recent chats, an offline notice (shown only while
