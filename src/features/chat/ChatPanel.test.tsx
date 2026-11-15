@@ -106,6 +106,78 @@ describe('ChatPanel', () => {
     expect(log).toHaveAttribute('aria-busy', 'false')
   })
 
+  it('opens a cited passage in place from its source chip', async () => {
+    vi.mocked(askQuestion).mockResolvedValue({
+      answer: 'Light drives photosynthesis.',
+      citations: [{ documentId: 'doc-1', chunkId: 'doc-1:2' }],
+      answerable: true,
+    })
+    const { user, box } = setup()
+
+    await user.type(box, 'Why do leaves need light?{Enter}')
+    const reply = await screen.findByRole('article', {
+      name: 'Answer from your materials',
+    })
+    expect(within(reply).getByText('one passage')).toBeVisible()
+    const source = within(reply).getByRole('button', {
+      name: 'biology.pdf · Page 4',
+    })
+    expect(source).toHaveAttribute('aria-expanded', 'false')
+
+    await user.click(source)
+    expect(source).toHaveAttribute('aria-expanded', 'true')
+    const passage = within(reply).getByRole('blockquote')
+    expect(passage).toHaveTextContent('Light drives photosynthesis.')
+    expect(source).toHaveAttribute('aria-controls', passage.id)
+
+    await user.click(source)
+    expect(within(reply).queryByRole('blockquote')).not.toBeInTheDocument()
+  })
+
+  it('asks for the latest answer in another format (US-05)', async () => {
+    vi.mocked(askQuestion).mockResolvedValue({
+      answer: 'Light drives photosynthesis.',
+      citations: [{ documentId: 'doc-1', chunkId: 'doc-1:2' }],
+      answerable: true,
+    })
+    const { user, box } = setup()
+    expect(
+      screen.queryByRole('group', { name: 'Show another format' }),
+    ).not.toBeInTheDocument()
+
+    await user.type(box, 'Why do leaves need light?{Enter}')
+    const formats = within(
+      await screen.findByRole('group', { name: 'Show another format' }),
+    )
+    await user.click(formats.getByRole('button', { name: 'Summary' }))
+
+    await waitFor(() => expect(askQuestion).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(askQuestion).mock.lastCall?.[0]).toMatchObject({
+      question: 'Summarise that as a few short bullet points.',
+      history: [
+        { role: 'user', content: 'Why do leaves need light?' },
+        { role: 'assistant', content: 'Light drives photosynthesis.' },
+      ],
+    })
+  })
+
+  it('offers no other format for an unanswered question', async () => {
+    vi.mocked(askQuestion).mockResolvedValue({
+      answer: 'The documents do not cover tax law.',
+      citations: [],
+      answerable: false,
+    })
+    const { user, box } = setup()
+
+    await user.type(box, 'What is the tax rate?{Enter}')
+    await screen.findByRole('article', {
+      name: 'Not answered from your materials',
+    })
+    expect(
+      screen.queryByRole('group', { name: 'Show another format' }),
+    ).not.toBeInTheDocument()
+  })
+
   it('submits on Enter and keeps Shift+Enter for a newline', async () => {
     vi.mocked(askQuestion).mockResolvedValue({
       answer: 'Yes.',

@@ -288,6 +288,27 @@ describe('Chat addresses', () => {
     expect(window.location.pathname).toBe(`/chats/${chat.id}`)
   })
 
+  it('shows where a chat sits in the top bar trail', async () => {
+    const chat = await createConversation({
+      workspaceId: workspace.id,
+      materialIds: ['cells'],
+      title: 'Saved chat',
+    })
+    await open(`/chats/${chat.id}`)
+
+    await screen.findByRole('heading', { level: 1, name: 'Saved chat' })
+    const trail = within(screen.getByRole('navigation', { name: 'Breadcrumb' }))
+    expect(await trail.findByRole('link', { name: 'Biology' })).toHaveAttribute(
+      'href',
+      `/workspaces/${workspace.id}`,
+    )
+    expect(trail.getByText('Saved chat')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Add materials' })).toHaveAttribute(
+      'href',
+      `/workspaces/${workspace.id}`,
+    )
+  })
+
   it('sends an old material link without chats to New chat', async () => {
     await open('/chat/plants')
 
