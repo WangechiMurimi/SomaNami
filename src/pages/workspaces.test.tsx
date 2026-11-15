@@ -22,13 +22,23 @@ const open = (path: string) => renderSignedInApp(path)
 const main = () => within(screen.getByRole('main'))
 
 describe('Workspaces grid', () => {
+  it('names the page in the top bar', async () => {
+    await open('/workspaces')
+
+    const trail = await screen.findByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(trail).getByText('Workspaces')).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+  })
+
   it('offers to start a workspace when there are none', async () => {
     await open('/workspaces')
 
     const list = await main().findByRole('list', { name: 'Your workspaces' })
     expect(within(list).getAllByRole('listitem')).toHaveLength(1)
     expect(
-      within(list).getByRole('heading', { name: 'Start a new workspace' }),
+      within(list).getByRole('heading', { name: 'Start something new' }),
     ).toBeInTheDocument()
     expect(
       within(list).getByRole('link', { name: 'Create workspace' }),
@@ -191,7 +201,7 @@ describe('New workspace', () => {
     await userEvent.click(screen.getByRole('link', { name: 'Cancel' }))
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Workspaces' }),
+      await screen.findByRole('heading', { level: 1, name: 'Your workspaces' }),
     ).toBeInTheDocument()
     expect(await listWorkspaces()).toEqual([])
   })
