@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk'
-import type { AnswerRequest } from './claude-answerer.ts'
+import type { AnswerRequest } from './answerer.ts'
 
 /**
  * Fixed system prompt. It carries no per-request content, so it stays

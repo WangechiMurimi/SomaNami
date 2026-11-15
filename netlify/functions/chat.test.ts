@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Authenticate } from '../../server/auth/types.ts'
 import type { LoadMaterials } from '../../server/chat/load-materials.ts'
-import type { Answerer } from '../../server/llm/claude-answerer.ts'
+import type { Answerer } from '../../server/llm/answerer.ts'
 import {
   CHAT_BODY_LIMIT_BYTES as MAX_BODY_BYTES,
   CHAT_RATE_LIMIT,

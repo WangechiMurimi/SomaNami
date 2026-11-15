@@ -1,4 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk'
 import {
   clearIndexCache,
   retrieveChunks,
@@ -9,7 +8,8 @@ import type {
   Passage,
 } from '../../src/types/contracts.ts'
 import type { Authenticate } from '../auth/types.ts'
-import type { Answerer } from '../llm/claude-answerer.ts'
+import { UpstreamError } from '../llm/answerer.ts'
+import type { Answerer } from '../llm/answerer.ts'
 import { parseChatRequest } from './chat-request.ts'
 import type { LoadMaterials } from './load-materials.ts'
 
@@ -26,7 +26,7 @@ export const REFUSAL_ANSWER =
   'I can’t help with that request. Try asking about the content of your documents.'
 
 export interface ChatDependencies {
-  /** Answers chat questions; `null` means the server has no Claude credentials. */
+  /** Answers chat questions; `null` means no LLM provider is configured. */
   answer: Answerer | null
   /** Verifies the caller's session; see `server/auth/verify-access-token.ts`. */
   authenticate: Authenticate
@@ -165,19 +165,24 @@ export async function handleChat(
 }
 
 function upstreamFailure(error: unknown): HandlerResponse {
-  if (error instanceof Anthropic.RateLimitError) {
-    return { status: 503, body: { error: 'rate-limited' } }
+  const kind = error instanceof UpstreamError ? error.kind : 'failed'
+  switch (kind) {
+    case 'rate-limited':
+      return { status: 503, body: { error: 'rate-limited' } }
+    case 'not-configured':
+      // Our credentials are wrong or missing: a server problem, not the user's.
+      console.error('LLM provider rejected the server credentials')
+      return { status: 503, body: { error: 'not-configured' } }
+    case 'unreachable':
+      return { status: 502, body: { error: 'upstream-unreachable' } }
+    case 'timeout':
+      // The model did not answer before our deadline, which sits under the
+      // serverless time limit so the client gets JSON rather than a cut-off.
+      return { status: 504, body: { error: 'upstream-timeout' } }
+    case 'failed':
+      console.error('Chat answer failed', error)
+      return { status: 502, body: { error: 'upstream-failed' } }
   }
-  if (error instanceof Anthropic.AuthenticationError) {
-    // Our key is wrong or missing: a server problem, not the user's.
-    console.error('Claude API rejected the server credentials')
-    return { status: 503, body: { error: 'not-configured' } }
-  }
-  if (error instanceof Anthropic.APIConnectionError) {
-    return { status: 502, body: { error: 'upstream-unreachable' } }
-  }
-  console.error('Chat answer failed', error)
-  return { status: 502, body: { error: 'upstream-failed' } }
 }
 
 /** A log-safe summary of a loader failure: its name and any database code. */

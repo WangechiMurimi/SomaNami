@@ -1,9 +1,9 @@
 // @vitest-environment node
-import Anthropic from '@anthropic-ai/sdk'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ChatRequest } from '../../src/types/contracts.ts'
 import type { Authenticate, AuthFailure } from '../auth/types.ts'
-import type { Answerer, ModelAnswer } from '../llm/claude-answerer.ts'
+import { UpstreamError } from '../llm/answerer.ts'
+import type { Answerer, ModelAnswer } from '../llm/answerer.ts'
 import {
   handleChat,
   NO_PASSAGES_ANSWER,
@@ -351,33 +351,24 @@ describe('handleChat', () => {
     })
   })
 
-  describe('when the Claude API fails', () => {
+  describe('when the LLM provider fails', () => {
     const failing = (error: unknown): Answerer =>
       vi.fn<Answerer>().mockRejectedValue(error)
-    const headers = new Headers()
 
     it('maps rate limiting to a retryable 503', async () => {
-      const error = new Anthropic.RateLimitError(429, {}, 'slow down', headers)
-
       const result = await handleChat(request(), {
-        answer: failing(error),
+        answer: failing(new UpstreamError('rate-limited', 'slow down')),
         ...signedIn(),
       })
 
       expect(result).toEqual({ status: 503, body: { error: 'rate-limited' } })
     })
 
-    it('maps a rejected API key to not-configured', async () => {
+    it('maps rejected credentials to not-configured', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {})
-      const error = new Anthropic.AuthenticationError(
-        401,
-        {},
-        'bad key',
-        headers,
-      )
 
       const result = await handleChat(request(), {
-        answer: failing(error),
+        answer: failing(new UpstreamError('not-configured', 'bad key')),
         ...signedIn(),
       })
 
@@ -385,10 +376,8 @@ describe('handleChat', () => {
     })
 
     it('maps a network failure to a retryable 502', async () => {
-      const error = new Anthropic.APIConnectionError({ message: 'offline' })
-
       const result = await handleChat(request(), {
-        answer: failing(error),
+        answer: failing(new UpstreamError('unreachable', 'offline')),
         ...signedIn(),
       })
 
@@ -398,11 +387,26 @@ describe('handleChat', () => {
       })
     })
 
-    it('maps anything else to a retryable 502 and logs it', async () => {
+    it('maps a timeout to a 504', async () => {
+      const result = await handleChat(request(), {
+        answer: failing(new UpstreamError('timeout', 'too slow')),
+        ...signedIn(),
+      })
+
+      expect(result).toEqual({
+        status: 504,
+        body: { error: 'upstream-timeout' },
+      })
+    })
+
+    it.each([
+      ['an unknown error', new Error('boom')],
+      ['a generic upstream failure', new UpstreamError('failed', 'bad JSON')],
+    ])('maps %s to a retryable 502 and logs it', async (_label, error) => {
       const log = vi.spyOn(console, 'error').mockImplementation(() => {})
 
       const result = await handleChat(request(), {
-        answer: failing(new Error('boom')),
+        answer: failing(error),
         ...signedIn(),
       })
 

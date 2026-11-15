@@ -6,7 +6,7 @@ import { CHAT_BODY_LIMIT_BYTES } from '../../server/chat/limits.ts'
 import { createMaterialsLoaderFromEnv } from '../../server/chat/load-materials.ts'
 import type { LoadMaterials } from '../../server/chat/load-materials.ts'
 import { createAnswererFromEnv } from '../../server/llm/answerer-from-env.ts'
-import type { Answerer } from '../../server/llm/claude-answerer.ts'
+import type { Answerer } from '../../server/llm/answerer.ts'
 import { readCapped } from '../../server/read-capped.ts'
 
 export interface ChatFunctionOptions {

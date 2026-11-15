@@ -1,6 +1,7 @@
 import process from 'node:process'
 import { createClaudeAnswerer } from './claude-answerer.ts'
-import type { Answerer, Effort } from './claude-answerer.ts'
+import type { Answerer } from './answerer.ts'
+import type { Effort } from './claude-answerer.ts'
 
 const EFFORTS: readonly Effort[] = ['low', 'medium', 'high']
 
