@@ -142,7 +142,7 @@ describe('Home quick start', () => {
 
   it('starts a loose chat over the attached files and asks straight away', async () => {
     const requests = serveChat()
-    const { container } = await renderSignedInApp()
+    const { container, unmount } = await renderSignedInApp()
     await attach(container, cells())
     await files().findByRole('button', { name: 'Remove cells.txt' })
 
@@ -165,6 +165,12 @@ describe('Home quick start', () => {
         name: 'What would you like to understand?',
       }),
     ).not.toBeInTheDocument()
+
+    // Reloading the chat shows the answer again without asking twice.
+    unmount()
+    await renderSignedInApp(window.location.pathname)
+    expect(await screen.findByText('From your notes.')).toBeInTheDocument()
+    expect(requests).toHaveLength(1)
   })
 
   it('glows when active instead of drawing a separate outline', () => {

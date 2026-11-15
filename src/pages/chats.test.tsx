@@ -7,6 +7,8 @@ import {
   createConversation,
   createMemoryAdapter,
   createWorkspace,
+  DEFAULT_WORKSPACE,
+  getConversation,
   listWorkspaceConversations,
   listWorkspaceDocuments,
   saveDocument,
@@ -230,7 +232,7 @@ describe('New chat', () => {
     await vi.waitFor(() => expect(requests).toHaveLength(1))
     expect(requests[0]?.passages).toEqual([])
     expect(
-      within(screen.getByRole('list', { name: 'Materials this chat uses' }))
+      within(screen.getByRole('list', { name: 'Sources in this chat' }))
         .getAllByRole('listitem')
         .map((item) => item.textContent),
     ).toEqual(['cells.txt'])
@@ -257,6 +259,98 @@ describe('Chat', () => {
     expect(
       within(reply).getByRole('link', { name: 'add material that covers it' }),
     ).toHaveAttribute('href', `/workspaces/${workspace.id}`)
+  })
+})
+
+describe('Chat header', () => {
+  it('saves and unsaves the chat', async () => {
+    const chat = await createConversation({
+      workspaceId: workspace.id,
+      materialIds: ['cells'],
+      title: 'Saved chat',
+    })
+    await open(`/chats/${chat.id}`)
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Save', pressed: false }),
+    )
+    expect(
+      screen.getByRole('button', { name: 'Saved', pressed: true }),
+    ).toBeInTheDocument()
+    await vi.waitFor(async () =>
+      expect((await getConversation(chat.id))?.saved).toBe(true),
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'Saved' }))
+    await vi.waitFor(async () =>
+      expect((await getConversation(chat.id))?.saved).toBe(false),
+    )
+    expect(
+      screen.getByRole('button', { name: 'Save', pressed: false }),
+    ).toBeInTheDocument()
+  })
+
+  it('lists its sources without a materials count', async () => {
+    const chat = await createConversation({
+      workspaceId: workspace.id,
+      materialIds: ['cells', 'plants'],
+      title: 'Two sources',
+    })
+    await open(`/chats/${chat.id}`)
+
+    const sources = within(
+      await screen.findByRole('list', { name: 'Sources in this chat' }),
+    )
+    expect(
+      sources.getAllByRole('listitem').map((item) => item.textContent),
+    ).toEqual(['cells.txt', 'plants.txt'])
+    const main = screen.getByRole('main')
+    expect(main).not.toHaveTextContent(/\d+ materials/)
+    expect(main).not.toHaveTextContent(/Using/)
+    expect(main).not.toHaveTextContent(/offline/i)
+  })
+
+  it('shows a loose chat’s sources from any workspace', async () => {
+    const chat = await createConversation({
+      workspaceId: DEFAULT_WORKSPACE.id,
+      materialIds: ['plants'],
+      title: 'Loose chat',
+    })
+    await open(`/chats/${chat.id}`)
+
+    const sources = within(
+      await screen.findByRole('list', { name: 'Sources in this chat' }),
+    )
+    expect(sources.getByText('plants.txt')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Add materials' })).toHaveAttribute(
+      'href',
+      '/library',
+    )
+    const trail = within(screen.getByRole('navigation', { name: 'Breadcrumb' }))
+    expect(trail.queryByRole('link', { name: 'Workspaces' })).toBeNull()
+  })
+
+  it('shows a plain, retryable error when a request fails', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(
+      new TypeError('Failed to fetch'),
+    )
+    const chat = await createConversation({
+      workspaceId: workspace.id,
+      materialIds: ['cells'],
+      title: 'Failing chat',
+    })
+    await open(`/chats/${chat.id}`)
+
+    await userEvent.type(
+      await screen.findByLabelText('Ask a follow-up about your materials'),
+      'What makes ATP?{Enter}',
+    )
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Couldn’t get an answer. Try again.')
+    expect(
+      within(alert).getByRole('button', { name: 'Try again' }),
+    ).toBeInTheDocument()
   })
 })
 
