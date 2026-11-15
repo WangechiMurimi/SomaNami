@@ -138,32 +138,40 @@ Caddy can also renew its certificate with the TLS-ALPN-01 challenge on 443 alone
 
 If the script stops after it created the VM, it still prints the token. Re-running it is safe: existing resources are kept, and the NSG rules and shutdown schedule are re-applied. A re-run doesn't create a new token. To get a new one, see [Rotate the token](#rotate-the-token).
 
+## The gateway
+
+Caddy is the only way in. Its rules live in `cloud-init.yaml` (`/etc/somanami/Caddyfile`):
+
+- A request without `Authorization: Bearer <token>` gets **401**. This check runs before routing, so callers without the token can't tell which routes exist.
+- Only three calls get through: `GET /api/tags`, `POST /api/chat` and `POST /api/embed`. Everything else gets **404**, including the admin routes (`/api/pull`, `/api/delete`, `/api/create`, ...), `/api/generate` and Ollama's OpenAI-compatible `/v1/*` routes.
+- Bodies over 4 MB get **413**.
+- The token is removed before the request reaches Ollama.
+- There is no access log. Request and response bodies are never logged, because learners' passages travel in them.
+
+### Test the config offline
+
+`npm run test:gateway` runs the real Caddyfile, taken straight from `cloud-init.yaml`, against a mock Ollama on your machine. It checks every rule above and confirms that neither the token nor a request body ever appears in Caddy's output. It needs `caddy` 2.x and `node` on your PATH, or `CADDY=/path/to/caddy`. CI runs it on every pull request with a pinned, checksum-verified Caddy.
+
 ## Verification
 
+Against the live VM:
+
 ```bash
-export OLLAMA_BASE_URL=https://<label>.<region>.cloudapp.azure.com
-export OLLAMA_API_KEY=<token>   # or read it from your password manager
-HOST=${OLLAMA_BASE_URL#https://}
-
-# 1. With the token: 200 and a JSON list that includes qwen2.5:3b and nomic-embed-text.
-curl -s -w '\n%{http_code}\n' -H "Authorization: Bearer $OLLAMA_API_KEY" "$OLLAMA_BASE_URL/api/tags"
-
-# 2. Without the token, or with a wrong one: 401.
-curl -s -o /dev/null -w '%{http_code}\n' "$OLLAMA_BASE_URL/api/tags"
-curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer wrong" "$OLLAMA_BASE_URL/api/tags"
-
-# 3. Admin routes are blocked even with the token: 404.
-curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $OLLAMA_API_KEY" \
-  -X POST "$OLLAMA_BASE_URL/api/pull" -d '{"model":"llama3"}'
-
-# 4. Ollama's own port is unreachable from outside: this must time out or be refused.
-curl -s -m 5 -o /dev/null -w '%{http_code}\n' "http://$HOST:11434/api/tags" || echo "unreachable (good)"
-
-# 5. Plain HTTP redirects to HTTPS: 308.
-curl -s -o /dev/null -w '%{http_code}\n' "http://$HOST/api/tags"
+OLLAMA_BASE_URL=https://<label>.<region>.cloudapp.azure.com OLLAMA_API_KEY=<token> \
+  ./infra/azure/verify-gateway.sh
 ```
 
-On the VM itself (`ssh azureuser@$HOST`):
+It checks the following:
+
+- with the token, `/api/tags` answers 200 and lists both models
+- without the token, or with a wrong one, the answer is 401
+- admin and `/v1/*` routes give 404 even with the token
+- port 11434 can't be reached from your machine
+- plain HTTP redirects to HTTPS
+
+The script passes the token to curl on stdin, so it never appears in the process list.
+
+On the VM itself (`ssh azureuser@<host>`):
 
 ```bash
 cloud-init status --wait                 # status: done
