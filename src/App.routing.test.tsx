@@ -30,7 +30,7 @@ const renderAt = (path: string) =>
   )
 
 const signInHeading = () =>
-  screen.findByRole('heading', { level: 1, name: 'Sign in' })
+  screen.findByRole('heading', { level: 1, name: 'Welcome back' })
 
 beforeEach(() => {
   window.localStorage.clear()

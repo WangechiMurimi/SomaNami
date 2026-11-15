@@ -1,43 +1,184 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
-import ThemeToggle from '../../components/ThemeToggle.tsx'
+import { Lock } from '../../components/icons.tsx'
 import { H1, LEDE } from '../../pages/page-heading.ts'
 
 interface AuthLayoutProps {
   title: string
   lede?: ReactNode
   children: ReactNode
-  /** Wider column for reading pages such as Privacy and Terms. */
+  /** Single wide column for reading pages such as Privacy and Terms. */
   wide?: boolean
 }
 
-/** Frame for screens shown before sign-in: wordmark, theme toggle, one column. */
+const FEATURES = [
+  {
+    title: 'Add your materials',
+    body: 'Upload documents, paste text or link to an article you’re reading.',
+    icon: (
+      <>
+        <path d="M12 13v8" />
+        <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
+        <path d="m8 17 4-4 4 4" />
+      </>
+    ),
+  },
+  {
+    title: 'Ask about them',
+    body: 'Ask questions and follow-ups. Answers point to the parts of your materials they come from.',
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="10" />
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+        <path d="M12 17h.01" />
+      </>
+    ),
+  },
+  {
+    title: 'Explain it your way',
+    body: 'Choose how simple or detailed an explanation is, and switch to another format to see it differently.',
+    icon: (
+      <>
+        <circle cx="18" cy="5" r="3" />
+        <circle cx="6" cy="12" r="3" />
+        <circle cx="18" cy="19" r="3" />
+        <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" />
+      </>
+    ),
+  },
+]
+
+/** Logo mark and wordmark, linking home. */
+function BrandLink({ className = '' }: { className?: string }) {
+  return (
+    <Link
+      to="/"
+      className={`flex items-center gap-3 self-start rounded-[10px] text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${className}`}
+    >
+      <svg width="44" height="44" viewBox="0 0 39 39" aria-hidden="true">
+        <rect width="39" height="39" rx="10" className="fill-accent" />
+        <g
+          transform="translate(9 9) scale(0.875)"
+          fill="none"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="stroke-on-accent"
+        >
+          <path d="M12 7v14" />
+          <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
+        </g>
+      </svg>
+      <span className="font-brand text-[27px] leading-[1.5] font-bold">
+        SomaNami
+      </span>
+    </Link>
+  )
+}
+
+/** What SomaNami does, shown beside every sign-in screen. */
+function BrandPanel() {
+  return (
+    <section
+      aria-label="About SomaNami"
+      className="flex min-w-0 flex-col justify-between gap-12 border-t border-line bg-side px-4 py-12 sm:px-8 lg:flex-[1_1_520px] lg:border-t-0 lg:border-r lg:px-16"
+    >
+      <BrandLink className="hidden lg:flex" />
+      <div className="flex max-w-[520px] flex-col gap-7">
+        <div className="flex flex-col gap-3">
+          {/* Not a heading: each screen's own title is the page's h1. */}
+          <p className="font-display text-[2rem] leading-[1.25] font-normal tracking-[-0.01em] text-fg lg:text-[2.5rem]">
+            Learn from your own materials.
+          </p>
+          <p className="text-base leading-[1.6] text-muted">
+            SomaNami answers from what you add, and shows you where each answer
+            came from.
+          </p>
+        </div>
+        <ul className="flex flex-col gap-5">
+          {FEATURES.map((feature) => (
+            <li key={feature.title} className="flex gap-3.5">
+              <span className="flex size-10 flex-none items-center justify-center rounded-[10px] bg-tint text-accent">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  {feature.icon}
+                </svg>
+              </span>
+              <span className="flex flex-col gap-0.5">
+                <span className="text-base leading-[1.5] font-semibold text-fg">
+                  {feature.title}
+                </span>
+                <span className="text-[15px] leading-[1.55] text-muted">
+                  {feature.body}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      {/* Deliberately not "stays private": storage is moving, so promise only
+          what holds today and after the move. */}
+      <p className="flex items-center gap-2 text-sm leading-[1.5] text-muted">
+        <Lock size={15} strokeWidth={1.9} className="flex-none" />
+        Your materials belong to your account, and you can delete them at any
+        time.
+      </p>
+    </section>
+  )
+}
+
+/**
+ * Frame for screens shown before sign-in: the form beside a brand panel, or
+ * one wide reading column. There is no theme toggle here: signed-out
+ * visitors get the system theme (or this device's saved choice).
+ */
 export default function AuthLayout({
   title,
   lede,
   children,
   wide = false,
 }: AuthLayoutProps) {
+  if (wide) {
+    return (
+      <div className="min-h-screen bg-ground text-fg">
+        <header className="flex h-20 items-center px-4 pt-5 md:px-12">
+          <BrandLink />
+        </header>
+        <main className="mx-auto w-full max-w-[46rem] px-4 pt-8 pb-24 md:pt-14">
+          <h1 className={H1}>{title}</h1>
+          {lede && <p className={LEDE}>{lede}</p>}
+          <div className="mt-8">{children}</div>
+        </main>
+      </div>
+    )
+  }
+
+  // The form comes first in the DOM so phones and keyboards reach it before
+  // the brand copy; on wide screens the row is reversed to put the panel left.
   return (
-    <div className="min-h-screen bg-ground text-fg">
-      <header className="flex h-20 items-center justify-between px-4 pt-5 md:px-12">
-        <Link
-          to="/"
-          className="font-brand text-2xl leading-[1.5] font-bold text-fg"
-        >
-          SomaNami
-        </Link>
-        <ThemeToggle />
-      </header>
-      <main
-        className={`mx-auto w-full px-4 pt-8 pb-24 md:pt-14 ${
-          wide ? 'max-w-[46rem]' : 'max-w-[32rem]'
-        }`}
-      >
-        <h1 className={H1}>{title}</h1>
-        {lede && <p className={LEDE}>{lede}</p>}
-        <div className="mt-8">{children}</div>
+    <div className="flex min-h-screen flex-col bg-ground text-fg lg:flex-row-reverse">
+      <main className="flex min-w-0 flex-col px-4 pt-8 pb-12 sm:px-8 lg:flex-[1_1_480px] lg:items-center lg:justify-center lg:py-12">
+        <BrandLink className="mb-10 lg:hidden" />
+        <div className="mx-auto w-full max-w-[420px]">
+          <h1 className="font-display text-[2rem] leading-[1.25] font-normal tracking-[-0.01em]">
+            {title}
+          </h1>
+          {lede && (
+            <p className="mt-2 text-[15px] leading-[1.6] text-muted">{lede}</p>
+          )}
+          <div className="mt-6">{children}</div>
+        </div>
       </main>
+      <BrandPanel />
     </div>
   )
 }
