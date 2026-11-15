@@ -27,13 +27,14 @@ describe('Account-aware device copy', () => {
     expect(screen.queryByText(/saved on another device/)).toBeNull()
   })
 
-  it('says saved conversations belong to the account on this device', async () => {
+  it('makes no offline claim about saved conversations', async () => {
     await renderSignedInApp('/conversations')
     expect(
       await screen.findByText(
-        /Every chat is saved to your account on this device/,
+        /Chats you saved from Recents and your workspaces/,
       ),
     ).toBeInTheDocument()
+    expect(screen.queryByText(/offline/)).toBeNull()
   })
 
   it('explains on the help page that materials don’t follow to other devices yet', async () => {

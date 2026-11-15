@@ -13,6 +13,7 @@ import {
   createMemoryAdapter,
   DEFAULT_WORKSPACE,
   saveDocument,
+  setConversationSaved,
   setStorageAdapter,
 } from './lib/storage/index.ts'
 import type { StorageAdapter } from './lib/storage/index.ts'
@@ -561,16 +562,17 @@ describe('app shell and navigation', () => {
     ).toBeInTheDocument()
   })
 
-  it('lists saved conversations with their material', async () => {
+  it('lists saved conversations with where they live', async () => {
     await saveCells()
-    await chatAbout('doc-1', 'Old question')
+    const chat = await chatAbout('doc-1', 'Old question')
+    await setConversationSaved(chat.id, true)
     window.history.pushState({}, '', '/conversations')
     await renderApp()
 
     const item = await within(screen.getByRole('main')).findByRole('link', {
-      name: /Old question/,
+      name: 'Old question',
     })
-    expect(item).toHaveTextContent('Cells.txt')
+    expect(item.closest('li')).toHaveTextContent('Recents')
   })
 
   it('opens the help page from the top bar', async () => {
