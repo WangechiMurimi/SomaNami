@@ -3,6 +3,7 @@ import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readKeepSignedIn } from '../lib/auth/auth-storage.ts'
 import { setSupabaseClient } from '../lib/auth/supabase-client.ts'
 import {
   fakeSession,
@@ -72,6 +73,76 @@ describe('SignInPage', () => {
       options: { captchaToken: 'captcha-1' },
     })
     expect(await redirectedTo()).toBe('/library')
+  })
+
+  it('keeps the visitor signed in by default', async () => {
+    const { auth } = installFakeSupabase()
+    page()
+    expect(
+      await screen.findByRole('checkbox', { name: 'Keep me signed in' }),
+    ).toBeChecked()
+    await fillAndSubmit()
+    expect(auth.signInWithPassword).toHaveBeenCalledOnce()
+    expect(readKeepSignedIn()).toBe(true)
+  })
+
+  it('ends the session with the browser when keep me signed in is off', async () => {
+    const { auth } = installFakeSupabase()
+    page()
+    await userEvent.click(
+      await screen.findByRole('checkbox', { name: 'Keep me signed in' }),
+    )
+    await fillAndSubmit()
+    expect(auth.signInWithPassword).toHaveBeenCalledOnce()
+    expect(readKeepSignedIn()).toBe(false)
+  })
+
+  it('continues with Google first, honouring keep me signed in', async () => {
+    const { auth } = installFakeSupabase()
+    page()
+    const google = await screen.findByRole('button', {
+      name: 'Continue with Google',
+    })
+    // Google comes before the email form.
+    expect(
+      google.compareDocumentPosition(screen.getByLabelText('Email')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    await userEvent.click(
+      screen.getByRole('checkbox', { name: 'Keep me signed in' }),
+    )
+    await userEvent.click(google)
+
+    expect(auth.signInWithOAuth).toHaveBeenCalledWith({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    })
+    expect(readKeepSignedIn()).toBe(false)
+    expect(
+      screen.getByRole('button', { name: 'Opening Google…' }),
+    ).toBeDisabled()
+  })
+
+  it('explains when Google sign-in cannot start', async () => {
+    const { auth } = installFakeSupabase()
+    auth.signInWithOAuth.mockResolvedValueOnce({
+      data: { provider: 'google', url: null },
+      error: new AuthApiError(
+        'Provider is not enabled',
+        400,
+        'validation_failed',
+      ),
+    } as never)
+    page()
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Continue with Google' }),
+    )
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Something went wrong. Please try again.')
+    expect(alert).toHaveFocus()
+    expect(
+      screen.getByRole('button', { name: 'Continue with Google' }),
+    ).toBeEnabled()
   })
 
   it.each(['//evil.example', 'https://evil.example', '/\\evil.example'])(
