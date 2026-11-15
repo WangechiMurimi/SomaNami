@@ -46,6 +46,9 @@ export interface NewDocument {
 /** A material saved on this device; it belongs to exactly one workspace. */
 export interface StoredDocument extends NewDocument {
   workspaceId: string
+  /** Client clock, epoch ms; `updatedAt` decides last-write-wins in sync. */
+  createdAt: number
+  updatedAt: number
 }
 
 /** Identifies one chunk; `documentId` is carried so callers can join to the file. */

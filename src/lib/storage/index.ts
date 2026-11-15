@@ -13,16 +13,21 @@ import type { Change, StorageAdapter } from './adapter.ts'
 import { createIndexedDbAdapter, deleteDatabase } from './indexeddb-adapter.ts'
 import { moveLegacyMaterials } from './import-legacy.ts'
 import { createMemoryAdapter } from './memory-adapter.ts'
+import { tombstone, upsert } from './outbox.ts'
+import type { OutboxEntry } from './outbox.ts'
 import {
   CONVERSATIONS,
   DEFAULT_WORKSPACE,
   DOCUMENTS,
   MESSAGES,
+  OUTBOX,
   WORKSPACES,
   userDbName,
 } from './schema.ts'
+import type { SyncedStoreName } from './schema.ts'
 
 export type { Change, StorageAdapter, StorageRecord } from './adapter.ts'
+export type { OutboxEntry, OutboxOperation } from './outbox.ts'
 export { createIndexedDbAdapter } from './indexeddb-adapter.ts'
 export { createMemoryAdapter } from './memory-adapter.ts'
 export {
@@ -37,10 +42,14 @@ export {
   DEFAULT_WORKSPACE,
   DOCUMENTS,
   MESSAGES,
+  OUTBOX,
   STORES,
+  SYNC_META,
+  SYNCED_STORES,
   WORKSPACES,
   userDbName,
 } from './schema.ts'
+export type { StoreName, SyncedStoreName } from './schema.ts'
 
 let injected: StorageAdapter | undefined
 
@@ -151,6 +160,9 @@ const store = (): StorageAdapter => {
 /** Moves the materials from before accounts into the open user's store. */
 export async function importLegacyMaterials(): Promise<void> {
   await moveLegacyMaterials({ target: store() })
+  notifyDocuments()
+  notifyWorkspaces()
+  notifyConversations()
 }
 
 const newId = (): string => crypto.randomUUID()
@@ -173,8 +185,10 @@ function createSignal() {
 
 const conversationSignal = createSignal()
 const workspaceSignal = createSignal()
+const documentSignal = createSignal()
 const notifyConversations = conversationSignal.notify
 const notifyWorkspaces = workspaceSignal.notify
+const notifyDocuments = documentSignal.notify
 
 /**
  * Calls `listener` after any conversation is created, changed or removed, so
@@ -185,6 +199,12 @@ export const subscribeToConversations = conversationSignal.subscribe
 
 /** As `subscribeToConversations`, for workspaces. */
 export const subscribeToWorkspaces = workspaceSignal.subscribe
+
+/**
+ * As `subscribeToConversations`, for materials, so the Library refreshes when
+ * one is saved or removed elsewhere (another screen, or a sync pull).
+ */
+export const subscribeToDocuments = documentSignal.subscribe
 
 // Types guard compile-time callers; these guard data that arrives untyped at
 // runtime, where a missing id would otherwise corrupt an index lookup.
@@ -221,7 +241,7 @@ export async function createWorkspace({
     createdAt: now,
     updatedAt: now,
   }
-  await store().put(WORKSPACES, workspace)
+  await store().commit(upsert(WORKSPACES, workspace))
   notifyWorkspaces()
   return workspace
 }
@@ -253,7 +273,7 @@ export async function updateWorkspace(
     description: changes.description?.trim() ?? workspace.description,
     updatedAt: Date.now(),
   }
-  await store().put(WORKSPACES, updated)
+  await store().commit(upsert(WORKSPACES, updated))
   notifyWorkspaces()
   return updated
 }
@@ -271,7 +291,7 @@ export async function ensureDefaultWorkspace(): Promise<Workspace> {
     createdAt: now,
     updatedAt: now,
   }
-  await store().put(WORKSPACES, workspace)
+  await store().commit(upsert(WORKSPACES, workspace))
   notifyWorkspaces()
   return workspace
 }
@@ -288,19 +308,24 @@ export async function deleteWorkspace(id: string): Promise<void> {
     db.getAllByIndex<Conversation>(CONVERSATIONS, 'workspaceId', id),
   ])
   const messages = await messagesOf(db, conversations)
+  const now = Date.now()
   await db.commit([
-    ...messages.map(remove(MESSAGES)),
-    ...conversations.map(remove(CONVERSATIONS)),
-    ...documents.map(remove(DOCUMENTS)),
-    { type: 'remove', storeName: WORKSPACES, key: id },
+    ...messages.flatMap(removed(MESSAGES, now)),
+    ...conversations.flatMap(removed(CONVERSATIONS, now)),
+    ...documents.flatMap(removed(DOCUMENTS, now)),
+    ...tombstone(WORKSPACES, id, now),
   ])
   notifyWorkspaces()
+  if (documents.length > 0) notifyDocuments()
   if (conversations.length > 0) notifyConversations()
 }
 
-const remove =
-  (storeName: Change['storeName']) =>
-  ({ id }: { id: string }): Change => ({ type: 'remove', storeName, key: id })
+// Every cascaded removal gets its own tombstone, so another device deletes
+// each record rather than relying on the cloud's cascade reaching it.
+const removed =
+  (storeName: SyncedStoreName, deletedAt: number) =>
+  ({ id }: { id: string }): Change[] =>
+    tombstone(storeName, id, deletedAt)
 
 // Takes the store from the caller, so a multi-step write stays in one user's
 // database even if the account switches while it runs.
@@ -335,8 +360,15 @@ export async function saveDocument(
       ? await ensureDefaultWorkspace()
       : await getWorkspace(workspaceId)
   if (!workspace) throw new Error(`No workspace "${workspaceId}"`)
-  const stored: StoredDocument = { ...document, workspaceId }
-  await store().put(DOCUMENTS, stored)
+  const now = Date.now()
+  const stored: StoredDocument = {
+    ...document,
+    workspaceId,
+    createdAt: 'createdAt' in document ? document.createdAt : now,
+    updatedAt: now,
+  }
+  await store().commit(upsert(DOCUMENTS, stored))
+  notifyDocuments()
   return stored
 }
 
@@ -386,18 +418,23 @@ export async function deleteDocument(id: string): Promise<void> {
   )
   const kept = conversations.filter((c) => !emptied.includes(c))
   const messages = await messagesOf(db, emptied)
+  const now = Date.now()
   await db.commit([
-    ...messages.map(remove(MESSAGES)),
-    ...emptied.map(remove(CONVERSATIONS)),
-    ...kept.map((conversation): Change => {
+    ...messages.flatMap(removed(MESSAGES, now)),
+    ...emptied.flatMap(removed(CONVERSATIONS, now)),
+    // A kept conversation changed (it lost a material), so it gets a newer
+    // `updatedAt`; otherwise last-write-wins could restore the old list.
+    ...kept.flatMap((conversation) => {
       const record: Conversation = {
         ...conversation,
         materialIds: conversation.materialIds.filter((m) => m !== id),
+        updatedAt: now,
       }
-      return { type: 'put', storeName: CONVERSATIONS, record }
+      return upsert(CONVERSATIONS, record)
     }),
-    { type: 'remove', storeName: DOCUMENTS, key: id },
+    ...tombstone(DOCUMENTS, id, now),
   ])
+  notifyDocuments()
   if (conversations.length > 0) notifyConversations()
 }
 
@@ -438,7 +475,7 @@ export async function createConversation({
     createdAt: now,
     updatedAt: now,
   }
-  await store().put(CONVERSATIONS, conversation)
+  await store().commit(upsert(CONVERSATIONS, conversation))
   notifyConversations()
   return conversation
 }
@@ -493,7 +530,7 @@ export async function renameConversation(
   const conversation = await db.get<Conversation>(CONVERSATIONS, id)
   if (!conversation) throw new Error(`No conversation "${id}"`)
   const updated = { ...conversation, title, updatedAt: Date.now() }
-  await db.put(CONVERSATIONS, updated)
+  await db.commit(upsert(CONVERSATIONS, updated))
   notifyConversations()
   return updated
 }
@@ -547,11 +584,12 @@ export async function appendMessage({
         } satisfies AssistantMessage)
       : ({ ...base, role } satisfies UserMessage)
 
-  await db.put(MESSAGES, message)
-  await db.put(CONVERSATIONS, {
-    ...conversation,
-    updatedAt: message.createdAt,
-  })
+  // One commit, so a message is never stored without its conversation being
+  // touched (or queued for upload without it).
+  await db.commit([
+    ...upsert(MESSAGES, message),
+    ...upsert(CONVERSATIONS, { ...conversation, updatedAt: message.createdAt }),
+  ])
   notifyConversations()
   return message
 }
@@ -571,8 +609,27 @@ export async function listMessages(conversationId: string): Promise<Message[]> {
 
 /** Removes a conversation and the messages that belong to it. */
 export async function deleteConversation(id: string): Promise<void> {
+  assert(id, 'deleteConversation needs an id')
   const db = store()
-  await db.removeByIndex(MESSAGES, 'conversationId', id)
-  await db.remove(CONVERSATIONS, id)
+  const messages = await db.getAllByIndex<Message>(
+    MESSAGES,
+    'conversationId',
+    id,
+  )
+  const now = Date.now()
+  // One commit, so an interrupted delete can't strand messages without
+  // their conversation.
+  await db.commit([
+    ...messages.flatMap(removed(MESSAGES, now)),
+    ...tombstone(CONVERSATIONS, id, now),
+  ])
   notifyConversations()
+}
+
+// ── Sync ───────────────────────────────────────────────────────────────────
+
+/** The changes waiting to be pushed, oldest first (see `outbox.ts`). */
+export async function listOutbox(): Promise<OutboxEntry[]> {
+  const entries = await store().getAll<OutboxEntry>(OUTBOX)
+  return entries.sort((a, b) => a.seq - b.seq)
 }

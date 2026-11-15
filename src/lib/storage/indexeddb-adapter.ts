@@ -5,16 +5,19 @@ import type {
   StorageRecord,
 } from './adapter.ts'
 import { requireIndexValue } from './index-value.ts'
+import { changedAt, outboxEntry } from './outbox.ts'
 import {
   CONVERSATIONS,
   DB_NAME,
   DB_VERSION,
   DEFAULT_WORKSPACE,
   DOCUMENTS,
+  OUTBOX,
   STORES,
+  SYNCED_STORES,
   WORKSPACES,
 } from './schema.ts'
-import type { StoreName } from './schema.ts'
+import type { StoreName, SyncedStoreName } from './schema.ts'
 
 /** Wraps an IDBRequest so the rest of the layer only ever deals in promises. */
 const promisify = <T>(request: IDBRequest<T>): Promise<T> =>
@@ -23,41 +26,82 @@ const promisify = <T>(request: IDBRequest<T>): Promise<T> =>
     request.onerror = () => reject(request.error)
   })
 
-/** Rewrites every record in a store, inside the version-change transaction. */
-function rewriteAll(
+type RawRecord = Record<string, unknown>
+type Step = (record: RawRecord) => RawRecord
+
+/**
+ * Visits every record in a store inside the version-change transaction,
+ * applying `steps` in order and writing the result back.
+ */
+function forEachRecord(
   store: IDBObjectStore,
-  change: (record: Record<string, unknown>) => Record<string, unknown>,
+  steps: readonly Step[],
+  visit: (record: RawRecord) => void,
 ) {
   const request = store.openCursor()
   request.onsuccess = () => {
     const cursor = request.result
     if (!cursor) return
-    cursor.update(change(cursor.value as Record<string, unknown>))
+    const record = steps.reduce(
+      (current, step) => step(current),
+      cursor.value as RawRecord,
+    )
+    if (steps.length > 0) cursor.update(record)
+    visit(record)
     cursor.continue()
   }
 }
 
 /**
- * v1 to v2 (US-08): files every existing material and chat under the default
- * workspace, and turns a chat's single `documentId` into `materialIds`.
+ * Brings existing records up to the current schema. Each version adds steps
+ * per store, and every store is walked once: two cursors over one store in
+ * the same transaction would each write back a stale copy of the other's work.
  */
-function moveIntoDefaultWorkspace(transaction: IDBTransaction) {
+function migrateRecords(transaction: IDBTransaction, oldVersion: number) {
   const now = Date.now()
-  transaction
-    .objectStore(WORKSPACES)
-    .put({ ...DEFAULT_WORKSPACE, createdAt: now, updatedAt: now })
-  rewriteAll(transaction.objectStore(DOCUMENTS), (document) => ({
-    ...document,
-    workspaceId: DEFAULT_WORKSPACE.id,
-  }))
-  rewriteAll(
-    transaction.objectStore(CONVERSATIONS),
-    ({ documentId, ...conversation }) => ({
+  const steps = new Map<SyncedStoreName, Step[]>()
+  const addStep = (name: SyncedStoreName, step: Step) =>
+    steps.set(name, [...(steps.get(name) ?? []), step])
+
+  if (oldVersion < 2) {
+    // v1 to v2 (US-08): files every existing material and chat under the
+    // default workspace, and turns a chat's single `documentId` into
+    // `materialIds`.
+    transaction
+      .objectStore(WORKSPACES)
+      .put({ ...DEFAULT_WORKSPACE, createdAt: now, updatedAt: now })
+    addStep(DOCUMENTS, (document) => ({
+      ...document,
+      workspaceId: DEFAULT_WORKSPACE.id,
+    }))
+    addStep(CONVERSATIONS, ({ documentId, ...conversation }) => ({
       ...conversation,
       workspaceId: DEFAULT_WORKSPACE.id,
       materialIds: typeof documentId === 'string' ? [documentId] : [],
-    }),
-  )
+    }))
+  }
+
+  // v2 to v3 (#146): documents gain the timestamps sync compares (their real
+  // dates were never recorded, so the upgrade time stands in), and every
+  // record gets an outbox entry so it is pushed on the first sync.
+  const seedOutbox = oldVersion < 3
+  if (seedOutbox)
+    addStep(DOCUMENTS, (document) => ({
+      createdAt: now,
+      updatedAt: now,
+      ...document,
+    }))
+  const outbox = seedOutbox ? transaction.objectStore(OUTBOX) : undefined
+
+  for (const name of SYNCED_STORES) {
+    const storeSteps = steps.get(name) ?? []
+    if (storeSteps.length === 0 && !outbox) continue
+    forEachRecord(transaction.objectStore(name), storeSteps, (record) =>
+      outbox?.put(
+        outboxEntry(name, String(record.id), 'upsert', changedAt(record)),
+      ),
+    )
+  }
 }
 
 function upgrade(
@@ -84,7 +128,7 @@ function upgrade(
     }
   }
   // A brand-new database has nothing to move.
-  if (oldVersion === 1) moveIntoDefaultWorkspace(transaction)
+  if (oldVersion > 0) migrateRecords(transaction, oldVersion)
 }
 
 function openDatabase(factory: IDBFactory, name: string): Promise<IDBDatabase> {
