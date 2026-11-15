@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setSupabaseClient } from '../../lib/auth/supabase-client.ts'
 import AuthProvider from './AuthProvider.tsx'
 import { useAuth } from './auth-context.ts'
+import {
+  hasCompletedProfile,
+  rememberCompletedProfile,
+} from './completed-profile.ts'
 import { readLastUser, writeLastUser } from './last-user.ts'
 import { fakeSession, installFakeSupabase } from './testing/fake-supabase.ts'
 
@@ -183,6 +187,18 @@ describe('stale session checks', () => {
   })
 })
 
+describe('profile record', () => {
+  it('is forgotten on sign-out, like the last user', async () => {
+    installFakeSupabase({ session: fakeSession() })
+    rememberCompletedProfile('user-1')
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.status).toBe('signed-in'))
+
+    await act(() => result.current.signOut())
+    expect(hasCompletedProfile('user-1')).toBe(false)
+  })
+})
+
 describe('account actions', () => {
   it('signs in with the captcha token and maps bad credentials', async () => {
     const { auth } = installFakeSupabase()
@@ -213,24 +229,19 @@ describe('account actions', () => {
     expect(result.current.status).toBe('signed-in')
   })
 
-  it('signs up with only the age outcome and consent time', async () => {
+  it('signs up without writing anything to user metadata', async () => {
     const { auth } = installFakeSupabase()
     const { result } = renderAuth()
     await waitFor(() => expect(result.current.status).toBe('signed-out'))
 
-    await expect(
-      result.current.signUp({
-        ...SIGN_IN,
-        consentedAt: '2026-11-13T00:00:00Z',
-      }),
-    ).resolves.toEqual({ ok: true })
+    await expect(result.current.signUp(SIGN_IN)).resolves.toEqual({ ok: true })
+    // Users can edit their own metadata, so age and consent never go there.
     expect(auth.signUp).toHaveBeenCalledWith({
       email: 'a@example.com',
       password: 'pw',
       options: {
         captchaToken: 'tok',
         emailRedirectTo: `${window.location.origin}/sign-in`,
-        data: { age_13_plus: true, consented_at: '2026-11-13T00:00:00Z' },
       },
     })
   })
@@ -248,9 +259,7 @@ describe('account actions', () => {
     const { result } = renderAuth()
     await waitFor(() => expect(result.current.status).toBe('signed-out'))
 
-    await expect(
-      result.current.signUp({ ...SIGN_IN, consentedAt: 'now' }),
-    ).resolves.toEqual({ ok: true })
+    await expect(result.current.signUp(SIGN_IN)).resolves.toEqual({ ok: true })
   })
 
   it('reports password reset as sent whether or not the account exists', async () => {
@@ -324,9 +333,7 @@ describe('without a Supabase project', () => {
 
     const notConfigured = { ok: false, error: 'not-configured' }
     await expect(result.current.signIn(SIGN_IN)).resolves.toEqual(notConfigured)
-    await expect(
-      result.current.signUp({ ...SIGN_IN, consentedAt: 'now' }),
-    ).resolves.toEqual(notConfigured)
+    await expect(result.current.signUp(SIGN_IN)).resolves.toEqual(notConfigured)
     await expect(
       result.current.requestPasswordReset({ email: 'a', captchaToken: 't' }),
     ).resolves.toEqual(notConfigured)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { safeNextPath, signInPathFor } from './safe-next.ts'
+import { detailsPathFor, safeNextPath, signInPathFor } from './safe-next.ts'
 
 describe('safeNextPath', () => {
   it.each(['/', '/library', '/chat/abc?x=1#top', '/account'])(
@@ -35,5 +35,18 @@ describe('signInPathFor', () => {
 
   it('skips next for home', () => {
     expect(signInPathFor('/', '', '')).toBe('/sign-in')
+  })
+})
+
+describe('detailsPathFor', () => {
+  it('carries a safe next, and drops home or unsafe ones', () => {
+    expect(detailsPathFor('/library')).toBe('/welcome/details?next=%2Flibrary')
+    expect(detailsPathFor('/')).toBe('/welcome/details')
+    expect(detailsPathFor('//evil.example')).toBe('/welcome/details')
+  })
+
+  it('never sends a finished details step back to itself', () => {
+    expect(safeNextPath('/welcome/details')).toBe('/')
+    expect(safeNextPath('/welcome/details?next=%2F')).toBe('/')
   })
 })
