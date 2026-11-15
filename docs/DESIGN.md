@@ -73,22 +73,47 @@ The only shadow is the composer's soft glow.
 ## Screens
 
 Home · Workspaces · New workspace (2 steps: name and topic, add materials) ·
-Workspace · New chat (pick the materials the chat may use; Send disabled until
-one is picked) · Chat (answers with "From your materials" citations; replies
-the materials can't support are labelled "Not answered from your materials") ·
-Library (a real table with type filters) · Account settings.
+Workspace · New chat (pick the materials the chat may use) · Chat (answers with
+"From your materials" citations; replies the materials can't support are
+labelled "Not answered from your materials") · Library · Saved conversations ·
+Account settings · Help · How your data is handled.
+
+Chats are either **loose** (started from Home or the Library; they live in the
+hidden default workspace, appear under Recents and may use any material) or
+**workspace chats** (user-organised; they may use only that workspace's
+materials, US-08 AC3). Either kind can be saved.
 
 Screen details the code depends on:
 
-- **Workspace:** Chats (each with an "N sources" disclosure and Continue) beside
-  "Your materials". Materials carry checkboxes, and a question asked from the
-  workspace uses only the ticked ones; Send is disabled while none are ticked.
-- **Chat:** a tinted lock chip names the materials in use. Cited passages open
-  in place from their chip. Under the latest grounded answer, "Show another
-  format" (Example, Summary) asks a follow-up in the same chat; there is no
-  server-side format or level setting yet.
-- **Library:** filters use the file types the app records (All · PDF · Word ·
-  Text), not notes/readings/slides, which aren't tracked.
+- **Home:** one composer. Files attach inside the input box: a ghost chip
+  while a file is read and saved, then a chip with its type icon and a remove
+  button (removing deletes the file it added). The question is typed in the
+  same box. The box glows on focus (`.composer:focus-within`, the only
+  shadow). Send needs a question and at least one ready file, and opens the
+  new loose chat directly, asking the question there.
+- **Workspaces:** the default workspace is never listed (`userWorkspaces()`);
+  pinned workspaces come first. The whole card opens the workspace; a
+  vertical-dots menu (visible on hover and keyboard focus, always on touch)
+  offers Open, Add sources, Remove sources, Rename, Pin/Unpin and Delete. Delete
+  confirms and says the workspace's chats and materials go with it. Removing a
+  source moves it out of the workspace; it stays in My library.
+- **Workspace:** content starts directly under a compact header (name, Add
+  sources, Remove sources). Chats (each with an "N sources" disclosure, Save
+  toggle and Continue) sit beside "Your materials"; a question asked from the
+  workspace uses only the ticked materials.
+- **Chat:** the header lists the chat's sources with type icons and has a
+  Save / Saved toggle (`aria-pressed`). Cited passages open in place from their
+  chip. Under the latest grounded answer, "Show another format" (Example,
+  Summary) asks a follow-up in the same chat; level and format settings need
+  server work (TODO #NEW-2). A failed request shows "Couldn't get an answer.
+  Try again."; there is no offline state.
+- **Library:** a search field filters conversations and file names, grouped
+  under Conversations and Files. Type filters use the file types the app
+  records (All · PDF · Word · Text). Clicking a file starts a loose chat with
+  it.
+- **Saved conversations** (`/conversations`): saved chats from Recents and from
+  workspaces, each labelled with its workspace or "Recents", with Unsave, a
+  title search and a workspace filter.
 - **Account settings:** cards for Profile (email, read-only until profiles
   exist), Appearance (theme), Privacy and data (a link to "How your data is
   handled" and "Remove my materials and sign out", with no privacy promises),
@@ -126,15 +151,20 @@ a menu button below `md`), the page's breadcrumb trail (`useBreadcrumbs` in
 out is in the account menu and Account settings.
 
 Auth screens (sign in, sign up, password reset, MFA) share one two-panel
-layout: a brand panel on `side` with three feature rows and an ownership line, and
-a form column up to 420 px wide. The form comes first on phones and in the
-source order.
+layout: a brand panel on `side` with three feature rows and a link to "How your
+data is handled", and a form column up to 420 px wide. The form comes first on
+phones and in the source order. Sign in and Create account start with an
+outlined "Continue with Google" button above the email form. Sign in has "Keep
+me signed in" (checked by default; unchecked keeps the session in
+sessionStorage). Create account has two steps: method (Google or email and
+password), then a required "I'm 13 or older" checkbox and consent; no birth
+date is collected.
 
-Proposed screens not yet built (Create account per #142, Saved conversations,
-chat level/format and edge states, empty states) are in row 2 of the canvas,
-marked as proposals. Help and the data note are built from their artboards,
-with copy rewritten for the source-scoping message (see
-`docs/notes/comments.md`).
+Row 2 of the canvas holds the screens proposed after the first pass. Create
+account, Saved conversations, Help and the data note are built from them, with
+copy rewritten so the one product claim is that answers come only from the
+sources the learner adds. Chat level/format controls and the remaining empty
+states are not built yet.
 
 ## Scope
 
