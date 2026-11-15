@@ -27,15 +27,20 @@ export type StoreName =
   typeof WORKSPACES | typeof DOCUMENTS | typeof CONVERSATIONS | typeof MESSAGES
 
 /**
- * The workspace that materials and chats saved before workspaces existed are
- * moved into, and that uploads use until the user picks a workspace.
+ * Holds everything added outside a workspace: loose chats (shown under
+ * Recents) and their materials, plus whatever predates workspaces. The UI
+ * never lists it as a workspace.
  */
 export const DEFAULT_WORKSPACE = {
   id: 'default',
   name: 'My materials',
   topic: 'General',
-  description: 'Everything you added before you made a workspace.',
+  description: 'Chats and materials added outside a workspace.',
 } as const
+
+/** True for the default workspace that holds loose chats. */
+export const isLooseWorkspace = (workspaceId: string): boolean =>
+  workspaceId === DEFAULT_WORKSPACE.id
 
 export interface IndexDefinition {
   name: string

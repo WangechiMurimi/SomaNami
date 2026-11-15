@@ -60,12 +60,21 @@ describe('materialsFor', () => {
     expect(chosen.map(({ id }) => id)).toEqual(['doc-1'])
   })
 
-  it('never returns a material from another workspace (US-08 AC3)', () => {
+  it('keeps a workspace chat to its own workspace (US-08 AC3)', () => {
+    const inBiology = { ...document, workspaceId: 'biology' }
     const chosen = materialsFor(
-      { workspaceId: DEFAULT_WORKSPACE.id, materialIds: ['doc-1', 'doc-3'] },
-      [document, elsewhere],
+      { workspaceId: 'biology', materialIds: ['doc-1', 'doc-3'] },
+      [inBiology, elsewhere],
     )
     expect(chosen.map(({ id }) => id)).toEqual(['doc-1'])
+  })
+
+  it('lets a loose chat use a chosen material from any workspace', () => {
+    const chosen = materialsFor(
+      { workspaceId: DEFAULT_WORKSPACE.id, materialIds: ['doc-1', 'doc-3'] },
+      [document, elsewhere, other],
+    )
+    expect(chosen.map(({ id }) => id)).toEqual(['doc-1', 'doc-3'])
   })
 })
 

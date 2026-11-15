@@ -29,6 +29,8 @@ export interface Workspace {
   name: string
   topic: string
   description: string
+  /** Shown first in the workspace list; absent on records made before pinning. */
+  pinned?: boolean
   createdAt: number
   updatedAt: number
 }
@@ -90,14 +92,18 @@ export interface ChatReply {
 }
 
 /**
- * A chat inside one workspace. `materialIds` are the workspace materials it
- * may draw on; retrieval never looks beyond them (US-08 AC3).
+ * A chat. `materialIds` are the only materials it may draw on; retrieval never
+ * looks beyond them. A chat in a user's workspace may use only that
+ * workspace's materials (US-08 AC3). A loose chat, started outside any
+ * workspace, lives in the default workspace and may use any material.
  */
 export interface Conversation {
   id: string
   workspaceId: string
   materialIds: string[]
   title: string
+  /** Listed under Saved conversations; absent on records made before saving. */
+  saved?: boolean
   createdAt: number
   updatedAt: number
 }

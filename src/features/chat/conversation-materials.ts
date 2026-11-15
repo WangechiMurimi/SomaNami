@@ -5,24 +5,26 @@ import type {
   Passage,
   StoredDocument,
 } from '../../types/contracts.ts'
+import { isLooseWorkspace } from '../../lib/storage/schema.ts'
 import { resolveCitations } from './describe-source.ts'
 import type { ChatTurn } from './use-chat.ts'
 
 const TITLE_CHARS = 60
 
 /**
- * The materials a conversation may draw on: only those it chose, and only
- * from its own workspace, so retrieval can never cross into another
- * workspace's materials (US-08 AC3).
+ * The materials a conversation may draw on: only those it chose. A chat in a
+ * user's workspace also keeps to that workspace, so retrieval can never cross
+ * into another workspace's materials (US-08 AC3); a loose chat may use any.
  */
 export function materialsFor(
   conversation: Pick<Conversation, 'workspaceId' | 'materialIds'>,
   documents: readonly StoredDocument[],
 ): StoredDocument[] {
   const chosen = new Set(conversation.materialIds)
+  const loose = isLooseWorkspace(conversation.workspaceId)
   return documents.filter(
     ({ id, workspaceId }) =>
-      chosen.has(id) && workspaceId === conversation.workspaceId,
+      chosen.has(id) && (loose || workspaceId === conversation.workspaceId),
   )
 }
 

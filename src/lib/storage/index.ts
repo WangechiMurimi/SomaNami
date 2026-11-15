@@ -19,6 +19,7 @@ import {
   DOCUMENTS,
   MESSAGES,
   WORKSPACES,
+  isLooseWorkspace,
   userDbName,
 } from './schema.ts'
 
@@ -39,6 +40,7 @@ export {
   MESSAGES,
   STORES,
   WORKSPACES,
+  isLooseWorkspace,
   userDbName,
 } from './schema.ts'
 
@@ -258,6 +260,20 @@ export async function updateWorkspace(
   return updated
 }
 
+/** Pins or unpins a workspace; pinned ones list first. */
+export async function setWorkspacePinned(
+  id: string,
+  pinned: boolean,
+): Promise<Workspace> {
+  const workspace = await getWorkspace(id)
+  if (!workspace) throw new Error(`No workspace "${id}"`)
+  // Pinning is not activity, so the recency order stays as it was.
+  const updated: Workspace = { ...workspace, pinned }
+  await store().put(WORKSPACES, updated)
+  notifyWorkspaces()
+  return updated
+}
+
 /**
  * The workspace uploads go to before the user has made one. Created on first
  * use, so a fresh install and an upgraded one end up with the same record.
@@ -401,6 +417,45 @@ export async function deleteDocument(id: string): Promise<void> {
   if (conversations.length > 0) notifyConversations()
 }
 
+/**
+ * Files a material into another workspace ("Add sources" / "Remove sources";
+ * removing sends it to the default workspace, so it stays in the Library).
+ * Chats in the workspace it leaves stop using it, keeping their history;
+ * loose chats keep it, since they may use any material.
+ */
+export async function moveDocument(
+  id: string,
+  workspaceId: string,
+): Promise<StoredDocument> {
+  const db = store()
+  const document = await db.get<StoredDocument>(DOCUMENTS, id)
+  if (!document) throw new Error(`No document "${id}"`)
+  const target = isLooseWorkspace(workspaceId)
+    ? await ensureDefaultWorkspace()
+    : await getWorkspace(workspaceId)
+  if (!target) throw new Error(`No workspace "${workspaceId}"`)
+  if (document.workspaceId === workspaceId) return document
+
+  const left = isLooseWorkspace(document.workspaceId)
+    ? []
+    : (
+        await db.getAllByIndex<Conversation>(CONVERSATIONS, 'materialIds', id)
+      ).filter((c) => c.workspaceId === document.workspaceId)
+  const moved: StoredDocument = { ...document, workspaceId }
+  await db.commit([
+    ...left.map((conversation): Change => {
+      const record: Conversation = {
+        ...conversation,
+        materialIds: conversation.materialIds.filter((m) => m !== id),
+      }
+      return { type: 'put', storeName: CONVERSATIONS, record }
+    }),
+    { type: 'put', storeName: DOCUMENTS, record: moved },
+  ])
+  if (left.length > 0) notifyConversations()
+  return moved
+}
+
 // ── Conversations ──────────────────────────────────────────────────────────
 
 export interface NewConversation {
@@ -410,9 +465,10 @@ export interface NewConversation {
 }
 
 /**
- * Starts a conversation over chosen materials of one workspace. Every
- * material must belong to that workspace, so a chat can never draw on
- * another workspace's materials (US-08 AC3).
+ * Starts a conversation over chosen, stored materials. In a user's workspace
+ * every material must belong to that workspace, so the chat can never draw on
+ * another workspace's materials (US-08 AC3). A loose chat (the default
+ * workspace) may use any material, such as a Library file from a workspace.
  */
 export async function createConversation({
   workspaceId,
@@ -421,9 +477,10 @@ export async function createConversation({
 }: NewConversation = {}): Promise<Conversation> {
   assert(workspaceId, 'createConversation needs a workspaceId')
   assert(materialIds.length > 0, 'createConversation needs materialIds')
+  const loose = isLooseWorkspace(workspaceId)
   const materials = await Promise.all(materialIds.map(getDocument))
   materials.forEach((material, index) => {
-    if (material?.workspaceId !== workspaceId) {
+    if (loose ? !material : material?.workspaceId !== workspaceId) {
       throw new Error(
         `Material "${materialIds[index]}" is not in workspace "${workspaceId}"`,
       )
@@ -482,6 +539,27 @@ export async function listRecentConversations(
 ): Promise<Conversation[]> {
   const conversations = await store().getAll<Conversation>(CONVERSATIONS)
   return conversations.sort(byRecentActivity).slice(0, limit)
+}
+
+/** Saves or unsaves a conversation for Saved conversations. */
+export async function setConversationSaved(
+  id: string,
+  saved: boolean,
+): Promise<Conversation> {
+  const db = store()
+  const conversation = await db.get<Conversation>(CONVERSATIONS, id)
+  if (!conversation) throw new Error(`No conversation "${id}"`)
+  // Saving is not activity: Recents keep their order.
+  const updated: Conversation = { ...conversation, saved }
+  await db.put(CONVERSATIONS, updated)
+  notifyConversations()
+  return updated
+}
+
+/** Lists saved conversations from every workspace, most recently updated first. */
+export async function listSavedConversations(): Promise<Conversation[]> {
+  const conversations = await store().getAll<Conversation>(CONVERSATIONS)
+  return conversations.filter(({ saved }) => saved).sort(byRecentActivity)
 }
 
 /** Renames a conversation and returns the updated record. */
