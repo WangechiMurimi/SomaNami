@@ -151,7 +151,7 @@ describe('useConversation', () => {
       title: 'What makes ATP?',
     })
 
-  it('reports a conversation that is not on this device', async () => {
+  it('reports a conversation that cannot be found', async () => {
     const { result } = renderHook(() => useConversation('nope', [document]))
 
     await waitFor(() => expect(result.current.state.status).toBe('missing'))

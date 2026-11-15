@@ -22,8 +22,9 @@ export type Attachment =
       error: UploadErrorState
     }
 
+// Worded like the other upload screens' save failure.
 const SAVE_FAILED =
-  'We read the file but couldn’t save it. Try again in a moment.'
+  'We read the file but couldn’t save it on this device. Free up some space and try again.'
 
 let attachmentCount = 0
 const nextKey = (): string => `attachment-${++attachmentCount}`

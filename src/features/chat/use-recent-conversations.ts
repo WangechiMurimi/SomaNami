@@ -8,7 +8,7 @@ import type { Conversation } from '../../types/contracts.ts'
 export type RecentStatus = 'loading' | 'ready' | 'error'
 
 /**
- * The most recently active conversations on this device. Reloads whenever a
+ * The most recently active conversations. Reloads whenever a
  * conversation changes, so a question asked in one screen shows up in the
  * sidebar straight away.
  */

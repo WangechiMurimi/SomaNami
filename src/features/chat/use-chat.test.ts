@@ -82,14 +82,14 @@ describe('useChat', () => {
 
   it('retries the unanswered question without duplicating it', async () => {
     vi.mocked(askQuestion).mockRejectedValueOnce(
-      new ChatError('Offline', { code: 'offline' }),
+      new ChatError('Failed', { code: 'network' }),
     )
     const { result } = renderHook(() => useChat())
 
     await act(() => result.current.send('Why?'))
     expect(result.current.status).toBe('error')
     expect(result.current.error).toEqual({
-      message: 'Offline',
+      message: 'Failed',
       retryable: true,
     })
 
@@ -169,7 +169,7 @@ describe('useChat with a saved conversation', () => {
   })
 
   it('does not report a failed question', async () => {
-    vi.mocked(askQuestion).mockRejectedValue(new ChatError('offline'))
+    vi.mocked(askQuestion).mockRejectedValue(new ChatError('failed'))
     const onAnswered = vi.fn()
     const { result } = renderHook(() => useChat({ onAnswered }))
 

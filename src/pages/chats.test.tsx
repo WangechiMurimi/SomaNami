@@ -355,7 +355,7 @@ describe('Chat header', () => {
 })
 
 describe('Chat addresses', () => {
-  it('says when a chat is not on this device', async () => {
+  it('says when a chat cannot be found', async () => {
     await open('/chats/nope')
 
     expect(
