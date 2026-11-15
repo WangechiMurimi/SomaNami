@@ -360,3 +360,55 @@ describe('syncOnce', () => {
     })
   })
 })
+
+describe('eraseEverything (#147)', () => {
+  it('empties the cloud and wipes every other device on its next sync', async () => {
+    const { workspace, conversation } = await seedLaptop()
+    await on(laptop, () => syncOnce(cloud.cloud))
+    await on(phone, () => syncOnce(cloud.cloud))
+    cloud.objects.add('user-a/d1/d1.txt')
+    // A file whose row never synced goes too.
+    cloud.objects.add('user-a/lost/orphan.pdf')
+
+    at(2_000_000)
+    await cloud.cloud.eraseEverything()
+
+    for (const table of [
+      'workspaces',
+      'documents',
+      'conversations',
+      'messages',
+    ] as const)
+      expect(cloud.rows(table)).toEqual([])
+    expect(cloud.chunks()).toEqual([])
+    expect(cloud.materials()).toEqual([])
+    expect([...cloud.objects]).toEqual([])
+
+    await on(phone, () => syncOnce(cloud.cloud))
+    await on(phone, async () => {
+      expect(await getWorkspace(workspace.id)).toBeUndefined()
+      expect(await getDocument('d1')).toBeUndefined()
+      expect(await getConversation(conversation.id)).toBeUndefined()
+      expect(await listMessages(conversation.id)).toEqual([])
+    })
+  })
+
+  it('refuses what an offline device still holds, so nothing comes back', async () => {
+    const { workspace } = await seedLaptop()
+    await on(laptop, () => syncOnce(cloud.cloud))
+    await on(phone, () => syncOnce(cloud.cloud))
+
+    // The phone edits while offline, before the erase happens elsewhere.
+    at(1_500_000)
+    await on(phone, () =>
+      updateWorkspace(workspace.id, { name: 'Offline edit' }),
+    )
+    at(2_000_000)
+    await cloud.cloud.eraseEverything()
+
+    await on(phone, () => syncOnce(cloud.cloud))
+
+    expect(cloud.rows('workspaces')).toEqual([])
+    expect(await on(phone, () => getWorkspace(workspace.id))).toBeUndefined()
+  })
+})

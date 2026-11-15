@@ -85,4 +85,11 @@ export interface CloudStore {
   chunksFor(documentIds: readonly string[]): Promise<ChunkRow[]>
   /** Every material row of these conversations. */
   materialsFor(conversationIds: readonly string[]): Promise<MaterialRow[]>
+  /**
+   * Deletes everything the learner has stored (#147): every row and every
+   * uploaded file. Deletions are recorded first, so another device can't
+   * upload a stale copy back while this runs, and files go before rows, so
+   * a failure partway never leaves a file nothing points at. Safe to retry.
+   */
+  eraseEverything(): Promise<void>
 }

@@ -156,6 +156,47 @@ describe.skipIf(!url || !anonKey || !serviceKey)(
       expect(rows.data).toEqual([])
     })
 
+    it('erases every row and file, and another device follows (#147)', async () => {
+      const learner = await signedInUser()
+      const cloud = createSupabaseCloud(learner.client, learner.id)
+      const laptop = createMemoryAdapter()
+      const phone = createMemoryAdapter()
+      await on(laptop, async () => {
+        const workspace = await createWorkspace({ name: 'Biology' })
+        await saveDocument(doc('d1'), workspace.id)
+        await createConversation({
+          workspaceId: workspace.id,
+          materialIds: ['d1'],
+          title: 'Cells',
+        })
+      })
+      const bucket = learner.client.storage.from(MATERIALS_BUCKET)
+      await bucket.upload(`${learner.id}/d1/d1.txt`, new Blob(['original']))
+      // A file whose row never made it to the cloud.
+      await bucket.upload(`${learner.id}/lost/orphan.pdf`, new Blob(['x']))
+      await on(laptop, () => syncOnce(cloud))
+      await on(phone, () => syncOnce(cloud))
+
+      await cloud.eraseEverything()
+
+      for (const table of [
+        'workspaces',
+        'documents',
+        'chunks',
+        'conversations',
+        'conversation_materials',
+        'messages',
+      ]) {
+        const { data } = await learner.client.from(table).select('*')
+        expect(data, table).toEqual([])
+      }
+      const { data: folders } = await bucket.list(learner.id)
+      expect(folders).toEqual([])
+
+      await on(phone, () => syncOnce(cloud))
+      expect(await on(phone, () => getDocument('d1'))).toBeUndefined()
+    })
+
     it('shows one learner nothing of another’s', async () => {
       const a = await signedInUser()
       const b = await signedInUser()

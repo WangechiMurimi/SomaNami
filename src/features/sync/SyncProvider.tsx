@@ -175,9 +175,28 @@ function ActiveSync({
     if (result.pending > 0) throw new SyncFlushError('failed')
   }, [run])
 
+  const eraseCloud = useCallback(async () => {
+    if (!isOnline()) throw new SyncFlushError('offline')
+    try {
+      await cloud.eraseEverything()
+    } catch (error) {
+      console.error('Erase failed', (error as Error)?.name)
+      throw new SyncFlushError(isOnline() ? 'failed' : 'offline', {
+        cause: error,
+      })
+    }
+  }, [cloud])
+
   const value = useMemo<SyncContextValue>(
-    () => ({ status, pending, lastSyncedAt, flush, syncNow: runQuietly }),
-    [status, pending, lastSyncedAt, flush, runQuietly],
+    () => ({
+      status,
+      pending,
+      lastSyncedAt,
+      flush,
+      syncNow: runQuietly,
+      eraseCloud,
+    }),
+    [status, pending, lastSyncedAt, flush, runQuietly, eraseCloud],
   )
 
   return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>
