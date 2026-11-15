@@ -56,14 +56,5 @@ export function useTheme() {
     setPreferenceState(next)
   }, [])
 
-  const toggle = useCallback(() => {
-    setPreferenceState((current) => {
-      const shown = current === 'system' ? systemTheme() : current
-      const next = shown === 'dark' ? 'light' : 'dark'
-      savePreference(next)
-      return next
-    })
-  }, [])
-
-  return { theme, preference, setPreference, toggle }
+  return { theme, preference, setPreference }
 }

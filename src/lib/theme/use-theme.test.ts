@@ -68,25 +68,16 @@ describe('useTheme', () => {
     expect(result.current.theme).toBe('light')
   })
 
-  it('toggles, applies and remembers the choice', () => {
-    const { result } = renderHook(() => useTheme())
-
-    act(() => result.current.toggle())
-
-    expect(result.current.theme).toBe('dark')
-    expect(document.documentElement.dataset.theme).toBe('dark')
-    expect(window.localStorage.getItem(THEME_KEY)).toBe('dark')
-  })
-
-  it('still toggles when storage is blocked', () => {
+  it('still applies a choice when storage is blocked', () => {
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new DOMException('blocked', 'SecurityError')
     })
     const { result } = renderHook(() => useTheme())
 
-    act(() => result.current.toggle())
+    act(() => result.current.setPreference('dark'))
 
     expect(result.current.theme).toBe('dark')
+    expect(document.documentElement.dataset.theme).toBe('dark')
   })
 })
 
