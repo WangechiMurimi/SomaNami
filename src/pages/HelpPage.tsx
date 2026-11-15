@@ -1,51 +1,116 @@
 import { Link } from 'react-router'
+import { useBreadcrumbs } from '../app/breadcrumbs.ts'
 import {
   MAX_FILE_BYTES,
   SUPPORTED_LABEL,
 } from '../features/upload/constants.ts'
 import { H1, H2, LEDE } from './page-heading.ts'
 
+// The lede carries the one grounding statement; the topics just explain how.
 const TOPICS = [
   {
     title: 'Adding materials',
-    body: `Upload ${SUPPORTED_LABEL} files up to ${MAX_FILE_BYTES / 1024 / 1024} MB from Home or My library. SomaNami reads them on this device and splits them into passages it can quote back to you.`,
+    body: `Upload ${SUPPORTED_LABEL} files up to ${MAX_FILE_BYTES / 1024 / 1024} MB, or paste text, from Home, a workspace or My library. SomaNami splits each one into passages it can quote back to you.`,
   },
   {
-    title: 'Asking questions',
-    body: 'Open a material and ask in your own words. Answers come only from your materials and show the passages they used. When your materials don’t cover a question, SomaNami says so instead of guessing.',
+    title: 'Asking and following up',
+    body: 'Ask in your own words, then follow up in the same chat without repeating yourself.',
   },
   {
-    title: 'Following up',
-    body: 'Ask follow-up questions in the same chat without repeating yourself. Your chats are saved, so you can pick one up again from Recent chats or Saved conversations.',
+    title: 'Checking the source',
+    body: 'Each answer lists the passages it used. Open one to see exactly what your material says.',
   },
   {
-    title: 'Working offline',
-    body: 'Your materials and saved chats are saved to your account on this device and open without a connection. They don’t appear on your other devices yet. Asking a new question needs a connection; the sidebar tells you when you’re offline.',
+    title: 'Workspaces',
+    body: 'Keep the materials and chats for one topic together. A workspace chat uses the materials you choose for it.',
+  },
+  {
+    title: 'Recents',
+    body: 'Chats you start from Home don’t belong to a workspace. You’ll find them under Recents in the sidebar.',
+  },
+  {
+    title: 'Saving chats',
+    body: 'Save a chat from Recents or from a workspace to keep it in Saved conversations.',
+  },
+] as const
+
+const LABEL =
+  'inline-flex rounded-md px-2.5 py-1 text-xs font-medium tracking-[0.06em] uppercase'
+
+const LABELS = [
+  {
+    name: 'From your materials',
+    style: 'bg-success-soft text-success',
+    meaning:
+      'Supported by the passages shown under the answer. Open one to read it in context.',
+  },
+  {
+    name: 'Not answered from your materials',
+    style: 'bg-warn-soft text-warn',
+    meaning:
+      'Your materials don’t cover the question, so SomaNami says so instead of guessing. Try rephrasing, or add a material that covers it.',
   },
 ] as const
 
 /** How SomaNami works, in the words the rest of the app uses. */
 export default function HelpPage() {
+  useBreadcrumbs([{ label: 'Help' }])
+
   return (
-    <div className="flex max-w-3xl flex-col gap-10">
+    <div className="flex flex-col gap-10">
       <div>
         <h1 className={H1}>How SomaNami works</h1>
         <p className={LEDE}>
-          SomaNami only learns from what you share, so every answer comes from
-          your own materials.
+          SomaNami answers from the materials you add, and shows where each
+          answer came from.
         </p>
       </div>
-      <div className="flex flex-col gap-8">
-        {TOPICS.map(({ title, body }) => (
-          <section key={title} className="flex flex-col gap-2">
-            <h2 className={H2}>{title}</h2>
+
+      <ol className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {TOPICS.map(({ title, body }, index) => (
+          <li
+            key={title}
+            className="flex flex-col gap-2.5 rounded-2xl border border-line bg-surface p-7"
+          >
+            <span
+              aria-hidden="true"
+              className="flex size-11 items-center justify-center rounded-xl bg-tint text-base font-semibold text-accent"
+            >
+              {index + 1}
+            </span>
+            <h2 className="mt-1 text-xl leading-[1.3] font-medium">{title}</h2>
             <p className="text-[15px] leading-[1.6] text-muted">{body}</p>
-          </section>
+          </li>
         ))}
-      </div>
-      <p>
-        <Link to="/" className="font-semibold text-accent hover:underline">
-          Start on Home
+      </ol>
+
+      <section
+        aria-labelledby="help-labels"
+        className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-7 md:p-8"
+      >
+        <h2 id="help-labels" className={H2}>
+          What the labels on an answer mean
+        </h2>
+        <dl className="grid gap-6 md:grid-cols-2">
+          {LABELS.map(({ name, style, meaning }) => (
+            <div key={name} className="flex flex-col gap-2">
+              <dt>
+                <span className={`${LABEL} ${style}`}>{name}</span>
+              </dt>
+              <dd className="text-[15px] leading-[1.6] text-muted">
+                {meaning}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      <p className="text-[15px]">
+        <Link
+          to="/privacy"
+          className="font-semibold text-accent hover:underline"
+        >
+          How your data is handled
         </Link>
       </p>
     </div>

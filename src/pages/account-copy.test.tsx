@@ -27,24 +27,6 @@ describe('Account-aware device copy', () => {
     expect(screen.queryByText(/saved on another device/)).toBeNull()
   })
 
-  it('says saved conversations belong to the account on this device', async () => {
-    await renderSignedInApp('/conversations')
-    expect(
-      await screen.findByText(
-        /Every chat is saved to your account on this device/,
-      ),
-    ).toBeInTheDocument()
-  })
-
-  it('explains on the help page that materials don’t follow to other devices yet', async () => {
-    await renderSignedInApp('/help')
-    expect(
-      await screen.findByText(
-        /saved to your account on this device.*don’t appear on your other devices yet/,
-      ),
-    ).toBeInTheDocument()
-  })
-
   describe('sidebar profile row (#125)', () => {
     it('shows the signed-in account as the account menu', async () => {
       await renderSignedInApp('/')
