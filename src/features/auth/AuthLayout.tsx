@@ -3,10 +3,13 @@ import { Link } from 'react-router'
 import { Lock } from '../../components/icons.tsx'
 import { H1, LEDE } from '../../pages/page-heading.ts'
 import BrandMark from '../../components/BrandMark.tsx'
+import { STEP_LABEL } from './auth-ui.ts'
 
 interface AuthLayoutProps {
   title: string
   lede?: ReactNode
+  /** Small line above the title, such as "Step 1 of 2". */
+  eyebrow?: string
   children: ReactNode
   /** Single wide column for reading pages such as Privacy and Terms. */
   wide?: boolean
@@ -132,6 +135,7 @@ function BrandPanel() {
 export default function AuthLayout({
   title,
   lede,
+  eyebrow,
   children,
   wide = false,
 }: AuthLayoutProps) {
@@ -157,6 +161,7 @@ export default function AuthLayout({
       <main className="flex min-w-0 flex-col px-4 pt-8 pb-12 sm:px-8 lg:flex-[1_1_480px] lg:items-center lg:justify-center lg:py-12">
         <BrandLink className="mb-10 lg:hidden" />
         <div className="mx-auto w-full max-w-[420px]">
+          {eyebrow && <p className={`${STEP_LABEL} mb-2`}>{eyebrow}</p>}
           <h1 className="font-display text-[2rem] leading-[1.25] font-normal tracking-[-0.01em]">
             {title}
           </h1>
