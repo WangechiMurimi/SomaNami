@@ -20,7 +20,7 @@ const TOPICS = [
   },
   {
     title: 'Working offline',
-    body: 'Your materials and saved chats stay on this device and open without a connection. Asking a new question needs a connection; the sidebar shows whether you’re online.',
+    body: 'Your materials and saved chats are saved to your account on this device and open without a connection. They don’t appear on your other devices yet. Asking a new question needs a connection; the sidebar shows whether you’re online.',
   },
 ] as const
 

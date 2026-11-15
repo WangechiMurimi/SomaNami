@@ -48,5 +48,9 @@ export interface StorageAdapter {
    * change applies or none does.
    */
   commit(changes: readonly Change[]): Promise<void>
+  /**
+   * Releases the store. The IndexedDB adapter can't be used after this; open
+   * a new one instead.
+   */
   close(): Promise<void>
 }

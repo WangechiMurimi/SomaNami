@@ -87,8 +87,8 @@ function upgrade(
   if (oldVersion === 1) moveIntoDefaultWorkspace(transaction)
 }
 
-function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
-  const request = factory.open(DB_NAME, DB_VERSION)
+function openDatabase(factory: IDBFactory, name: string): Promise<IDBDatabase> {
+  const request = factory.open(name, DB_VERSION)
   request.onupgradeneeded = (event) => {
     // Always set during `upgradeneeded`; the DOM typing just can't express it.
     if (request.transaction)
@@ -98,18 +98,79 @@ function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
 }
 
 /**
+ * Deletes a whole database, resolving once it's gone. Pass `evenIfBlocked`
+ * to resolve as soon as the delete is queued instead, for callers that must
+ * not wait on a tab that may never let go.
+ */
+export function deleteDatabase(
+  factory: IDBFactory,
+  name: string,
+  { evenIfBlocked = false }: { evenIfBlocked?: boolean } = {},
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = factory.deleteDatabase(name)
+    request.onsuccess = () => resolve()
+    // `blocked` means another tab still holds a connection: the delete stays
+    // queued and succeeds once that tab lets go. By default wait for it, so
+    // materials are never reported removed while still on the device.
+    if (evenIfBlocked) request.onblocked = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export interface IndexedDbAdapterOptions {
+  /** Database to open; defaults to the shared legacy database. */
+  name?: string
+}
+
+/**
  * Creates the IndexedDB-backed adapter; `factory` is injectable so a fake
  * backing store can stand in for the browser's `indexedDB`.
  */
 export function createIndexedDbAdapter(
   factory: IDBFactory | undefined = globalThis.indexedDB,
+  { name = DB_NAME }: IndexedDbAdapterOptions = {},
 ): StorageAdapter {
   if (!factory)
     throw new Error('IndexedDB is not available in this environment')
 
-  let connection: IDBDatabase | undefined
+  // Holding the pending open, not the connection, means calls made while the
+  // database is still opening share one connection instead of racing to open
+  // several, which would leave one unclosed and block a later delete.
+  let connection: Promise<IDBDatabase> | undefined
+  let deletedElsewhere = false
+  // Closing is for good: a call that still holds this adapter afterwards
+  // (one started before a user switch or a removal) would otherwise reopen,
+  // and so recreate, a database its owner may have just removed.
+  let closed = false
 
-  const db = async () => (connection ??= await openDatabase(factory))
+  const db = (): Promise<IDBDatabase> => {
+    if (closed)
+      return Promise.reject(new Error(`The "${name}" database was closed`))
+    // Reopening would recreate the database empty and keep saving into it
+    // after its owner removed their materials from this device.
+    if (deletedElsewhere)
+      return Promise.reject(
+        new Error(`The "${name}" database was removed from this device`),
+      )
+    return (connection ??= openDatabase(factory, name).then(
+      (database) => {
+        // Another tab (or `deleteDatabase`) needs this database: let it go so
+        // that tab isn't blocked. A schema upgrade reopens on the next call;
+        // a deletion (`newVersion` null) does not.
+        database.onversionchange = (event) => {
+          database.close()
+          connection = undefined
+          if (event.newVersion === null) deletedElsewhere = true
+        }
+        return database
+      },
+      (error: unknown) => {
+        connection = undefined
+        throw error
+      },
+    ))
+  }
 
   const read = async <T>(
     storeName: StoreName,
@@ -228,8 +289,12 @@ export function createIndexedDbAdapter(
     },
 
     async close() {
-      ;(await db()).close()
+      closed = true
+      const pending = connection
       connection = undefined
+      // Nothing to close if it never opened, and a failed open left nothing open.
+      const database = await pending?.catch(() => undefined)
+      database?.close()
     },
   }
 }
