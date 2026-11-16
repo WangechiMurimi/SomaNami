@@ -1,19 +1,17 @@
 import { useState } from 'react'
-import type { FormEvent, ReactNode } from 'react'
+import type { FormEvent } from 'react'
 import { Link, Navigate } from 'react-router'
 import AuthLayout from '../features/auth/AuthLayout.tsx'
 import FormAlert from '../features/auth/FormAlert.tsx'
 import GoogleButton from '../features/auth/GoogleButton.tsx'
 import PasswordField from '../features/auth/PasswordField.tsx'
+import RequiredCheckbox from '../features/auth/RequiredCheckbox.tsx'
 import TextField from '../features/auth/TextField.tsx'
 import Turnstile from '../features/auth/Turnstile.tsx'
 import { useAuth } from '../features/auth/auth-context.ts'
 import { authErrorMessage } from '../features/auth/auth-errors.ts'
 import {
   AUTH_FOOTER,
-  CHECKBOX,
-  CHECKBOX_ROW,
-  FIELD_ERROR,
   FOOTER_LINK,
   MIN_PASSWORD,
   SECONDARY_BUTTON,
@@ -25,16 +23,16 @@ import { useFocusFirstError } from '../features/auth/use-focus-first-error.ts'
 import { isAuthConfigured } from '../lib/auth/is-configured.ts'
 
 type Step = 'account' | 'details' | 'sent'
-type Method = 'email' | 'google'
 
 /**
- * Account creation in two steps: Google or email and password first, then
- * the 13+ confirmation and consent. No birth date is ever asked for.
+ * Account creation. Google goes straight to Google, and the 13+ and Terms
+ * questions come once after the first sign-in (AgeCheckDialog). Email takes
+ * two steps: email and password, then the 13+ confirmation and consent.
+ * No birth date is ever asked for.
  */
 export default function SignUpPage() {
   const { status } = useAuth()
   const [step, setStep] = useState<Step>('account')
-  const [method, setMethod] = useState<Method>('email')
   // Kept here, not in the step, so Back returns to a filled-in form.
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -83,14 +81,10 @@ export default function SignUpPage() {
           password={password}
           onEmailChange={setEmail}
           onPasswordChange={setPassword}
-          onContinue={(chosen) => {
-            setMethod(chosen)
-            setStep('details')
-          }}
+          onContinue={() => setStep('details')}
         />
       ) : (
         <DetailsStep
-          method={method}
           email={email.trim()}
           password={password}
           onBack={() => setStep('account')}
@@ -114,10 +108,13 @@ interface AccountStepProps {
   password: string
   onEmailChange: (email: string) => void
   onPasswordChange: (password: string) => void
-  onContinue: (method: Method) => void
+  onContinue: () => void
 }
 
-/** Step 1: choose Google, or give an email and password. Nothing is sent yet. */
+/**
+ * Step 1: Google leaves for Google at once; an email and password move on to
+ * step 2, with nothing sent yet.
+ */
 function AccountStep({
   email,
   password,
@@ -125,10 +122,25 @@ function AccountStep({
   onPasswordChange,
   onContinue,
 }: AccountStepProps) {
+  const { signInWithGoogle } = useAuth()
   const { formRef, reportError } = useFocusFirstError<HTMLFormElement>()
   const [errors, setErrors] = useState<{ email?: string; password?: string }>(
     {},
   )
+  const [googleError, setGoogleError] = useState<string | null>(null)
+  const [openingGoogle, setOpeningGoogle] = useState(false)
+
+  async function continueWithGoogle() {
+    setGoogleError(null)
+    setOpeningGoogle(true)
+    const result = await signInWithGoogle()
+    // On success the browser is already leaving for Google; stay busy.
+    if (!result.ok) {
+      setOpeningGoogle(false)
+      setGoogleError(authErrorMessage(result.error))
+      reportError()
+    }
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -141,7 +153,7 @@ function AccountStep({
     }
     setErrors(next)
     if (next.email || next.password) return reportError()
-    onContinue('email')
+    onContinue()
   }
 
   return (
@@ -151,7 +163,11 @@ function AccountStep({
       onSubmit={handleSubmit}
       className="flex flex-col gap-4"
     >
-      <GoogleButton onClick={() => onContinue('google')} />
+      {googleError && <FormAlert>{googleError}</FormAlert>}
+      <GoogleButton
+        onClick={() => void continueWithGoogle()}
+        busy={openingGoogle}
+      />
       <TextField
         id="sign-up-email"
         label="Email"
@@ -187,7 +203,6 @@ interface DetailsErrors {
 }
 
 interface DetailsStepProps {
-  method: Method
   email: string
   password: string
   onBack: () => void
@@ -195,14 +210,8 @@ interface DetailsStepProps {
 }
 
 /** Step 2: the 13+ confirmation and consent, then the account is created. */
-function DetailsStep({
-  method,
-  email,
-  password,
-  onBack,
-  onSent,
-}: DetailsStepProps) {
-  const { signUp, signInWithGoogle } = useAuth()
+function DetailsStep({ email, password, onBack, onSent }: DetailsStepProps) {
+  const { signUp } = useAuth()
   const captcha = useCaptcha()
   const { formRef, reportError } = useFocusFirstError<HTMLFormElement>()
   const [oldEnough, setOldEnough] = useState(false)
@@ -225,20 +234,6 @@ function DetailsStep({
     setFormError(null)
     if (next.age || next.consent) return reportError()
 
-    if (method === 'google') {
-      setSubmitting(true)
-      // TODO(#143): Google accounts can't carry sign-up metadata, so record
-      // `age_13_plus` and the consent time on the profile once it exists.
-      const result = await signInWithGoogle()
-      // On success the browser is already leaving for Google; stay busy.
-      if (!result.ok) {
-        setSubmitting(false)
-        setFormError(authErrorMessage(result.error))
-        reportError()
-      }
-      return
-    }
-
     if (captcha.token === null) {
       setFormError('Complete the security check, then try again.')
       return reportError()
@@ -257,14 +252,7 @@ function DetailsStep({
     reportError()
   }
 
-  const submitLabel =
-    method === 'google'
-      ? submitting
-        ? 'Opening Google…'
-        : 'Continue with Google'
-      : submitting
-        ? 'Creating your account…'
-        : 'Create account'
+  const submitLabel = submitting ? 'Creating your account…' : 'Create account'
 
   return (
     <form
@@ -275,15 +263,15 @@ function DetailsStep({
     >
       {formError && <FormAlert>{formError}</FormAlert>}
       {/* TODO(#143): "What should we call you?" goes here once profiles can store it. */}
-      <Checkbox
+      <RequiredCheckbox
         id="sign-up-age"
         checked={oldEnough}
         onChange={setOldEnough}
         error={errors.age}
       >
         I’m 13 or older
-      </Checkbox>
-      <Checkbox
+      </RequiredCheckbox>
+      <RequiredCheckbox
         id="sign-up-consent"
         checked={consent}
         onChange={setConsent}
@@ -298,7 +286,7 @@ function DetailsStep({
           how your data is handled
         </Link>
         .
-      </Checkbox>
+      </RequiredCheckbox>
       <div className="rounded-xl border border-line bg-surface p-4 text-sm leading-[1.6] text-muted">
         SomaNami answers only from the sources you add, and you can delete them
         at any time.{' '}
@@ -306,9 +294,7 @@ function DetailsStep({
           How your data is handled
         </Link>
       </div>
-      {method === 'email' && (
-        <Turnstile onToken={captcha.onToken} resetKey={captcha.resetKey} />
-      )}
+      <Turnstile onToken={captcha.onToken} resetKey={captcha.resetKey} />
       <div className="mt-2 flex gap-3">
         <button
           type="button"
@@ -326,40 +312,5 @@ function DetailsStep({
         </button>
       </div>
     </form>
-  )
-}
-
-interface CheckboxProps {
-  id: string
-  checked: boolean
-  onChange: (checked: boolean) => void
-  error?: string
-  children: ReactNode
-}
-
-/** A required checkbox with its error tied to it for screen readers. */
-function Checkbox({ id, checked, onChange, error, children }: CheckboxProps) {
-  const errorId = `${id}-error`
-  return (
-    <div>
-      {/* Not wrapping the input: the label holds links, which must stay separate tap targets. */}
-      <div className={CHECKBOX_ROW}>
-        <input
-          id={id}
-          type="checkbox"
-          checked={checked}
-          onChange={(e) => onChange(e.target.checked)}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? errorId : undefined}
-          className={CHECKBOX}
-        />
-        <label htmlFor={id}>{children}</label>
-      </div>
-      {error && (
-        <p id={errorId} className={FIELD_ERROR}>
-          {error}
-        </p>
-      )}
-    </div>
   )
 }

@@ -5,9 +5,10 @@ const FOCUSABLE =
   'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 /**
- * A modal dialog for a task (rename, add or remove sources). Focus moves into
- * it, stays inside, Escape closes it, and focus returns to what opened it, so
- * keyboard users land back where they were.
+ * A modal dialog for a task (rename, add or remove sources, a first-use
+ * question). Focus moves into it, stays inside, Escape closes it, and focus
+ * returns to what opened it, so keyboard users land back where they were.
+ * Without `onClose` it can't be dismissed: the user must pick an action.
  */
 export default function Dialog({
   title,
@@ -18,7 +19,7 @@ export default function Dialog({
   title: string
   description?: ReactNode
   children: ReactNode
-  onClose: () => void
+  onClose?: () => void
 }) {
   const id = useId()
   const dialog = useRef<HTMLDivElement>(null)
@@ -35,7 +36,7 @@ export default function Dialog({
   const handleKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape') {
       event.stopPropagation()
-      onClose()
+      onClose?.()
       return
     }
     if (event.key !== 'Tab') return

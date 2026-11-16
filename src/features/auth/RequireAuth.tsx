@@ -1,13 +1,15 @@
 import { Navigate, Outlet, useLocation } from 'react-router'
+import AgeCheckDialog from './AgeCheckDialog.tsx'
 import { useAuth } from './auth-context.ts'
 import { signInPathFor, verifyPathFor } from './safe-next.ts'
 
 /**
  * Layout route guarding every signed-in screen: signed-out visitors go to
  * sign-in (and come back afterwards), half-signed-in ones to the code screen.
+ * Accounts that haven't confirmed they're 13 or older are asked first.
  */
 export default function RequireAuth() {
-  const { status } = useAuth()
+  const { status, user } = useAuth()
   const { pathname, search, hash } = useLocation()
 
   if (status === 'loading') {
@@ -27,5 +29,13 @@ export default function RequireAuth() {
       <Navigate to={verifyPathFor(`${pathname}${search}${hash}`)} replace />
     )
   }
-  return <Outlet />
+  return (
+    <>
+      <Outlet />
+      {/* Strictly false: an offline-restored session (undefined) isn't asked. */}
+      {status === 'signed-in' && user?.ageConfirmed === false && (
+        <AgeCheckDialog />
+      )}
+    </>
+  )
 }

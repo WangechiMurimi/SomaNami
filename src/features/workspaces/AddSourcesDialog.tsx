@@ -4,7 +4,10 @@ import type { Workspace } from '../../types/contracts.ts'
 import { useLibraryContext } from '../library/library-context.ts'
 import DocumentCard from '../upload/DocumentCard.tsx'
 import UploadZone from '../upload/UploadZone.tsx'
-import Dialog, { DIALOG_PRIMARY, DIALOG_SECONDARY } from './Dialog.tsx'
+import Dialog, {
+  DIALOG_PRIMARY,
+  DIALOG_SECONDARY,
+} from '../../components/Dialog.tsx'
 import SourceChecklist from './SourceChecklist.tsx'
 import { useWorkspaceUpload } from './use-workspace-upload.ts'
 import { useWorkspaces } from './use-workspaces.ts'

@@ -3,7 +3,10 @@ import { DEFAULT_WORKSPACE } from '../../lib/storage/index.ts'
 import type { Workspace } from '../../types/contracts.ts'
 import { KIND_LABEL } from '../library/kind-label.ts'
 import { useLibraryContext } from '../library/library-context.ts'
-import Dialog, { DIALOG_PRIMARY, DIALOG_SECONDARY } from './Dialog.tsx'
+import Dialog, {
+  DIALOG_PRIMARY,
+  DIALOG_SECONDARY,
+} from '../../components/Dialog.tsx'
 import SourceChecklist from './SourceChecklist.tsx'
 
 const sources = (n: number) => `${n} ${n === 1 ? 'source' : 'sources'}`

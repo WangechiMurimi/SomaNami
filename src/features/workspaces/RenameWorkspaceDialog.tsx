@@ -2,7 +2,10 @@ import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import { updateWorkspace } from '../../lib/storage/index.ts'
 import type { Workspace } from '../../types/contracts.ts'
-import Dialog, { DIALOG_PRIMARY, DIALOG_SECONDARY } from './Dialog.tsx'
+import Dialog, {
+  DIALOG_PRIMARY,
+  DIALOG_SECONDARY,
+} from '../../components/Dialog.tsx'
 
 /** Renames a workspace; an empty name is refused rather than saved. */
 export default function RenameWorkspaceDialog({

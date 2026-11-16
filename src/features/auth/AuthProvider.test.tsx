@@ -34,6 +34,7 @@ describe('restoring a session', () => {
     expect(result.current.user).toEqual({
       id: 'user-1',
       email: 'me@example.com',
+      ageConfirmed: true,
     })
     expect(readLastUser()).toEqual({ id: 'user-1', email: 'me@example.com' })
   })
@@ -432,6 +433,25 @@ describe('account actions', () => {
       ok: true,
     })
     expect(auth.updateUser).toHaveBeenCalledWith({ password: 'new-pass-123' })
+  })
+
+  it('records the first-use answers and stops asking', async () => {
+    const { auth } = installFakeSupabase({
+      session: fakeSession({ ageConfirmed: false }),
+    })
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.status).toBe('signed-in'))
+    expect(result.current.user?.ageConfirmed).toBe(false)
+
+    await act(async () => {
+      await expect(
+        result.current.confirmFirstUse({ consentedAt: 'now' }),
+      ).resolves.toEqual({ ok: true })
+    })
+    expect(auth.updateUser).toHaveBeenCalledWith({
+      data: { age_13_plus: true, consented_at: 'now' },
+    })
+    expect(result.current.user?.ageConfirmed).toBe(true)
   })
 
   it('signs out of this device only by default', async () => {

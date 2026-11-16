@@ -38,6 +38,7 @@ const fail = (error: unknown): AuthResult => ({
 const toAuthUser = (session: Session): AuthUser => ({
   id: session.user.id,
   email: session.user.email ?? '',
+  ageConfirmed: session.user.user_metadata?.age_13_plus === true,
 })
 
 /** Whether this session still owes an authenticator code. */
@@ -70,7 +71,9 @@ function keepUnchanged(prev: Snapshot, next: Snapshot): Snapshot {
     return prev.phase === next.phase && prev.phase !== 'session' ? prev : next
   }
   const sameUser =
-    prev.user.id === next.user.id && prev.user.email === next.user.email
+    prev.user.id === next.user.id &&
+    prev.user.email === next.user.email &&
+    prev.user.ageConfirmed === next.user.ageConfirmed
   if (!sameUser) return next
   if (prev.needsMfa === next.needsMfa && prev.stale === next.stale) return prev
   return { ...next, user: prev.user }
@@ -298,6 +301,21 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         // email confirmation is on).
         return code === 'email-in-use' ? OK : { ok: false, error: code }
       },
+      async confirmFirstUse({ consentedAt }) {
+        // Stored where the email sign-up stores the same answers, so every
+        // device sees them. TODO(#143): move to the profile once it exists.
+        const { data, error } = await auth.updateUser({
+          data: { age_13_plus: true, consented_at: consentedAt },
+        })
+        if (error) return fail(error)
+        // Update now rather than wait for the USER_UPDATED event, so the
+        // prompt closes as soon as the call returns.
+        const { data: current } = await auth.getSession()
+        if (current.session && data.user) {
+          await applySession({ ...current.session, user: data.user })
+        }
+        return OK
+      },
       async signOut({ scope = 'local' } = {}) {
         try {
           const { error } = await auth.signOut({ scope })
@@ -347,6 +365,7 @@ const notConfiguredValue: AuthContextValue = {
   signIn: notReady,
   signInWithGoogle: notReady,
   signUp: notReady,
+  confirmFirstUse: notReady,
   signOut: async () => {},
   requestPasswordReset: notReady,
   updatePassword: notReady,

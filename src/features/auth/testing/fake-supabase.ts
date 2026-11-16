@@ -13,6 +13,12 @@ export interface FakeUser {
   email?: string
   /** True when the account has a verified authenticator. */
   mfa?: boolean
+  /**
+   * False for an account that hasn't answered the first-use 13+ and Terms
+   * questions (a new Google sign-up). Defaults to true, as most tests are
+   * about an account that already has.
+   */
+  ageConfirmed?: boolean
 }
 
 /** A session shaped like Supabase's, for tests. Holds no real token. */
@@ -20,6 +26,7 @@ export function fakeSession({
   id = 'user-1',
   email = 'learner@example.com',
   mfa = false,
+  ageConfirmed = true,
 }: FakeUser = {}): Session {
   return {
     access_token: `token-${id}`,
@@ -32,7 +39,7 @@ export function fakeSession({
       email,
       aud: 'authenticated',
       app_metadata: {},
-      user_metadata: {},
+      user_metadata: ageConfirmed ? { age_13_plus: true } : {},
       created_at: '2026-01-01T00:00:00Z',
       factors: mfa
         ? [
@@ -97,7 +104,20 @@ export function installFakeSupabase({
       return { error: null }
     }),
     resetPasswordForEmail: vi.fn(() => ok({})),
-    updateUser: vi.fn(() => ok({ user: state.session?.user ?? null })),
+    // Merges `data` into the user's metadata, as Supabase does.
+    updateUser: vi.fn((attributes: { data?: Record<string, unknown> }) => {
+      if (state.session && attributes.data) {
+        const user = state.session.user
+        state.session = {
+          ...state.session,
+          user: {
+            ...user,
+            user_metadata: { ...user.user_metadata, ...attributes.data },
+          },
+        }
+      }
+      return ok({ user: state.session?.user ?? null })
+    }),
     mfa: {
       getAuthenticatorAssuranceLevel: vi.fn(() =>
         ok({

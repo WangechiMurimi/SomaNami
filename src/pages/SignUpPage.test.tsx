@@ -202,25 +202,17 @@ describe('step 2: details', () => {
 })
 
 describe('with Google', () => {
-  it('asks for the 13+ confirmation before leaving for Google', async () => {
+  it('leaves for Google at once; the 13+ and Terms questions come after', async () => {
     const { auth } = installFakeSupabase()
     page()
     await userEvent.click(
       await screen.findByRole('button', { name: 'Continue with Google' }),
     )
-    expect(await screen.findByText('Step 2 of 2')).toBeInTheDocument()
-    expect(auth.signInWithOAuth).not.toHaveBeenCalled()
-
-    const submit = screen.getByRole('button', { name: 'Continue with Google' })
-    await userEvent.click(submit)
-    expect(auth.signInWithOAuth).not.toHaveBeenCalled()
-
-    await confirmDetails()
-    await userEvent.click(submit)
     expect(auth.signInWithOAuth).toHaveBeenCalledWith({
       provider: 'google',
       options: { redirectTo: window.location.origin },
     })
+    expect(screen.queryByText('Step 2 of 2')).not.toBeInTheDocument()
     expect(auth.signUp).not.toHaveBeenCalled()
   })
 
@@ -233,10 +225,6 @@ describe('with Google', () => {
     page()
     await userEvent.click(
       await screen.findByRole('button', { name: 'Continue with Google' }),
-    )
-    await confirmDetails()
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Continue with Google' }),
     )
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Too many attempts',

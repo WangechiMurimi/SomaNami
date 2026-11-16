@@ -17,6 +17,13 @@ export interface AuthUser {
   /** Supabase user id (UUID); also names the user's local store. */
   id: string
   email: string
+  /**
+   * Whether the account has confirmed it is 13 or older and accepted the
+   * Terms. Email sign-ups do it on the form; Google accounts are asked once
+   * after their first sign-in.
+   * Unknown (undefined) for a session restored offline, which isn't asked.
+   */
+  ageConfirmed?: boolean
 }
 
 /** Failure reasons the UI can word for people; never reveals whether an account exists. */
@@ -52,6 +59,12 @@ export interface SignUpInput extends Omit<SignInInput, 'keepSignedIn'> {
   consentedAt: string
   // The form requires an "I'm 13 or older" confirmation before this call;
   // only that outcome is stored (as `age_13_plus: true`), never a birth date.
+}
+
+/** The first-use answers of an account that skipped the email form. */
+export interface FirstUseInput {
+  /** ISO time the user accepted the Terms and the data note. */
+  consentedAt: string
 }
 
 export interface PasswordResetInput {
@@ -94,6 +107,8 @@ export interface AuthContextValue {
    */
   signInWithGoogle(input?: GoogleSignInInput): Promise<AuthResult>
   signUp(input: SignUpInput): Promise<AuthResult>
+  /** Records that the signed-in user is 13+ and accepted the Terms (asked once, on first use). */
+  confirmFirstUse(input: FirstUseInput): Promise<AuthResult>
   /** `global` signs out every device; `local` only this one. */
   signOut(options?: { scope?: 'local' | 'global' }): Promise<void>
   requestPasswordReset(input: PasswordResetInput): Promise<AuthResult>
