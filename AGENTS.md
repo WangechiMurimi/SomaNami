@@ -61,7 +61,7 @@ The project lives at the repository root. Folders marked *(planned)* don't exist
 	- **Tests:** Follow `[name].test.[ext]` and colocate unit tests with their corresponding source files.
 	- **Coverage target:** Aim for at least 80% coverage of critical application logic.
 6. **Auth and storage conventions** (#114):
-	- Every route is signed-in only unless it is listed as public in `src/App.tsx`: `sign-in`, `sign-up`, `forgot-password`, `update-password`, `auth/callback` and `your-data` (How your data is handled).
+	- Every route is signed-in only unless it is listed as public in `src/App.tsx`: `sign-in`, `sign-up`, `forgot-password`, `update-password`, and `auth/callback`.
 	- Signed-in screens also sit below `RequireProfile`, which sends an account without a complete profile to `welcome/details`; that route is the only one between `RequireAuth` and it.
 	- Read the session through `useAuth()`; never call Supabase Auth from a component directly.
 	- Storage belongs to the signed-in user: read and write it only below `UserStoreGate`.

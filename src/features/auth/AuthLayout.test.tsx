@@ -29,9 +29,6 @@ describe('AuthLayout', () => {
     const panel = screen.getByRole('region', { name: 'About SomaNami' })
     expect(panel).toHaveTextContent(/answers come only from what you add/i)
     expect(panel).not.toHaveTextContent(/private|offline|this device/i)
-    expect(
-      within(panel).getByRole('link', { name: 'How your data is handled' }),
-    ).toHaveAttribute('href', '/your-data')
   })
 
   it('shows a step line above the title when given one', () => {
