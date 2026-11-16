@@ -144,6 +144,18 @@ export interface ChatReply {
 }
 
 /**
+ * Response body of `POST /api/embed` (#153). The request body is `{}`: the
+ * server embeds the signed-in learner's chunks that have no vector yet, a page
+ * at a time, so the client calls again until `done`.
+ */
+export interface EmbedReply {
+  /** Chunks embedded and stored by this request. */
+  embedded: number
+  /** True when no chunk is left without an embedding. */
+  done: boolean
+}
+
+/**
  * A chat inside one workspace. `materialIds` are the workspace materials it
  * may draw on; retrieval never looks beyond them (US-08 AC3).
  */
