@@ -10,6 +10,7 @@ import { KIND_LABEL } from '../features/library/kind-label.ts'
 import { SearchIcon } from '../features/library/library-icons.tsx'
 import { useLibraryContext } from '../features/library/library-context.ts'
 import LibraryUpload from '../features/library/LibraryUpload.tsx'
+import { useSync } from '../features/sync/sync-context.ts'
 import { userWorkspaces } from '../features/workspaces/user-workspaces.ts'
 import { useWorkspaces } from '../features/workspaces/use-workspaces.ts'
 import {
@@ -33,6 +34,7 @@ const FILTERS: { label: string; kind: DocumentKind | null }[] = [
   { label: 'PDF', kind: 'pdf' },
   { label: 'Word', kind: 'docx' },
   { label: 'Text', kind: 'text' },
+  { label: 'Web', kind: 'web' },
 ]
 
 const chats = (n: number) => `${n} ${n === 1 ? 'chat' : 'chats'}`
@@ -43,9 +45,12 @@ function RemoveMaterial({
   onDone,
 }: {
   material: StoredDocument
-  onDone: () => void
+  /** Called with what to tell the learner, or nothing if they cancelled. */
+  onDone: (notice?: string) => void
 }) {
   const { remove } = useLibraryContext()
+  const { status: sync, flush } = useSync()
+  const inCloud = sync !== 'off'
   const [effect, setEffect] = useState<{ ending: number; keeping: number }>()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -71,11 +76,22 @@ function RemoveMaterial({
     setBusy(true)
     try {
       await remove(material.id)
-      onDone()
     } catch (cause) {
       console.error('Could not remove the material', cause)
       setError('We couldn’t remove it. Try again.')
       setBusy(false)
+      return
+    }
+    // Deleted here and queued for the cloud; only say "deleted" once the
+    // cloud has confirmed it (#147). If it can't yet, the queue keeps it and
+    // a later sync finishes the job, so say exactly that.
+    try {
+      await flush()
+      onDone(`‘${material.name}’ deleted`)
+    } catch {
+      onDone(
+        `‘${material.name}’ is removed from your library. We couldn’t reach SomaNami to erase it from your account yet; we’ll finish as soon as we can.`,
+      )
     }
   }
 
@@ -85,9 +101,13 @@ function RemoveMaterial({
       confirmLabel="Remove"
       busy={busy || !effect}
       onConfirm={() => void confirm()}
-      onCancel={onDone}
+      onCancel={() => onDone()}
     >
-      <p>It will be removed from this device.</p>
+      <p>
+        {inCloud
+          ? 'It will be deleted from your account and all your devices, original file included.'
+          : 'It will be deleted.'}
+      </p>
       {effect && effect.ending > 0 && (
         <p className="mt-2">
           {chats(effect.ending)} that only used this material will be removed
@@ -231,6 +251,7 @@ export default function LibraryPage() {
   const [target, setTarget] = useState<string>(DEFAULT_WORKSPACE.id)
   const [removing, setRemoving] = useState<StoredDocument | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   useBreadcrumbs([{ label: 'My library' }])
 
   const needle = query.trim().toLowerCase()
@@ -335,6 +356,10 @@ export default function LibraryPage() {
       <LibraryUpload key={target} workspaceId={target} />
 
       <section aria-label="Materials" className="flex flex-col gap-4">
+        {/* Always rendered, so screen readers announce the message when it appears. */}
+        <p role="status" className="text-sm text-muted empty:hidden">
+          {notice}
+        </p>
         {status === 'loading' ? (
           <p role="status" className="text-muted">
             Opening your library…
@@ -434,7 +459,13 @@ export default function LibraryPage() {
       </section>
 
       {removing && (
-        <RemoveMaterial material={removing} onDone={() => setRemoving(null)} />
+        <RemoveMaterial
+          material={removing}
+          onDone={(message) => {
+            setRemoving(null)
+            if (message) setNotice(message)
+          }}
+        />
       )}
     </div>
   )

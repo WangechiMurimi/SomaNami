@@ -114,21 +114,19 @@ Screen details the code depends on:
 - **Saved conversations** (`/conversations`): saved chats from Recents and from
   workspaces, each labelled with its workspace or "Recents", with Unsave, a
   title search and a workspace filter.
-- **Account settings:** cards for Profile (email, read-only until profiles
-  exist), Appearance (theme), Privacy and data (a link to "How your data is
-  handled" and "Remove my materials and sign out", with no privacy promises),
-  Sign out, and Two-step verification. There is no device or connection status.
+- **Account settings:** cards for Profile (display name from the profile,
+  with "Change your name", and the email) and Appearance (theme), then the
+  Sign out section: this device, every device, and Erase my materials. There
+  is no device or connection status.
 - **Help** (`/help`): six numbered topic cards (adding materials, asking and
   following up, checking the source, workspaces, Recents, saving chats), a
   panel explaining the "From your materials" and "Not answered from your
   materials" labels, and a link to the data page. The lede carries the one
   grounding sentence.
-- **How your data is handled** (public `/privacy`): one reading column of
-  cards (what we keep, where it's stored, how answers are made, removing your
-  data). It states only what the code does; anything unconfirmed (storage and
-  retention, model and hosting, account deletion, contact, date) shows as a
-  visible `[CONFIRM: …]` placeholder for the owner. It never names the
-  development model provider.
+- **How your data is handled** (public `/your-data`) and **Terms of Use**
+  (public `/terms`): reading pages. Anything the owner hasn't confirmed shows
+  as a visible `[CONFIRM: …]` placeholder. Neither names the development
+  model provider.
 
 The persistent sidebar (260 px, sticky to the viewport) holds: New workspace,
 Home, Workspaces, My library, Saved conversations, Recents, and the account
@@ -150,15 +148,19 @@ a menu button below `md`), the page's breadcrumb trail (`useBreadcrumbs` in
 `src/app/breadcrumbs.ts`) and Help. The theme lives in Account settings; Log
 out is in the account menu and Account settings.
 
-Auth screens (sign in, sign up, password reset, MFA) share one two-panel
-layout: a brand panel on `side` with three feature rows and a link to "How your
-data is handled", and a form column up to 420 px wide. The form comes first on
-phones and in the source order. Sign in and Create account start with an
-outlined "Continue with Google" button above the email form. Sign in has "Keep
-me signed in" (checked by default; unchecked keeps the session in
-sessionStorage). Create account has two steps: method (Google or email and
-password), then a required "I'm 13 or older" checkbox and consent; no birth
-date is collected.
+**Auth screens.** Sign in ("Welcome back") · Create account · A few details
+(display name, "I'm 13 or older") · Forgot and new password · Signing you in
+(`/auth/callback`). They share one two-panel layout (`AuthLayout`): a brand
+panel on `side` with three feature rows and a link to "How your data is
+handled" (`/your-data`), and a form column up to 420 px wide that comes first on
+phones and in the source order. An outlined "Continue with Google" button comes
+first, then an "or use your email" rule and the email form, with the taller
+`SUBMIT_BUTTON` as the strongest action. Classes live in
+`src/features/auth/auth-ui.ts`: 48 px inputs, 44 px buttons (48 px submit),
+≥ 3:1 borders, visible focus and errors that don't rely on colour alone. The
+restyle (#176) replaces the earlier plain wireframes (ADR 0001) as the auth
+design. How your data is handled uses the same layout's single wide reading
+column.
 
 Row 2 of the canvas holds the screens proposed after the first pass. Create
 account, Saved conversations, Help and the data note are built from them, with

@@ -20,7 +20,7 @@ export interface Chunk {
   source: Source
 }
 
-export type DocumentKind = 'pdf' | 'docx' | 'text'
+export type DocumentKind = 'pdf' | 'docx' | 'text' | 'web'
 
 /** A parsed, uploaded document as stored locally. */
 /** A topic that groups materials and the conversations about them (US-08). */
@@ -43,11 +43,20 @@ export interface NewDocument {
   kind: DocumentKind
   pageCount: number | null
   chunks: Chunk[]
+  /** The link a material was fetched from; absent for uploads and pasted text. */
+  sourceUrl?: string
+  /** When `sourceUrl` was fetched (epoch ms); the page may have changed since. */
+  fetchedAt?: number
 }
 
 /** A material saved on this device; it belongs to exactly one workspace. */
 export interface StoredDocument extends NewDocument {
   workspaceId: string
+  /** Where the original file is in the `materials` bucket, once uploaded (#145). */
+  storagePath?: string
+  /** Client clock, epoch ms; `updatedAt` decides last-write-wins in sync. */
+  createdAt: number
+  updatedAt: number
 }
 
 /** Identifies one chunk; `documentId` is carried so callers can join to the file. */
@@ -56,7 +65,7 @@ export interface ChunkRef {
   chunkId: string
 }
 
-/** A chunk selected for a question, as sent to `POST /api/chat`. */
+/** A chunk with its text and location, as retrieval returns it. */
 export interface Passage extends ChunkRef {
   text: string
   source: Source
@@ -67,6 +76,39 @@ export interface RetrievedPassage extends Passage {
   score: number
 }
 
+/**
+ * Request body of `POST /api/fetch-link`. The server only fetches; the browser
+ * parses the returned bytes like an upload. A success is the raw body with its
+ * `Content-Type`, the post-redirect URL in `X-Final-Url`, and a suggested file
+ * name in `Content-Disposition`. A failure is JSON `FetchLinkFailure`.
+ */
+export interface FetchLinkRequest {
+  url: string
+}
+
+/** Why a link could not be fetched; each maps to a message with a fallback. */
+export type FetchLinkErrorCode =
+  | 'invalid-url'
+  | 'video-not-supported'
+  | 'blocked-address'
+  | 'unreachable'
+  | 'timeout'
+  | 'too-many-redirects'
+  | 'login-or-paywall'
+  | 'unsupported-type'
+  | 'too-large'
+  | 'rate-limited'
+  | 'unauthorized'
+  | 'not-configured'
+
+/** Error body of `POST /api/fetch-link`. */
+export interface FetchLinkFailure {
+  error: FetchLinkErrorCode
+}
+
+/** Response header carrying the URL the bytes came from after redirects. */
+export const FINAL_URL_HEADER = 'X-Final-Url'
+
 export type Role = 'user' | 'assistant'
 
 export interface HistoryTurn {
@@ -74,21 +116,33 @@ export interface HistoryTurn {
   content: string
 }
 
-/** Request body of `POST /api/chat`. */
+/**
+ * Request body of `POST /api/chat` (#148). The client names the materials the
+ * conversation may draw on; the server loads and ranks their chunks itself,
+ * as the signed-in user, so it never trusts passages a client claims to have.
+ */
 export interface ChatRequest {
   question: string
-  passages: Passage[]
+  materialIds: string[]
   history: HistoryTurn[]
+}
+
+/** A passage an answer cites, with the name of the material it came from. */
+export interface CitedPassage extends Passage {
+  documentName: string
 }
 
 /**
  * Response body of `POST /api/chat`. `answerable: false` means the passages did
  * not support an answer, and the UI must say so rather than show a guess.
+ * `passages` holds exactly the cited passages, one per citation, so the client
+ * can show sources it may not hold locally.
  */
 export interface ChatReply {
   answer: string
   citations: ChunkRef[]
   answerable: boolean
+  passages: CitedPassage[]
 }
 
 /**

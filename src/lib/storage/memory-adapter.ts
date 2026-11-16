@@ -1,5 +1,6 @@
 import type {
   Change,
+  Guard,
   Removal,
   StorageAdapter,
   StorageRecord,
@@ -120,6 +121,27 @@ export function createMemoryAdapter(): StorageAdapter {
           store.set(change.record.id, copy(change.record))
         else store.delete(change.key)
       }
+    },
+
+    async guardedCommit(guards: readonly Guard[], changes: readonly Change[]) {
+      // Synchronous from check to write, so nothing can interleave: the same
+      // guarantee the IndexedDB transaction gives.
+      const holds = guards.every(({ storeName, key, field, equals }) => {
+        const record = entries(storeName).get(key) as
+          Record<string, unknown> | undefined
+        return record?.[field] === equals
+      })
+      if (!holds) return false
+      const targets = changes.map((change) => ({
+        change,
+        store: entries(change.storeName),
+      }))
+      for (const { change, store } of targets) {
+        if (change.type === 'put')
+          store.set(change.record.id, copy(change.record))
+        else store.delete(change.key)
+      }
+      return true
     },
 
     async close() {

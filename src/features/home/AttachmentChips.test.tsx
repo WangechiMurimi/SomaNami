@@ -13,6 +13,8 @@ const document: StoredDocument = {
   pageCount: 1,
   chunks: [],
   workspaceId: 'default',
+  createdAt: 1,
+  updatedAt: 1,
 }
 
 function setup(attachments: Attachment[]) {

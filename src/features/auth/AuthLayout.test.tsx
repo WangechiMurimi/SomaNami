@@ -31,7 +31,7 @@ describe('AuthLayout', () => {
     expect(panel).not.toHaveTextContent(/private|offline|this device/i)
     expect(
       within(panel).getByRole('link', { name: 'How your data is handled' }),
-    ).toHaveAttribute('href', '/privacy')
+    ).toHaveAttribute('href', '/your-data')
   })
 
   it('shows a step line above the title when given one', () => {

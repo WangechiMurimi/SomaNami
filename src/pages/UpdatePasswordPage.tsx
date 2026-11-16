@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, Navigate } from 'react-router'
+import { Link } from 'react-router'
 import AuthLayout from '../features/auth/AuthLayout.tsx'
 import FormAlert from '../features/auth/FormAlert.tsx'
 import PasswordField from '../features/auth/PasswordField.tsx'
@@ -11,7 +11,6 @@ import {
   SUBMIT_BUTTON,
   TEXT_LINK,
 } from '../features/auth/auth-ui.ts'
-import { verifyPathFor } from '../features/auth/safe-next.ts'
 import { useFocusFirstError } from '../features/auth/use-focus-first-error.ts'
 
 /**
@@ -35,10 +34,6 @@ export default function UpdatePasswordPage() {
         </p>
       </AuthLayout>
     )
-  }
-  if (status === 'needs-mfa') {
-    // Accounts with an authenticator prove it before changing the password.
-    return <Navigate to={verifyPathFor('/update-password')} replace />
   }
   if (status === 'signed-out') {
     return (

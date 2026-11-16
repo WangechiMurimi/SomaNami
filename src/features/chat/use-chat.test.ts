@@ -12,8 +12,17 @@ const answer = (overrides = {}) => ({
   answer: 'Because light drives it.',
   citations: [],
   answerable: true,
+  passages: [],
   ...overrides,
 })
+
+const lightPassage = {
+  documentId: 'doc-1',
+  chunkId: 'doc-1:2',
+  documentName: 'Biology (cloud).pdf',
+  text: 'Light drives it.',
+  source: { type: 'page' as const, page: 4 },
+}
 
 beforeEach(() => {
   // A block body, not a one-liner: Vitest treats a returned function as a
@@ -40,7 +49,7 @@ describe('useChat', () => {
 
     expect(askQuestion).toHaveBeenLastCalledWith({
       question: 'Second?',
-      passages: [],
+      materialIds: [],
       history: [
         { role: 'user', content: 'First?' },
         { role: 'assistant', content: 'Because light drives it.' },
@@ -48,22 +57,30 @@ describe('useChat', () => {
     })
   })
 
-  it('resolves citations against the passages it sent', async () => {
-    const passages = [
-      {
-        documentId: 'doc-1',
-        chunkId: 'doc-1:2',
-        text: 'Light drives it.',
-        source: { type: 'page' as const, page: 4 },
-      },
-    ]
+  it("sends the conversation's material ids", async () => {
+    vi.mocked(askQuestion).mockResolvedValue(answer())
+    const { result } = renderHook(() =>
+      useChat({ materialIds: ['doc-1', 'doc-2'] }),
+    )
+
+    await act(() => result.current.send('Why?'))
+
+    expect(askQuestion).toHaveBeenLastCalledWith(
+      expect.objectContaining({ materialIds: ['doc-1', 'doc-2'] }),
+    )
+  })
+
+  it('resolves citations against the passages the reply carries', async () => {
     vi.mocked(askQuestion).mockResolvedValue(
-      answer({ citations: [{ documentId: 'doc-1', chunkId: 'doc-1:2' }] }),
+      answer({
+        citations: [{ documentId: 'doc-1', chunkId: 'doc-1:2' }],
+        passages: [lightPassage],
+      }),
     )
     const { result } = renderHook(() =>
       useChat({
         documents: [{ id: 'doc-1', name: 'biology.pdf' }],
-        selectPassages: () => passages,
+        materialIds: ['doc-1'],
       }),
     )
 
@@ -75,6 +92,27 @@ describe('useChat', () => {
       {
         key: 'doc-1:2',
         label: 'biology.pdf · Page 4',
+        text: 'Light drives it.',
+      },
+    ])
+  })
+
+  it("names a citation from the reply when this device doesn't hold the material", async () => {
+    vi.mocked(askQuestion).mockResolvedValue(
+      answer({
+        citations: [{ documentId: 'doc-1', chunkId: 'doc-1:2' }],
+        passages: [lightPassage],
+      }),
+    )
+    const { result } = renderHook(() => useChat({ materialIds: ['doc-1'] }))
+
+    await act(() => result.current.send('Why?'))
+
+    const last = result.current.messages.at(-1)
+    expect(last?.role === 'assistant' && last.citations).toEqual([
+      {
+        key: 'doc-1:2',
+        label: 'Biology (cloud).pdf · Page 4',
         text: 'Light drives it.',
       },
     ])
@@ -104,7 +142,7 @@ describe('useChat', () => {
     ])
     expect(askQuestion).toHaveBeenLastCalledWith({
       question: 'Why?',
-      passages: [],
+      materialIds: [],
       history: [],
     })
   })

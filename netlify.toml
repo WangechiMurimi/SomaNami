@@ -7,6 +7,15 @@
 # - SUPABASE_URL (optional; falls back to VITE_SUPABASE_URL): the Functions
 #   verify session tokens against this project's keys. With neither set, every
 #   chat request is refused with 503 not-configured.
+# - SUPABASE_PUBLISHABLE_KEY (optional; falls back to
+#   VITE_SUPABASE_PUBLISHABLE_KEY): the chat Function loads the learner's
+#   materials with it and the learner's own token, so RLS applies (#148).
+#   Without it, chat answers 503 not-configured. Never a secret key.
+# Functions: chat.ts (/api/chat), health.ts (/api/health) and fetch-link.ts
+# (/api/fetch-link, #93), which fetches a learner's link server-side and
+# returns the raw bytes for the browser to parse. It is same-origin, so the
+# CSP below needs no new connect-src; its outbound requests are not subject to
+# CSP. Its rate limit lives in the function's `config`, like chat's.
 [build]
   command = "npm run build"
   publish = "dist"
@@ -29,8 +38,11 @@
 # - challenges.cloudflare.com: Turnstile's script and its challenge iframe.
 # - fonts.googleapis.com / fonts.gstatic.com: the Inter and Manjari webfonts
 #   imported at the top of src/index.css.
-# - img-src data: blob:: the MFA enrolment QR code is a data: URI.
-# - *.supabase.co: Supabase Auth over HTTPS.
+# - img-src data: blob:: pdf.js draws some page parts from generated data: and
+#   blob: images.
+# - wocfeftbiqmozhbqcojw.supabase.co: this project's Supabase (Auth, the
+#   profiles table and, from #143, storage) over HTTPS, and nothing else. A new
+#   Supabase project must be named here, or the browser can't reach it.
 # - worker-src 'self' blob:: the pdf.js worker is a same-origin file; blob:
 #   covers libraries that start workers from generated code.
 # - No 'unsafe-inline' anywhere. The theme script is public/theme-init.js, Vite
@@ -46,7 +58,7 @@
       style-src 'self' https://fonts.googleapis.com; \
       font-src 'self' https://fonts.gstatic.com; \
       img-src 'self' data: blob:; \
-      connect-src 'self' https://*.supabase.co; \
+      connect-src 'self' https://wocfeftbiqmozhbqcojw.supabase.co; \
       frame-src https://challenges.cloudflare.com; \
       worker-src 'self' blob:; \
       object-src 'none'; \

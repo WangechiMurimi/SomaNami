@@ -11,22 +11,15 @@ type Listener = (event: AuthChangeEvent, session: Session | null) => void
 export interface FakeUser {
   id?: string
   email?: string
-  /** True when the account has a verified authenticator. */
-  mfa?: boolean
-  /**
-   * False for an account that hasn't answered the first-use 13+ and Terms
-   * questions (a new Google sign-up). Defaults to true, as most tests are
-   * about an account that already has.
-   */
-  ageConfirmed?: boolean
+  /** The name Google would put in the user's metadata. */
+  name?: string
 }
 
 /** A session shaped like Supabase's, for tests. Holds no real token. */
 export function fakeSession({
   id = 'user-1',
   email = 'learner@example.com',
-  mfa = false,
-  ageConfirmed = true,
+  name,
 }: FakeUser = {}): Session {
   return {
     access_token: `token-${id}`,
@@ -39,44 +32,49 @@ export function fakeSession({
       email,
       aud: 'authenticated',
       app_metadata: {},
-      user_metadata: ageConfirmed ? { age_13_plus: true } : {},
+      user_metadata: name ? { full_name: name } : {},
       created_at: '2026-01-01T00:00:00Z',
-      factors: mfa
-        ? [
-            {
-              id: 'factor-1',
-              factor_type: 'totp',
-              status: 'verified',
-              created_at: '2026-01-01T00:00:00Z',
-              updated_at: '2026-01-01T00:00:00Z',
-            },
-          ]
-        : [],
     },
   } as Session
 }
 
 const ok = <T>(data: T) => Promise.resolve({ data, error: null })
 
+/** A `profiles` row as PostgREST returns it. */
+export interface FakeProfileRow {
+  display_name: string | null
+  age_13_plus: boolean
+}
+
+/** A finished details step, so signed-in screens open straight away. */
+export const COMPLETE_PROFILE: FakeProfileRow = {
+  display_name: 'Learner',
+  age_13_plus: true,
+}
+
 /**
- * An in-memory stand-in for `supabase.auth`, installed with
- * `setSupabaseClient`. Every method is a `vi.fn`, so tests can override one
- * call (`auth.signInWithPassword.mockResolvedValueOnce(...)`) or inspect args.
+ * An in-memory stand-in for `supabase.auth` and the `profiles` table,
+ * installed with `setSupabaseClient`. Every method is a `vi.fn`, so tests can
+ * override one call (`auth.signInWithPassword.mockResolvedValueOnce(...)`) or
+ * inspect args. `profile` is every user's row until one is saved; pass `null`
+ * for an account that hasn't finished the details step.
  */
 export function installFakeSupabase({
   session = null,
-  aal = 'aal1',
-}: { session?: Session | null; aal?: 'aal1' | 'aal2' } = {}) {
+  profile = COMPLETE_PROFILE,
+}: { session?: Session | null; profile?: FakeProfileRow | null } = {}) {
   const listeners = new Set<Listener>()
-  const state = { session, aal }
+  const state = {
+    session,
+    profiles: new Map<string, FakeProfileRow | null>(),
+  }
+  const rowFor = (id: string) =>
+    state.profiles.has(id) ? (state.profiles.get(id) ?? null) : profile
 
   const emit = (event: AuthChangeEvent, next: Session | null) => {
     state.session = next
     for (const listener of listeners) listener(event, next)
   }
-
-  const hasVerifiedFactor = () =>
-    state.session?.user.factors?.some((f) => f.status === 'verified') ?? false
 
   const auth = {
     getSession: vi.fn(() => ok({ session: state.session })),
@@ -94,63 +92,63 @@ export function installFakeSupabase({
       emit('SIGNED_IN', next)
       return { data: { session: next, user: next.user }, error: null }
     }),
-    // The real call navigates away; tests only check how it was asked.
-    signInWithOAuth: vi.fn(() =>
-      ok({ provider: 'google', url: 'https://accounts.example/auth' }),
-    ),
     signUp: vi.fn(() => ok({ session: null, user: null })),
+    // The real call sends the browser to Google; the fake only reports it.
+    signInWithOAuth: vi.fn(() =>
+      ok({ provider: 'google', url: 'https://accounts.example/authorize' }),
+    ),
+    // Any code works once, like a real one, and signs in a fresh session.
+    exchangeCodeForSession: vi.fn<
+      (code: string) => Promise<{
+        data: { session: Session | null; user: Session['user'] | null }
+        error: Error | null
+      }>
+    >(async () => {
+      const next = fakeSession()
+      emit('SIGNED_IN', next)
+      return { data: { session: next, user: next.user }, error: null }
+    }),
     signOut: vi.fn(async () => {
       emit('SIGNED_OUT', null)
       return { error: null }
     }),
     resetPasswordForEmail: vi.fn(() => ok({})),
-    // Merges `data` into the user's metadata, as Supabase does.
-    updateUser: vi.fn((attributes: { data?: Record<string, unknown> }) => {
-      if (state.session && attributes.data) {
-        const user = state.session.user
-        state.session = {
-          ...state.session,
-          user: {
-            ...user,
-            user_metadata: { ...user.user_metadata, ...attributes.data },
-          },
-        }
-      }
-      return ok({ user: state.session?.user ?? null })
-    }),
-    mfa: {
-      getAuthenticatorAssuranceLevel: vi.fn(() =>
-        ok({
-          currentLevel: state.session ? state.aal : null,
-          nextLevel: state.session
-            ? hasVerifiedFactor()
-              ? 'aal2'
-              : state.aal
-            : null,
-          currentAuthenticationMethods: [],
-        }),
-      ),
-      listFactors: vi.fn(() => {
-        const all = state.session?.user.factors ?? []
-        return ok({ all, totp: all, phone: [], webauthn: [] })
-      }),
-      enroll: vi.fn(() =>
-        ok({
-          id: 'factor-2',
-          type: 'totp',
-          friendly_name: 'Phone',
-          totp: { qr_code: '<svg/>', secret: 'SECRET', uri: 'otpauth://x' },
-        }),
-      ),
-      challengeAndVerify: vi.fn(async () => {
-        state.aal = 'aal2'
-        emit('MFA_CHALLENGE_VERIFIED', state.session)
-        return { data: {}, error: null }
-      }),
-      unenroll: vi.fn(() => ok({ id: 'factor-1' })),
-    },
+    updateUser: vi.fn(() => ok({ user: state.session?.user ?? null })),
   }
 
-  setSupabaseClient({ auth } as unknown as SupabaseClient)
-  return { auth, emit, state }
+  // Only the query shapes src/lib/auth/profile.ts uses; tests stub `db`.
+  const db = {
+    readProfile: vi.fn(
+      async (
+        id: string,
+      ): Promise<{ data: FakeProfileRow | null; error: Error | null }> => ({
+        data: rowFor(id),
+        error: null,
+      }),
+    ),
+    upsertProfile: vi.fn(
+      async (
+        row: FakeProfileRow & { id: string },
+      ): Promise<{ error: Error | null }> => {
+        const { id, ...rest } = row
+        state.profiles.set(id, rest)
+        return { error: null }
+      },
+    ),
+  }
+
+  const from = vi.fn((table: string) => {
+    if (table !== 'profiles') throw new Error(`No fake for table ${table}`)
+    return {
+      select: () => ({
+        eq: (_column: 'id', id: string) => ({
+          maybeSingle: () => db.readProfile(id),
+        }),
+      }),
+      upsert: (row: FakeProfileRow & { id: string }) => db.upsertProfile(row),
+    }
+  })
+
+  setSupabaseClient({ auth, from } as unknown as SupabaseClient)
+  return { auth, db, emit, state }
 }

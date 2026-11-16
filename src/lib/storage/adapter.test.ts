@@ -261,4 +261,81 @@ describe.each(ADAPTERS)('%s adapter', (_name, makeAdapter) => {
     await adapter.put(DOCUMENTS, { id: 'd1' })
     await expect(adapter.close()).resolves.toBeUndefined()
   })
+
+  describe('guardedCommit', () => {
+    const seqIs = (equals: number | undefined) => ({
+      storeName: MESSAGES,
+      key: 'm1',
+      field: 'seq',
+      equals,
+    })
+
+    it('applies the changes when every guard holds', async () => {
+      await adapter.put(MESSAGES, { id: 'm1', seq: 1 })
+      const applied = await adapter.guardedCommit(
+        [seqIs(1)],
+        [
+          { type: 'remove', storeName: MESSAGES, key: 'm1' },
+          { type: 'put', storeName: DOCUMENTS, record: { id: 'd1' } },
+        ],
+      )
+      expect(applied).toBe(true)
+      expect(await adapter.get(MESSAGES, 'm1')).toBeUndefined()
+      expect(await adapter.get(DOCUMENTS, 'd1')).toEqual({ id: 'd1' })
+    })
+
+    it('changes nothing when a guard fails', async () => {
+      await adapter.put(MESSAGES, { id: 'm1', seq: 2 })
+      const applied = await adapter.guardedCommit(
+        [seqIs(1)],
+        [
+          { type: 'remove', storeName: MESSAGES, key: 'm1' },
+          { type: 'put', storeName: DOCUMENTS, record: { id: 'd1' } },
+        ],
+      )
+      expect(applied).toBe(false)
+      expect(await adapter.get(MESSAGES, 'm1')).toEqual({ id: 'm1', seq: 2 })
+      expect(await adapter.get(DOCUMENTS, 'd1')).toBeUndefined()
+    })
+
+    it('treats a missing record as undefined fields', async () => {
+      expect(
+        await adapter.guardedCommit(
+          [seqIs(undefined)],
+          [{ type: 'put', storeName: DOCUMENTS, record: { id: 'd1' } }],
+        ),
+      ).toBe(true)
+      await adapter.put(MESSAGES, { id: 'm1', seq: 1 })
+      expect(
+        await adapter.guardedCommit(
+          [seqIs(undefined)],
+          [{ type: 'put', storeName: DOCUMENTS, record: { id: 'd2' } }],
+        ),
+      ).toBe(false)
+    })
+
+    it('requires every guard, not just one', async () => {
+      await adapter.put(MESSAGES, { id: 'm1', seq: 1 })
+      await adapter.put(CONVERSATIONS, { id: 'c1', title: 'a' })
+      const applied = await adapter.guardedCommit(
+        [
+          seqIs(1),
+          { storeName: CONVERSATIONS, key: 'c1', field: 'title', equals: 'b' },
+        ],
+        [{ type: 'remove', storeName: MESSAGES, key: 'm1' }],
+      )
+      expect(applied).toBe(false)
+      expect(await adapter.get(MESSAGES, 'm1')).toBeDefined()
+    })
+
+    it('applies unguarded changes', async () => {
+      expect(
+        await adapter.guardedCommit(
+          [],
+          [{ type: 'put', storeName: DOCUMENTS, record: { id: 'd1' } }],
+        ),
+      ).toBe(true)
+      expect(await adapter.get(DOCUMENTS, 'd1')).toEqual({ id: 'd1' })
+    })
+  })
 })

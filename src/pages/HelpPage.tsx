@@ -10,7 +10,7 @@ import { H1, H2, LEDE } from './page-heading.ts'
 const TOPICS = [
   {
     title: 'Adding materials',
-    body: `Upload ${SUPPORTED_LABEL} files up to ${MAX_FILE_BYTES / 1024 / 1024} MB, or paste text, from Home, a workspace or My library. SomaNami splits each one into passages it can quote back to you.`,
+    body: `Upload ${SUPPORTED_LABEL} files up to ${MAX_FILE_BYTES / 1024 / 1024} MB, or paste text, from Home, a workspace or My library. In a workspace you can also add a web page by its link. SomaNami splits each one into passages it can quote back to you.`,
   },
   {
     title: 'Asking and following up',
@@ -107,7 +107,7 @@ export default function HelpPage() {
 
       <p className="text-[15px]">
         <Link
-          to="/privacy"
+          to="/your-data"
           className="font-semibold text-accent hover:underline"
         >
           How your data is handled

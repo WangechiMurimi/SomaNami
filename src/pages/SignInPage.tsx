@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router'
 import AuthLayout from '../features/auth/AuthLayout.tsx'
 import FormAlert from '../features/auth/FormAlert.tsx'
-import GoogleButton from '../features/auth/GoogleButton.tsx'
+import GoogleSignIn from '../features/auth/GoogleSignIn.tsx'
 import PasswordField from '../features/auth/PasswordField.tsx'
 import TextField from '../features/auth/TextField.tsx'
 import Turnstile from '../features/auth/Turnstile.tsx'
@@ -11,13 +11,11 @@ import { useAuth } from '../features/auth/auth-context.ts'
 import { authErrorMessage } from '../features/auth/auth-errors.ts'
 import {
   AUTH_FOOTER,
-  CHECKBOX,
-  CHECKBOX_ROW,
   FOOTER_LINK,
   SMALL_LINK,
   SUBMIT_BUTTON,
 } from '../features/auth/auth-ui.ts'
-import { safeNextPath, verifyPathFor } from '../features/auth/safe-next.ts'
+import { safeNextPath } from '../features/auth/safe-next.ts'
 import { useCaptcha } from '../features/auth/use-captcha.ts'
 import { useFocusFirstError } from '../features/auth/use-focus-first-error.ts'
 import { isAuthConfigured } from '../lib/auth/is-configured.ts'
@@ -27,26 +25,21 @@ interface FieldErrors {
   password?: string
 }
 
-/** Google or email-and-password sign-in; sends the visitor on to `?next=` afterwards. */
+/** Email and password sign-in; sends the visitor on to `?next=` afterwards. */
 export default function SignInPage() {
-  const { status, signIn, signInWithGoogle } = useAuth()
+  const { status, signIn } = useAuth()
   const [params] = useSearchParams()
   const next = safeNextPath(params.get('next'))
   const captcha = useCaptcha()
   const { formRef, reportError } = useFocusFirstError<HTMLFormElement>()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [keepSignedIn, setKeepSignedIn] = useState(true)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [leavingForGoogle, setLeavingForGoogle] = useState(false)
 
   if (status === 'signed-in' || status === 'signed-in-offline') {
     return <Navigate to={next} replace />
-  }
-  if (status === 'needs-mfa') {
-    return <Navigate to={verifyPathFor(next)} replace />
   }
 
   const configured = isAuthConfigured()
@@ -69,24 +62,11 @@ export default function SignInPage() {
       email: email.trim(),
       password,
       captchaToken: captcha.token,
-      keepSignedIn,
     })
     setSubmitting(false)
     // A successful sign-in re-renders into the redirect above.
     if (!result.ok) {
       captcha.renew()
-      setFormError(authErrorMessage(result.error))
-      reportError()
-    }
-  }
-
-  async function handleGoogle() {
-    setFormError(null)
-    setLeavingForGoogle(true)
-    const result = await signInWithGoogle({ keepSignedIn })
-    // On success the browser is already leaving for Google; stay busy.
-    if (!result.ok) {
-      setLeavingForGoogle(false)
       setFormError(authErrorMessage(result.error))
       reportError()
     }
@@ -100,58 +80,50 @@ export default function SignInPage() {
       {!configured ? (
         <FormAlert>{authErrorMessage('not-configured')}</FormAlert>
       ) : (
-        <form
-          ref={formRef}
-          noValidate
-          onSubmit={handleSubmit}
-          className="flex flex-col gap-4"
-        >
-          {formError && <FormAlert>{formError}</FormAlert>}
-          <GoogleButton onClick={handleGoogle} busy={leavingForGoogle} />
-          <TextField
-            id="sign-in-email"
-            label="Email"
-            type="email"
-            name="email"
-            autoComplete="email"
-            inputMode="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            error={fieldErrors.email}
-          />
-          <PasswordField
-            id="sign-in-password"
-            label="Password"
-            name="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            error={fieldErrors.password}
-            labelAside={
-              <Link to="/forgot-password" className={SMALL_LINK}>
-                Forgot your password?
-              </Link>
-            }
-          />
-          <label className={CHECKBOX_ROW}>
-            <input
-              type="checkbox"
-              name="keep-signed-in"
-              checked={keepSignedIn}
-              onChange={(e) => setKeepSignedIn(e.target.checked)}
-              className={CHECKBOX}
-            />
-            Keep me signed in
-          </label>
-          <Turnstile onToken={captcha.onToken} resetKey={captcha.resetKey} />
-          <button
-            type="submit"
-            disabled={submitting}
-            className={`${SUBMIT_BUTTON} mt-2`}
+        <>
+          <GoogleSignIn next={next} />
+          <form
+            ref={formRef}
+            noValidate
+            onSubmit={handleSubmit}
+            className="mt-4 flex flex-col gap-4"
           >
-            {submitting ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
+            {formError && <FormAlert>{formError}</FormAlert>}
+            <TextField
+              id="sign-in-email"
+              label="Email"
+              type="email"
+              name="email"
+              autoComplete="email"
+              inputMode="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              error={fieldErrors.email}
+            />
+            <PasswordField
+              id="sign-in-password"
+              label="Password"
+              name="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              error={fieldErrors.password}
+              labelAside={
+                <Link to="/forgot-password" className={SMALL_LINK}>
+                  Forgot your password?
+                </Link>
+              }
+            />
+            <Turnstile onToken={captcha.onToken} resetKey={captcha.resetKey} />
+            <button
+              type="submit"
+              disabled={submitting}
+              className={`${SUBMIT_BUTTON} mt-2`}
+            >
+              {submitting ? 'Signing in…' : 'Sign in'}
+            </button>
+          </form>
+        </>
       )}
       <p className={AUTH_FOOTER}>
         New to SomaNami?{' '}

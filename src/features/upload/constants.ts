@@ -8,13 +8,15 @@ export const SUPPORTED_EXTENSIONS: Readonly<Record<string, DocumentKind>> = {
   docx: 'docx',
   txt: 'text',
   md: 'text',
+  html: 'web',
+  htm: 'web',
 }
 
 /** Formats the design lists but we don't parse yet; named so the error is honest. */
 export const PLANNED_EXTENSIONS: readonly string[] = ['doc', 'ppt', 'pptx']
 
 /** Shared by the drop-zone hint and the type error so the two can't drift. */
-export const SUPPORTED_LABEL = 'PDF, DOCX, TXT or Markdown'
+export const SUPPORTED_LABEL = 'PDF, DOCX, TXT, Markdown or HTML'
 
 /**
  * Only a hint for the native file picker: drag-and-drop and the picker's

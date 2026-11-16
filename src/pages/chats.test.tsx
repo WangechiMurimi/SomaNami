@@ -3,6 +3,10 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderSignedInApp } from '../features/auth/testing/render-app.tsx'
 import {
+  citeBest,
+  serveChatFromStore,
+} from '../features/chat/testing/fake-chat-server.ts'
+import {
   appendMessage,
   createConversation,
   createMemoryAdapter,
@@ -14,7 +18,7 @@ import {
   saveDocument,
   setStorageAdapter,
 } from '../lib/storage/index.ts'
-import type { ChatReply, ChatRequest, Workspace } from '../types/contracts.ts'
+import type { ChatReply, Workspace } from '../types/contracts.ts'
 
 let workspace: Workspace
 
@@ -49,21 +53,8 @@ afterEach(() => vi.restoreAllMocks())
 
 const open = (path: string) => renderSignedInApp(path)
 
-/** Answers every /api/chat call with its first passage, recording requests. */
-function serveChat() {
-  const requests: ChatRequest[] = []
-  vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
-    const request = JSON.parse(String(init?.body)) as ChatRequest
-    requests.push(request)
-    const reply: ChatReply = {
-      answer: 'From your notes.',
-      answerable: true,
-      citations: request.passages.slice(0, 1),
-    }
-    return Response.json(reply)
-  })
-  return requests
-}
+/** Answers every /api/chat call with its best passage, recording requests. */
+const serveChat = () => serveChatFromStore(citeBest('From your notes.'))
 
 const picker = async () =>
   within(await screen.findByRole('group', { name: 'Materials for this chat' }))
@@ -121,6 +112,39 @@ describe('Workspace page', () => {
     ).toContain('Seminar.txt')
   })
 
+  it('adds a material from a link to this workspace', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('Ribosomes make proteins.', {
+        headers: {
+          'Content-Type': 'text/plain',
+          'X-Final-Url': 'https://example.org/ribosomes.txt',
+        },
+      }),
+    )
+    await open(`/workspaces/${workspace.id}`)
+
+    const panel = within(
+      await screen.findByRole('region', { name: 'Add materials' }),
+    )
+    await userEvent.click(panel.getByRole('button', { name: 'Add a link' }))
+    await userEvent.type(
+      panel.getByLabelText('Link'),
+      'https://example.org/ribosomes.txt',
+    )
+    await userEvent.click(panel.getByRole('button', { name: 'Add link' }))
+
+    // Shown on the upload card and in the workspace's material list.
+    expect(
+      await within(
+        screen.getByRole('region', { name: 'Your materials' }),
+      ).findAllByText('ribosomes.txt'),
+    ).not.toHaveLength(0)
+    const stored = await listWorkspaceDocuments(workspace.id)
+    expect(stored.find(({ name }) => name === 'ribosomes.txt')).toMatchObject({
+      sourceUrl: 'https://example.org/ribosomes.txt',
+    })
+  })
+
   it('asks a question over every material from its composer', async () => {
     const requests = serveChat()
     await open(`/workspaces/${workspace.id}`)
@@ -133,7 +157,12 @@ describe('Workspace page', () => {
     expect(await screen.findByText('From your notes.')).toBeInTheDocument()
     const [chat] = await listWorkspaceConversations(workspace.id)
     expect(chat?.materialIds.sort()).toEqual(['cells', 'plants'])
-    expect(requests[0]?.passages.map((p) => p.documentId)).toEqual(['plants'])
+    expect([...(requests[0]?.materialIds ?? [])].sort()).toEqual([
+      'cells',
+      'plants',
+    ])
+    // The server ranked both and cited the one that answers.
+    expect(screen.getByText('plants.txt · Line 1')).toBeInTheDocument()
   })
 
   it('asks only over the materials left ticked', async () => {
@@ -227,7 +256,11 @@ describe('New chat', () => {
       }),
     ).toBeInTheDocument()
     await vi.waitFor(() => expect(requests).toHaveLength(1))
-    expect(requests[0]?.passages).toEqual([])
+    // Only the chosen material's id is sent, so the server can't rank plants.
+    expect(requests[0]?.materialIds).toEqual(['cells'])
+    expect(
+      await screen.findByText('Not answered from your materials'),
+    ).toBeInTheDocument()
     expect(
       within(screen.getByRole('list', { name: 'Sources in this chat' }))
         .getAllByRole('listitem')
@@ -243,6 +276,7 @@ describe('Chat', () => {
         answer: 'Your materials don’t cover this.',
         answerable: false,
         citations: [],
+        passages: [],
       } satisfies ChatReply),
     )
     await open(`/workspaces/${workspace.id}/chats/new?material=cells`)

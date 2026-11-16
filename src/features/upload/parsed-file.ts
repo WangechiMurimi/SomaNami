@@ -4,6 +4,8 @@ import type { Chunk } from '../../types/contracts.ts'
 export interface ParsedFile {
   chunks: Omit<Chunk, 'id'>[]
   pageCount: number | null
+  /** The material's own title, when the format carries one (a web page's <title>). */
+  title?: string
 }
 
 export type Parser = (file: File) => Promise<ParsedFile>

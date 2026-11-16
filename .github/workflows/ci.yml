@@ -15,8 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -29,3 +29,17 @@ jobs:
       - run: npm run format:check
       - run: npm test
       - run: npm run build
+
+  # Migrations and row-level security tests run against a throwaway local
+  # database; nothing here touches the hosted project.
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 3.1.0
+      # Only Postgres is needed to apply migrations and run pgTAP.
+      - run: supabase db start
+      - run: supabase test db

@@ -1,7 +1,8 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderSignedInApp } from '../features/auth/testing/render-app.tsx'
+import { uploadOriginal } from '../lib/storage-cloud/originals.ts'
 import {
   createConversation,
   createMemoryAdapter,
@@ -27,9 +28,21 @@ const doc = (id: string, name: string): NewDocument => ({
   chunks: [],
 })
 
+// The app tests' fake Supabase has no Storage; uploads are covered by
+// use-library and originals tests, so here only check what gets handed over.
+vi.mock('../lib/storage-cloud/originals.ts', async (importOriginal) => ({
+  ...(await importOriginal()),
+  uploadOriginal: vi.fn(async () => null),
+}))
+
 beforeEach(() => {
+  vi.mocked(uploadOriginal).mockClear()
   setStorageAdapter(createMemoryAdapter())
   window.history.pushState({}, '', '/')
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
 })
 
 const open = (path: string) => renderSignedInApp(path)
@@ -469,14 +482,69 @@ describe('New workspace', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('explains why links cannot be added yet', async () => {
+  it('adds a material from a link and keeps where it came from', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('Photosynthesis makes sugar from light.', {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Content-Disposition': "attachment; filename*=UTF-8''leaves.txt",
+          'X-Final-Url': 'https://example.org/leaves.txt',
+        },
+      }),
+    )
     await open('/workspaces/new')
     await userEvent.type(name(), 'Biology')
     await userEvent.click(next())
 
-    const link = screen.getByRole('button', { name: 'Add a link' })
-    expect(link).toBeDisabled()
-    expect(link).toHaveAccessibleDescription('Links are coming soon.')
+    await userEvent.click(screen.getByRole('button', { name: 'Add a link' }))
+    await userEvent.type(screen.getByLabelText('Link'), 'example.org/leaves')
+    await userEvent.click(screen.getByRole('button', { name: 'Add link' }))
+
+    const added = within(
+      await screen.findByRole('region', { name: 'Added so far' }),
+    )
+    expect(await added.findByText('leaves.txt')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/fetch-link',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ url: 'https://example.org/leaves' }),
+      }),
+    )
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Create workspace' }),
+    )
+    await screen.findByRole('heading', { level: 1, name: 'Biology' })
+    const [workspace] = await listWorkspaces()
+    const [material] = await listWorkspaceDocuments(workspace!.id)
+    expect(material).toMatchObject({
+      name: 'leaves.txt',
+      sourceUrl: 'https://example.org/leaves.txt',
+    })
+  })
+
+  it('explains a link that could not be fetched, with a fallback', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      Response.json({ error: 'login-or-paywall' }, { status: 502 }),
+    )
+    await open('/workspaces/new')
+    await userEvent.type(name(), 'Biology')
+    await userEvent.click(next())
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add a link' }))
+    await userEvent.type(
+      screen.getByLabelText('Link'),
+      'https://news.example.com/story',
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Add link' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /needs a sign-in or subscription.*Paste text instead/,
+    )
+    expect(
+      screen.queryByRole('region', { name: 'Added so far' }),
+    ).not.toBeInTheDocument()
   })
 
   it('creates the workspace with uploaded and pasted materials, then opens it', async () => {
@@ -517,6 +585,11 @@ describe('New workspace', () => {
     expect(
       (await listWorkspaceDocuments(workspace!.id)).map(({ name }) => name),
     ).toEqual(['cells.txt', 'Seminar notes.txt'])
+    // Each buffered original goes up with the material it was parsed into.
+    const documents = await listWorkspaceDocuments(workspace!.id)
+    expect(
+      vi.mocked(uploadOriginal).mock.calls.map(([id, file]) => [id, file.name]),
+    ).toEqual(documents.map(({ id, name }) => [id, name]))
   })
 
   it('leaves out a material removed before creating', async () => {

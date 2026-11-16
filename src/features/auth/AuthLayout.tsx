@@ -118,7 +118,7 @@ function BrandPanel() {
       {/* A link, not a promise: the product's one claim is where answers come
           from, and the details of data handling live on their own page. */}
       <p className="text-sm leading-[1.5]">
-        <Link to="/privacy" className={SMALL_LINK}>
+        <Link to="/your-data" className={SMALL_LINK}>
           How your data is handled
         </Link>
       </p>

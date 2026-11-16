@@ -13,6 +13,7 @@ import { createWorkspace } from '../../lib/storage/index.ts'
 import type { NewDocument } from '../../types/contracts.ts'
 import { useLibraryContext } from '../library/library-context.ts'
 import DocumentCard from '../upload/DocumentCard.tsx'
+import AddLinkForm from '../upload/AddLinkForm.tsx'
 import PasteTextForm from '../upload/PasteTextForm.tsx'
 import UploadZone from '../upload/UploadZone.tsx'
 import { useDocumentUpload } from '../upload/use-document-upload.ts'
@@ -72,6 +73,11 @@ function StepIndicator({ current }: { current: number }) {
   )
 }
 
+interface PendingMaterial {
+  document: NewDocument
+  file?: File
+}
+
 /**
  * Creates a workspace in two steps (US-08 AC1). Materials added in step two
  * are parsed straight away but only saved when the workspace is created, so
@@ -85,23 +91,26 @@ export default function NewWorkspaceWizard() {
   const [name, setName] = useState('')
   const [topic, setTopic] = useState('')
   const [nameError, setNameError] = useState<string | null>(null)
-  const [pending, setPending] = useState<NewDocument[]>([])
+  // Each parsed material with its original file, uploaded once created.
+  const [pending, setPending] = useState<PendingMaterial[]>([])
   const [pasting, setPasting] = useState(false)
+  const [linking, setLinking] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const heading = useRef<HTMLHeadingElement>(null)
   const nameInput = useRef<HTMLInputElement>(null)
   const moved = useRef(false)
 
-  const keep = useCallback((document: NewDocument) => {
+  const keep = useCallback((document: NewDocument, file?: File) => {
     setPending((current) => [
-      ...current.filter(({ id }) => id !== document.id),
-      document,
+      ...current.filter((item) => item.document.id !== document.id),
+      { document, file },
     ])
   }, [])
-  const { upload, retry, reset, ...uploadState } = useDocumentUpload({
-    onReady: keep,
-  })
+  const { upload, uploadLink, retry, reset, ...uploadState } =
+    useDocumentUpload({
+      onReady: keep,
+    })
 
   // Move focus to the new step's heading so screen readers announce it, but
   // not on first render, where focus belongs to the page.
@@ -130,7 +139,9 @@ export default function NewWorkspaceWizard() {
     setSaveError(null)
     try {
       const workspace = await createWorkspace({ name, topic })
-      for (const document of pending) await add(document, workspace.id)
+      for (const { document, file } of pending) {
+        await add(document, workspace.id, file)
+      }
       navigate(`/workspaces/${workspace.id}`)
     } catch (error) {
       console.error('Could not create the workspace', error)
@@ -247,20 +258,16 @@ export default function NewWorkspaceWizard() {
             </section>
 
             <div className="flex flex-wrap gap-3">
-              <div className="flex flex-col gap-1">
+              {!linking && (
                 <button
                   type="button"
-                  disabled
-                  aria-describedby={`${id}-link-soon`}
-                  className={SECONDARY}
+                  onClick={() => setLinking(true)}
+                  className={`${SECONDARY} self-start`}
                 >
                   <LinkIcon size={18} strokeWidth={1.8} />
                   Add a link
                 </button>
-                <span id={`${id}-link-soon`} className="text-xs text-muted">
-                  Links are coming soon.
-                </span>
-              </div>
+              )}
               {!pasting && (
                 <button
                   type="button"
@@ -272,6 +279,16 @@ export default function NewWorkspaceWizard() {
                 </button>
               )}
             </div>
+            {linking && (
+              <AddLinkForm
+                disabled={busy}
+                onLink={(url) => {
+                  void uploadLink(url)
+                  setLinking(false)
+                }}
+                onCancel={() => setLinking(false)}
+              />
+            )}
             {pasting && (
               <PasteTextForm
                 disabled={busy}
@@ -289,7 +306,7 @@ export default function NewWorkspaceWizard() {
                   Added so far
                 </h3>
                 <ul className="mt-3 divide-y divide-line rounded-xl border border-line">
-                  {pending.map((document) => (
+                  {pending.map(({ document }) => (
                     <li
                       key={document.id}
                       className="flex items-center justify-between gap-3 px-4 py-3"
@@ -301,7 +318,9 @@ export default function NewWorkspaceWizard() {
                         type="button"
                         onClick={() =>
                           setPending((current) =>
-                            current.filter(({ id }) => id !== document.id),
+                            current.filter(
+                              (item) => item.document.id !== document.id,
+                            ),
                           )
                         }
                         className="inline-flex size-11 flex-none items-center justify-center rounded-[10px] text-muted hover:bg-tint hover:text-warn"

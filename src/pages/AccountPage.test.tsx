@@ -1,7 +1,7 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route } from 'react-router'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   fakeSession,
   installFakeSupabase,
@@ -10,81 +10,79 @@ import { renderAt } from '../features/auth/testing/render-routes.tsx'
 import { setSupabaseClient } from '../lib/auth/supabase-client.ts'
 import AccountPage from './AccountPage.tsx'
 
-function setup() {
-  installFakeSupabase({ session: fakeSession({ email: 'jamie.lee@uni.ac' }) })
+const page = () =>
   renderAt('/account', <Route path="/account" element={<AccountPage />} />)
-}
 
-const card = (name: string) => screen.findByRole('region', { name })
+afterEach(() => {
+  vi.restoreAllMocks()
+  setSupabaseClient(undefined)
+  delete document.documentElement.dataset.theme
+  localStorage.clear()
+})
 
-describe('Account settings', () => {
-  afterEach(() => {
-    setSupabaseClient(undefined)
-    delete document.documentElement.dataset.theme
-    localStorage.clear()
+describe('AccountPage', () => {
+  it('shows the display name, with a way to change it', async () => {
+    installFakeSupabase({
+      session: fakeSession({ email: 'ada@example.com' }),
+      profile: { display_name: 'Ada', age_13_plus: true },
+    })
+    page()
+    expect(await screen.findByText('Ada')).toBeInTheDocument()
+    expect(screen.getByText('ada@example.com')).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'Change your name' }),
+    ).toHaveAttribute('href', '/welcome/details?next=%2Faccount')
   })
 
-  it('lays out the canvas’s cards in order', async () => {
-    setup()
+  it('says so when the name can’t be loaded', async () => {
+    const { db } = installFakeSupabase({ session: fakeSession() })
+    db.readProfile.mockResolvedValueOnce({ data: null, error: new Error('x') })
+    page()
     expect(
-      await screen.findByRole('heading', {
-        level: 1,
-        name: 'Account settings',
-      }),
+      await screen.findByText('We couldn’t load your name.'),
     ).toBeInTheDocument()
-    await screen.findByRole('region', { name: 'Two-step verification' })
+  })
+
+  it('says the name couldn’t load without a fresh session', async () => {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    installFakeSupabase({ session: fakeSession() })
+    page()
+    expect(
+      await screen.findByText('We couldn’t load your name.'),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('link', { name: 'Change your name' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('lays out the canvas’s cards, then sign-out', async () => {
+    installFakeSupabase({ session: fakeSession() })
+    page()
+    await screen.findByRole('heading', { level: 1, name: 'Account settings' })
     const titles = screen
       .getAllByRole('heading', { level: 2 })
       .map((heading) => heading.textContent)
-    expect(titles).toEqual([
-      'Profile',
-      'Appearance',
-      'Privacy and data',
-      'Sign out',
-      'Two-step verification',
-    ])
-  })
-
-  it('shows the email read-only, since names and photos aren’t stored yet', async () => {
-    setup()
-    const profile = await card('Profile')
-    expect(within(profile).getByText('jamie.lee@uni.ac')).toBeInTheDocument()
-    expect(within(profile).getByText('JL')).toHaveAttribute(
-      'aria-hidden',
-      'true',
-    )
-    expect(within(profile).queryByRole('textbox')).toBeNull()
-    expect(within(profile).queryByRole('button')).toBeNull()
+    expect(titles).toEqual(['Profile', 'Appearance', 'Sign out'])
   })
 
   it('switches the theme from Appearance', async () => {
-    setup()
-    const appearance = await card('Appearance')
+    installFakeSupabase({ session: fakeSession() })
+    page()
+    const appearance = await screen.findByRole('region', {
+      name: 'Appearance',
+    })
     await userEvent.click(
       within(appearance).getByRole('radio', { name: 'Dark' }),
     )
     expect(document.documentElement.dataset.theme).toBe('dark')
   })
 
-  it('shows no connection status or upload privacy claims', async () => {
-    setup()
-    const privacy = await card('Privacy and data')
-    expect(
-      within(privacy).getByRole('link', { name: 'How your data is handled' }),
-    ).toHaveAttribute('href', '/privacy')
-    expect(within(privacy).queryByRole('status')).toBeNull()
-    const page = document.body.textContent ?? ''
-    expect(page).not.toMatch(/offline|online|on this device|shared computer/i)
-    expect(page).not.toMatch(/private|never leaves/i)
-  })
-
-  it('keeps removing materials under Privacy and data', async () => {
-    setup()
-    const privacy = await card('Privacy and data')
-    expect(
-      within(privacy).getByRole('button', {
-        name: 'Remove my materials and sign out',
-      }),
-    ).toBeInTheDocument()
+  it('shows no connection status or privacy claims', async () => {
+    installFakeSupabase({ session: fakeSession() })
+    page()
+    await screen.findByRole('heading', { level: 1, name: 'Account settings' })
+    const text = document.body.textContent ?? ''
+    expect(text).not.toMatch(/offline|online|on this device|shared computer/i)
+    expect(text).not.toMatch(/private|never leaves/i)
   })
 })

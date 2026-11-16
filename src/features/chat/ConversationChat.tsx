@@ -1,17 +1,13 @@
-import { useCallback } from 'react'
-import { retrieveChunks } from '../../lib/retrieval/index.ts'
-import type {
-  ChatReply,
-  Passage,
-  StoredDocument,
-} from '../../types/contracts.ts'
+import { useMemo } from 'react'
+import type { ChatReply, StoredDocument } from '../../types/contracts.ts'
 import ChatPanel from './ChatPanel.tsx'
 import type { ChatTurn } from './use-chat.ts'
 
 /**
- * Questions within one saved conversation. Retrieval runs locally over the
- * conversation's own materials only; just the selected passages travel to
- * the server.
+ * Questions within one saved conversation. Only the ids of the conversation's
+ * own materials travel to the server, which loads and ranks their passages
+ * from the learner's cloud copy (#148), so retrieval never crosses into other
+ * materials (US-08 AC3).
  */
 export default function ConversationChat({
   addMaterialTo,
@@ -30,23 +26,12 @@ export default function ConversationChat({
     reply: ChatReply
   }) => Promise<void>
 }) {
-  const selectPassages = useCallback(
-    (question: string): Passage[] =>
-      retrieveChunks(question, materials).map(
-        ({ documentId, chunkId, text, source }) => ({
-          documentId,
-          chunkId,
-          text,
-          source,
-        }),
-      ),
-    [materials],
-  )
+  const materialIds = useMemo(() => materials.map(({ id }) => id), [materials])
 
   return (
     <ChatPanel
       documents={materials}
-      selectPassages={selectPassages}
+      materialIds={materialIds}
       initialMessages={initialMessages}
       initialQuestion={initialQuestion}
       onAnswered={onAnswered}

@@ -1,31 +1,58 @@
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
 import { initialsFor } from '../app/initials.ts'
 import ThemePicker from '../components/ThemePicker.tsx'
 import { useAuth } from '../features/auth/auth-context.ts'
+import { TEXT_LINK } from '../features/auth/auth-ui.ts'
+import { detailsPathFor } from '../features/auth/safe-next.ts'
+import { getProfile } from '../lib/auth/profile.ts'
 import { CARD, CARD_TITLE } from './account/account-ui.ts'
-import MfaSection from './account/MfaSection.tsx'
-import PrivacySection from './account/PrivacySection.tsx'
 import SessionsSection from './account/SessionsSection.tsx'
 import { H1, LEDE } from './page-heading.ts'
 
-/** Account settings: profile, theme, data, sign-out and 2FA. */
+/** Account settings: profile, theme, sign-out and erasing materials. */
 export default function AccountPage() {
-  const { user } = useAuth()
+  const { status, user } = useAuth()
   const email = user?.email ?? ''
+  const userId = user?.id ?? null
+  const online = status === 'signed-in'
+  const [loaded, setLoaded] = useState<{
+    userId: string
+    name: string | null
+  }>()
   useBreadcrumbs([{ label: 'Account settings' }])
+
+  useEffect(() => {
+    if (!online || userId === null) return
+    let active = true
+    getProfile(userId)
+      .catch(() => null)
+      .then((profile) => {
+        if (active) setLoaded({ userId, name: profile?.displayName ?? null })
+      })
+    return () => {
+      active = false
+    }
+  }, [online, userId])
+
+  // The name lives in the cloud profile; without a fresh session it can't load.
+  const nameText = !online
+    ? 'We couldn’t load your name.'
+    : loaded?.userId !== userId
+      ? 'Loading…'
+      : (loaded.name ?? 'We couldn’t load your name.')
 
   return (
     <div className="flex flex-col gap-8">
       <div>
         <h1 className={H1}>Account settings</h1>
         <p className={LEDE}>
-          Manage your profile, how SomaNami looks, how you sign in, and your
-          materials.
+          Manage your profile, how SomaNami looks, and how you sign in.
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* TODO(#143): name and photo editing arrive with the profiles table. */}
         <section aria-labelledby="account-profile" className={CARD}>
           <h2 id="account-profile" className={CARD_TITLE}>
             Profile
@@ -38,14 +65,23 @@ export default function AccountPage() {
               {initialsFor(email)}
             </span>
             <dl className="min-w-0">
-              <dt className="text-[15px] leading-[1.5] font-semibold text-fg">
-                Email
-              </dt>
+              <dt className="sr-only">Name</dt>
+              <dd className="text-[15px] leading-[1.5] font-semibold break-words text-fg">
+                {nameText}
+              </dd>
+              <dt className="sr-only">Email</dt>
               <dd className="text-[15px] leading-[1.5] break-all text-muted">
                 {email}
               </dd>
             </dl>
           </div>
+          {online && (
+            <p className="text-[15px]">
+              <Link to={detailsPathFor('/account')} className={TEXT_LINK}>
+                Change your name
+              </Link>
+            </p>
+          )}
         </section>
 
         <section aria-labelledby="account-appearance" className={CARD}>
@@ -54,11 +90,9 @@ export default function AccountPage() {
           </h2>
           <ThemePicker />
         </section>
-
-        <PrivacySection />
-        <SessionsSection />
-        <MfaSection />
       </div>
+
+      <SessionsSection />
     </div>
   )
 }

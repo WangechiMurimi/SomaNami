@@ -5,4 +5,5 @@ export const KIND_LABEL: Record<DocumentKind, string> = {
   pdf: 'PDF',
   docx: 'Word document',
   text: 'Text',
+  web: 'Web page',
 }

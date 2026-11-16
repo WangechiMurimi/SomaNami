@@ -1,7 +1,12 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link } from 'react-router'
 import { useAuth } from '../features/auth/auth-context.ts'
+import {
+  LEAVE_MESSAGES,
+  OTHER_TABS_MESSAGE,
+  useLeaveDevice,
+} from '../features/sync/use-leave-device.ts'
 import { initialsFor } from './initials.ts'
 
 const ITEM =
@@ -26,8 +31,9 @@ const ICON = {
  * Settings. In the collapsed rail only the avatar shows.
  */
 export default function UserMenu({ compact = false }: { compact?: boolean }) {
-  const { user, signOut } = useAuth()
-  const navigate = useNavigate()
+  const { user } = useAuth()
+  // Saves changes first and stops with a reason rather than lose them (#147).
+  const { leave, busy, problem, waitingForTabs } = useLeaveDevice()
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -95,10 +101,10 @@ export default function UserMenu({ compact = false }: { compact?: boolean }) {
     }
   }
 
-  async function logOut() {
+  function logOut() {
     setOpen(false)
-    await signOut({ scope: 'local' })
-    navigate('/sign-in', { replace: true })
+    // Signing out sends RequireAuth to the sign-in page; no navigate needed.
+    void leave('local')
   }
 
   return (
@@ -166,8 +172,9 @@ export default function UserMenu({ compact = false }: { compact?: boolean }) {
             type="button"
             role="menuitem"
             tabIndex={-1}
-            onClick={() => void logOut()}
-            className={ITEM}
+            disabled={busy}
+            onClick={logOut}
+            className={`${ITEM} disabled:opacity-60`}
           >
             <svg {...ICON}>
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -177,6 +184,22 @@ export default function UserMenu({ compact = false }: { compact?: boolean }) {
             Log out
           </button>
         </div>
+      )}
+      {/* Outside the menu, which closes on click, so the reason stays visible. */}
+      {busy && (
+        <p role="status" className="px-2.5 pt-1 text-[13px] text-muted">
+          Saving and signing out…
+        </p>
+      )}
+      {problem && (
+        <p role="alert" className="px-2.5 pt-1 text-[13px] text-warn">
+          {LEAVE_MESSAGES[problem]}
+        </p>
+      )}
+      {waitingForTabs && (
+        <p role="status" className="px-2.5 pt-1 text-[13px] text-muted">
+          {OTHER_TABS_MESSAGE}
+        </p>
       )}
     </div>
   )

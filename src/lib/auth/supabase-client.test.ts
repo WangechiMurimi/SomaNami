@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { authStorage } from './auth-storage.ts'
 import {
   getSupabaseClient,
   readSupabaseConfig,
@@ -47,11 +46,17 @@ describe('getSupabaseClient', () => {
     expect(first).not.toBeNull()
     expect(getSupabaseClient()).toBe(first)
   })
+})
 
-  it('saves the session through the keep-signed-in storage', () => {
+describe('client auth options', () => {
+  it('uses PKCE and leaves code exchange to /auth/callback', () => {
     vi.stubEnv('VITE_SUPABASE_URL', 'https://demo.supabase.co')
     vi.stubEnv('VITE_SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_123')
-    const auth = getSupabaseClient()?.auth as unknown as { storage: unknown }
-    expect(auth.storage).toBe(authStorage)
+    const auth = getSupabaseClient()?.auth as unknown as {
+      flowType: string
+      detectSessionInUrl: boolean
+    }
+    expect(auth.flowType).toBe('pkce')
+    expect(auth.detectSessionInUrl).toBe(false)
   })
 })

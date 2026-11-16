@@ -23,6 +23,8 @@ describe('LegacyImportDialog', () => {
     })
     expect(dialog).toHaveAttribute('aria-modal', 'true')
     expect(dialog).toHaveAccessibleDescription(/puts them in your library/i)
+    // Cloud storage (#143) is coming, so the dialog no longer promises this.
+    expect(dialog).not.toHaveAccessibleDescription(/nothing is uploaded/i)
   })
 
   it('starts with focus on the first choice', () => {

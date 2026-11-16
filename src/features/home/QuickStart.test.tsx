@@ -43,7 +43,8 @@ function serveChat() {
     const reply: ChatReply = {
       answer: 'From your notes.',
       answerable: true,
-      citations: request.passages.slice(0, 1),
+      citations: [],
+      passages: [],
     }
     return Response.json(reply)
   })

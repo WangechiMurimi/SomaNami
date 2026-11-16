@@ -1,15 +1,26 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setSupabaseClient } from '../../lib/auth/supabase-client.ts'
-import type { Passage } from '../../types/contracts.ts'
 import {
   askQuestion,
-  ChatError,
   RATE_LIMITED_MESSAGE,
   SESSION_ENDED_MESSAGE,
 } from './chat-client.ts'
 
-const reply = { answer: 'Yes.', citations: [], answerable: true }
+const cited = {
+  documentId: 'doc-1',
+  chunkId: 'doc-1:1',
+  documentName: 'Cells.pdf',
+  text: 'Mitochondria make ATP.',
+  source: { type: 'page', page: 2 },
+}
+
+const reply = {
+  answer: 'Yes.',
+  citations: [{ documentId: 'doc-1', chunkId: 'doc-1:1' }],
+  answerable: true,
+  passages: [cited],
+}
 
 /** Stubs `fetch` with a fake that only implements what `askQuestion` reads. */
 function mockFetch(implementation: () => Promise<Partial<Response>>) {
@@ -54,25 +65,18 @@ describe('askQuestion', () => {
       json: async () => reply,
     }))
 
-    const passages: Passage[] = [
-      {
-        documentId: 'doc-1',
-        chunkId: 'doc-1:1',
-        text: 'x',
-        source: { type: 'page', page: 1 },
-      },
-    ]
     await expect(
-      askQuestion({ question: 'Why?', passages, history: [] }),
+      askQuestion({ question: 'Why?', materialIds: ['doc-1'], history: [] }),
     ).resolves.toEqual(reply)
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0]!
     expect(url).toBe('/api/chat')
     expect(init?.method).toBe('POST')
+    // Only ids travel: the server loads the material text itself.
     expect(JSON.parse(String(init?.body))).toEqual({
       question: 'Why?',
-      passages,
+      materialIds: ['doc-1'],
       history: [],
     })
   })
@@ -101,14 +105,20 @@ describe('askQuestion', () => {
     })
   })
 
-  it('rejects a reply that breaks the contract', async () => {
-    mockFetch(async () => ({
-      ok: true,
-      json: async () => ({ answer: 'Yes.' }),
-    }))
-    await expect(askQuestion({ question: 'Why?' })).rejects.toBeInstanceOf(
-      ChatError,
-    )
+  it.each([
+    ['only an answer', { answer: 'Yes.' }],
+    ['no passages', { answer: 'Yes.', citations: [], answerable: true }],
+    [
+      'a passage without its document name',
+      { ...reply, passages: [{ ...cited, documentName: undefined }] },
+    ],
+    ['a passage without text', { ...reply, passages: [{ ...cited, text: 1 }] }],
+  ])('rejects a reply with %s', async (_label, body) => {
+    mockFetch(async () => ({ ok: true, json: async () => body }))
+    await expect(askQuestion({ question: 'Why?' })).rejects.toMatchObject({
+      code: 'malformed',
+      retryable: false,
+    })
   })
 
   describe('session token', () => {
@@ -134,6 +144,23 @@ describe('askQuestion', () => {
         code: 'unauthenticated',
         retryable: false,
         message: SESSION_ENDED_MESSAGE,
+      })
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('offers a retry when the session can’t refresh for lack of network', async () => {
+      // Offline, supabase-js keeps the session but reports none.
+      vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+      const auth = fakeSupabase()
+      auth.getSession.mockResolvedValue(session(null))
+      const fetchMock = mockFetch(async () => ({
+        ok: true,
+        json: async () => reply,
+      }))
+
+      await expect(askQuestion({ question: 'Why?' })).rejects.toMatchObject({
+        code: 'network',
+        retryable: true,
       })
       expect(fetchMock).not.toHaveBeenCalled()
     })

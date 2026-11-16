@@ -7,10 +7,7 @@ import {
   fakeSession,
   installFakeSupabase,
 } from '../features/auth/testing/fake-supabase.ts'
-import {
-  redirectedTo,
-  renderAt,
-} from '../features/auth/testing/render-routes.tsx'
+import { renderAt } from '../features/auth/testing/render-routes.tsx'
 import { setSupabaseClient } from '../lib/auth/supabase-client.ts'
 import UpdatePasswordPage from './UpdatePasswordPage.tsx'
 
@@ -82,20 +79,14 @@ describe('UpdatePasswordPage', () => {
     )
   })
 
-  it('explains that changing the password needs to reach SomaNami', async () => {
+  it('says when it can’t reach SomaNami', async () => {
     installFakeSupabase({ session: fakeSession() })
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
     page()
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      /couldn’t reach SomaNami/i,
+      'We couldn’t reach SomaNami. Check your connection and try again.',
     )
     expect(screen.queryByLabelText('New password')).not.toBeInTheDocument()
     vi.restoreAllMocks()
-  })
-
-  it('asks for the authenticator code first when the account has one', async () => {
-    installFakeSupabase({ session: fakeSession({ mfa: true }) })
-    page()
-    expect(await redirectedTo()).toBe('/sign-in/verify?next=%2Fupdate-password')
   })
 })

@@ -56,6 +56,6 @@ describe('Help', () => {
     )
     expect(
       main().getByRole('link', { name: 'How your data is handled' }),
-    ).toHaveAttribute('href', '/privacy')
+    ).toHaveAttribute('href', '/your-data')
   })
 })

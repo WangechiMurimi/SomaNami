@@ -17,6 +17,19 @@ export type Change =
   | { type: 'remove'; storeName: StoreName; key: string }
 
 /**
+ * A condition on one stored value for `guardedCommit`: the record at `key`
+ * must have `field` equal to `equals`. A missing record has every field
+ * `undefined`, so `{ equals: undefined }` means "no such record" (or no such
+ * field).
+ */
+export interface Guard {
+  storeName: StoreName
+  key: string
+  field: string
+  equals: string | number | boolean | undefined
+}
+
+/**
  * The persistence interface both backends implement. Records go in and come
  * out as copies, matching IndexedDB's structured-clone semantics.
  */
@@ -48,6 +61,16 @@ export interface StorageAdapter {
    * change applies or none does.
    */
   commit(changes: readonly Change[]): Promise<void>
+  /**
+   * Applies `changes` only if every guard still holds, checked in the same
+   * transaction as the writes, so nothing can change in between. Resolves to
+   * whether the changes were applied. Sync needs this to never overwrite an
+   * edit made while it was talking to the server.
+   */
+  guardedCommit(
+    guards: readonly Guard[],
+    changes: readonly Change[],
+  ): Promise<boolean>
   /**
    * Releases the store. The IndexedDB adapter can't be used after this; open
    * a new one instead.

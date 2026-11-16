@@ -1,8 +1,17 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { useNavigate } from 'react-router'
-import { useAuth } from '../../features/auth/auth-context.ts'
-import { CARD, CARD_TITLE, SECONDARY } from './account-ui.ts'
+import ConfirmDialog from '../../components/ConfirmDialog.tsx'
+import {
+  LEAVE_MESSAGES,
+  OTHER_TABS_MESSAGE,
+  useLeaveDevice,
+} from '../../features/sync/use-leave-device.ts'
+import { useOnline } from '../../lib/connectivity/use-online.ts'
+import { CARD, CARD_TITLE, DESTRUCTIVE, SECONDARY } from './account-ui.ts'
+
+// Shown beside a disabled action, so the reason is never missing.
+const UNREACHABLE =
+  ' We can’t reach SomaNami right now, so this is unavailable.'
 
 function Row({
   title,
@@ -14,10 +23,10 @@ function Row({
   action: ReactNode
 }) {
   return (
-    <li className="flex flex-col items-start gap-3 py-[18px] first:pt-0 last:pb-0">
+    <li className="flex flex-col gap-4 py-5 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
       <div>
         <h3 className="text-[15px] font-semibold text-fg">{title}</h3>
-        <p className="mt-1 text-sm leading-[1.55] text-muted">{children}</p>
+        <p className="mt-1 text-sm leading-[1.6] text-muted">{children}</p>
       </div>
       {action}
     </li>
@@ -25,18 +34,21 @@ function Row({
 }
 
 /**
- * "Sign out" card of Account settings: this device, or every device.
- * Signing out after removing materials lives under Privacy and data.
+ * "Sign out" section of the Account page (#147): sign out of this device or
+ * every device, each saving changes first and then clearing this device; or
+ * erase everything stored in SomaNami.
  */
 export default function SessionsSection() {
-  const { user, signOut } = useAuth()
-  const navigate = useNavigate()
-  const [busy, setBusy] = useState(false)
+  const online = useOnline()
+  const { leave, erase, busy, problem, waitingForTabs, reset } =
+    useLeaveDevice()
+  const [confirmingErase, setConfirmingErase] = useState(false)
+  const erasing = problem === 'erase-failed' || problem === 'erase-offline'
 
-  async function finish(scope: 'local' | 'global') {
-    setBusy(true)
-    await signOut({ scope })
-    navigate('/sign-in', { replace: true })
+  function closeDialog() {
+    if (busy) return
+    setConfirmingErase(false)
+    reset()
   }
 
   return (
@@ -44,11 +56,6 @@ export default function SessionsSection() {
       <h2 id="account-sessions" className={CARD_TITLE}>
         Sign out
       </h2>
-      {user?.email && (
-        <p className="text-sm leading-[1.55] break-all text-muted">
-          Signed in as {user.email}.
-        </p>
-      )}
       <ul className="divide-y divide-line">
         <Row
           title="This device"
@@ -56,7 +63,7 @@ export default function SessionsSection() {
             <button
               type="button"
               disabled={busy}
-              onClick={() => void finish('local')}
+              onClick={() => void leave('local')}
               className={SECONDARY}
             >
               Sign out
@@ -70,8 +77,10 @@ export default function SessionsSection() {
           action={
             <button
               type="button"
-              disabled={busy}
-              onClick={() => void finish('global')}
+              // Unreachable, the other devices can't be signed out, and
+              // Supabase would quietly sign out only this one.
+              disabled={busy || !online}
+              onClick={() => void leave('global')}
               className={SECONDARY}
             >
               Sign out of all devices
@@ -80,8 +89,63 @@ export default function SessionsSection() {
         >
           For a device you no longer use or have lost. Other devices are signed
           out the next time they use SomaNami.
+          {!online && UNREACHABLE}
+        </Row>
+        <Row
+          title="Your materials"
+          action={
+            <button
+              type="button"
+              disabled={busy || !online}
+              onClick={() => setConfirmingErase(true)}
+              className={DESTRUCTIVE}
+            >
+              Erase my materials
+            </button>
+          }
+        >
+          Deletes every material, chat and uploaded file from your SomaNami
+          account and from all your devices, then signs you out.
+          {!online && UNREACHABLE}
         </Row>
       </ul>
+
+      {!confirmingErase && problem && !erasing && (
+        <p role="alert" className="text-sm text-warn">
+          {LEAVE_MESSAGES[problem]}
+        </p>
+      )}
+      {!confirmingErase && waitingForTabs && (
+        <p role="status" className="text-sm text-muted">
+          {OTHER_TABS_MESSAGE}
+        </p>
+      )}
+
+      {confirmingErase && (
+        <ConfirmDialog
+          title="Erase all your materials?"
+          confirmLabel="Erase everything"
+          busy={busy}
+          onConfirm={() => void erase()}
+          onCancel={closeDialog}
+        >
+          <p>
+            Every material, chat and uploaded file in your SomaNami account will
+            be deleted, on every device. This can’t be undone. You’ll be signed
+            out afterwards.
+          </p>
+          {problem && (
+            <p role="alert" className="mt-2 text-warn">
+              {LEAVE_MESSAGES[problem]}
+            </p>
+          )}
+          {waitingForTabs && (
+            <p role="status" className="mt-2 text-muted">
+              {OTHER_TABS_MESSAGE}
+            </p>
+          )}
+        </ConfirmDialog>
+      )}
     </section>
   )
 }

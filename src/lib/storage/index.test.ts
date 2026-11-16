@@ -40,6 +40,8 @@ const makeDocument = (
 ): StoredDocument => ({
   id: 'doc-1',
   workspaceId: DEFAULT_WORKSPACE.id,
+  createdAt: 1,
+  updatedAt: 1,
   name: 'Cell Biology.pdf',
   size: 2048,
   kind: 'pdf',
@@ -345,9 +347,10 @@ describe.each(ADAPTERS)(
     describe('documents', () => {
       it('round-trips a document with every source reference intact (US-07)', async () => {
         const document = makeDocument()
-        await saveDocument(document)
+        const stored = await saveDocument(document)
 
-        expect(await getDocument('doc-1')).toEqual(document)
+        expect(stored).toEqual({ ...document, updatedAt: expect.any(Number) })
+        expect(await getDocument('doc-1')).toEqual(stored)
       })
 
       it('does not alias the caller’s object', async () => {

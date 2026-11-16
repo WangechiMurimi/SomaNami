@@ -15,6 +15,7 @@ const PASSAGES = [
   {
     documentId: 'doc-1',
     chunkId: 'doc-1:2',
+    documentName: 'biology.pdf',
     text: 'Light drives photosynthesis.',
     source: { type: 'page' as const, page: 4 },
   },
@@ -28,7 +29,7 @@ function setup({
   render(
     <ChatPanel
       documents={[{ id: 'doc-1', name: 'biology.pdf' }]}
-      selectPassages={() => PASSAGES}
+      materialIds={['doc-1']}
       initialMessages={initialMessages}
       initialQuestion={initialQuestion}
     />,
@@ -81,6 +82,7 @@ describe('ChatPanel', () => {
       answer: 'Light drives photosynthesis.',
       citations: [{ documentId: 'doc-1', chunkId: 'doc-1:2' }],
       answerable: true,
+      passages: PASSAGES,
     })
 
     const reply = await screen.findByRole('article', {
@@ -101,6 +103,7 @@ describe('ChatPanel', () => {
       answer: 'Light drives photosynthesis.',
       citations: [{ documentId: 'doc-1', chunkId: 'doc-1:2' }],
       answerable: true,
+      passages: PASSAGES,
     })
     const { user, box } = setup()
 
@@ -129,6 +132,7 @@ describe('ChatPanel', () => {
       answer: 'Light drives photosynthesis.',
       citations: [{ documentId: 'doc-1', chunkId: 'doc-1:2' }],
       answerable: true,
+      passages: PASSAGES,
     })
     const { user, box } = setup()
     expect(
@@ -156,6 +160,7 @@ describe('ChatPanel', () => {
       answer: 'The documents do not cover tax law.',
       citations: [],
       answerable: false,
+      passages: [],
     })
     const { user, box } = setup()
 
@@ -172,6 +177,7 @@ describe('ChatPanel', () => {
     vi.mocked(askQuestion).mockResolvedValue({
       answer: 'Yes.',
       citations: [],
+      passages: [],
       answerable: true,
     })
     const { user, box } = setup()
@@ -192,6 +198,7 @@ describe('ChatPanel', () => {
     vi.mocked(askQuestion).mockResolvedValue({
       answer: 'The documents do not cover tax law.',
       citations: [],
+      passages: [],
       answerable: false,
     })
     const { user, box, send } = setup()
@@ -213,6 +220,7 @@ describe('ChatPanel', () => {
     vi.mocked(askQuestion).mockResolvedValue({
       answer: 'Here is an analogy.',
       citations: [],
+      passages: [],
       answerable: true,
     })
     const { user, box, send } = setup()
@@ -242,6 +250,7 @@ describe('ChatPanel', () => {
     vi.mocked(askQuestion).mockResolvedValueOnce({
       answer: 'Light drives photosynthesis.',
       citations: [],
+      passages: [],
       answerable: true,
     })
     await user.click(within(alert).getByRole('button', { name: 'Try again' }))
@@ -261,6 +270,7 @@ describe('ChatPanel', () => {
       answer: 'Light drives photosynthesis.',
       citations: [],
       answerable: true,
+      passages: [],
     })
     setup({ initialQuestion: 'Why do leaves need light?' })
 
@@ -280,6 +290,35 @@ describe('ChatPanel', () => {
 
     expect(screen.queryByText(/offline/i)).not.toBeInTheDocument()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('keeps the opening question retryable when it can’t reach SomaNami', async () => {
+    vi.mocked(askQuestion)
+      .mockRejectedValueOnce(
+        new ChatError('Couldn’t get an answer. Try again.', {
+          code: 'network',
+        }),
+      )
+      .mockResolvedValueOnce({
+        answer: 'Light drives photosynthesis.',
+        citations: [],
+        answerable: true,
+        passages: [],
+      })
+    const user = userEvent.setup()
+    setup({ initialQuestion: 'Why do leaves need light?' })
+
+    const alert = await screen.findByRole('alert')
+    await user.click(within(alert).getByRole('button', { name: 'Try again' }))
+
+    expect(
+      await screen.findByRole('article', {
+        name: 'Answer from your materials',
+      }),
+    ).toBeVisible()
+    expect(
+      vi.mocked(askQuestion).mock.calls.map(([request]) => request.question),
+    ).toEqual(['Why do leaves need light?', 'Why do leaves need light?'])
   })
 
   it('words an ended session without offering a retry', async () => {

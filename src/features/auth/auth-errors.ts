@@ -12,9 +12,15 @@ const CODE_MAP: Record<string, AuthErrorCode> = {
   weak_password: 'weak-password',
   same_password: 'weak-password',
   captcha_failed: 'captcha-failed',
-  mfa_verification_failed: 'invalid-code',
-  mfa_verification_rejected: 'invalid-code',
-  mfa_challenge_expired: 'invalid-code',
+  // A one-time link that expired, was used already, or was opened in a
+  // different browser from the one that started it (PKCE).
+  otp_expired: 'link-expired',
+  flow_state_expired: 'link-expired',
+  flow_state_not_found: 'link-expired',
+  bad_code_verifier: 'link-expired',
+  pkce_code_verifier_not_found: 'link-expired',
+  provider_disabled: 'provider-unavailable',
+  oauth_provider_not_supported: 'provider-unavailable',
   over_request_rate_limit: 'rate-limited',
   over_email_send_rate_limit: 'rate-limited',
   user_already_exists: 'email-in-use',
@@ -48,11 +54,31 @@ const MESSAGES: Record<AuthErrorCode, string> = {
   'weak-password':
     'Choose a stronger password: at least 10 characters, and not one you’ve used before.',
   'captcha-failed': 'The security check didn’t go through. Please try again.',
-  'invalid-code': 'That code didn’t work. Check your app and try again.',
+  'oauth-cancelled':
+    'Google sign-in didn’t finish. Try again, or use your email and password.',
+  'link-expired':
+    'That link has expired or was opened in a different browser. Sign in again to continue.',
+  'provider-unavailable':
+    'Google sign-in isn’t available right now. Use your email and password instead.',
   'rate-limited': 'Too many attempts. Wait a few minutes, then try again.',
   offline: 'We couldn’t reach SomaNami. Check your connection and try again.',
   'not-configured': 'Sign-in isn’t set up on this copy of SomaNami yet.',
   unknown: 'Something went wrong. Please try again.',
+}
+
+/**
+ * The failure a provider or Supabase reported in a redirect back to us
+ * (`?error=…&error_code=…`), or `null` when there is none. The raw
+ * description is never shown, so it can't leak server detail.
+ */
+export function redirectErrorCode(
+  params: URLSearchParams,
+): AuthErrorCode | null {
+  const error = params.get('error')
+  if (!error) return null
+  const mapped = CODE_MAP[params.get('error_code') ?? '']
+  if (mapped) return mapped
+  return error === 'access_denied' ? 'oauth-cancelled' : 'unknown'
 }
 
 /** Plain-language copy for an error code; never reveals whether an account exists. */

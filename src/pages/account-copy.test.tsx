@@ -3,10 +3,9 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { renderSignedInApp } from '../features/auth/testing/render-app.tsx'
 import { createMemoryAdapter, setStorageAdapter } from '../lib/storage/index.ts'
 
-// Materials belong to an account but live on one device until sync ships, so
-// the copy must say both, and never imply another device holds a copy.
-const NOT_HERE =
-  'It may have been removed, or added on another device. For now, each device keeps its own materials and chats.'
+// The product is explained by its grounding, not by where data lives or by
+// connectivity (#177): no device, offline or upload-privacy notes.
+const NOT_HERE = 'It may have been removed.'
 
 beforeEach(() => {
   setStorageAdapter(createMemoryAdapter())
@@ -14,6 +13,12 @@ beforeEach(() => {
 })
 
 describe('Account-aware device copy', () => {
+  it('shows no device or connection panel in the sidebar', async () => {
+    await renderSignedInApp('/')
+    expect(screen.queryByRole('region', { name: 'On this device' })).toBeNull()
+    expect(screen.queryByText(/online|offline/i)).toBeNull()
+  })
+
   it.each([
     ['/chat/missing', 'We can’t find that material'],
     ['/chats/missing', 'We can’t find that chat'],
@@ -24,7 +29,7 @@ describe('Account-aware device copy', () => {
       await screen.findByRole('heading', { name: heading }),
     ).toBeInTheDocument()
     expect(screen.getByText(NOT_HERE, { exact: false })).toBeInTheDocument()
-    expect(screen.queryByText(/saved on another device/)).toBeNull()
+    expect(screen.queryByText(/another device/)).toBeNull()
   })
 
   it('makes no offline claim about saved conversations', async () => {
@@ -35,6 +40,16 @@ describe('Account-aware device copy', () => {
       ),
     ).toBeInTheDocument()
     expect(screen.queryByText(/offline/)).toBeNull()
+  })
+
+  it('keeps the help page free of offline, device and privacy notes', async () => {
+    await renderSignedInApp('/help')
+    expect(
+      await screen.findByRole('heading', { name: 'Adding materials' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText(/offline|this device|private copy|privately/i),
+    ).toBeNull()
   })
 
   describe('sidebar profile row (#125)', () => {

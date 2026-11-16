@@ -1,11 +1,11 @@
 // @vitest-environment node
 import type Anthropic from '@anthropic-ai/sdk'
 import { describe, expect, it, vi } from 'vitest'
-import type { ChatRequest } from '../../src/types/contracts.ts'
 import { createClaudeAnswerer, DEFAULT_MODEL } from './claude-answerer.ts'
+import type { AnswerRequest } from './claude-answerer.ts'
 import { SYSTEM_PROMPT } from './prompt.ts'
 
-const request: ChatRequest = {
+const request: AnswerRequest = {
   question: 'Why ATP?',
   passages: [
     {

@@ -4,6 +4,7 @@ import type { UploadState } from './use-document-upload.ts'
 
 const BADGE = {
   processing: { text: 'Reading your document…', style: 'bg-tint text-accent' },
+  fetching: { text: 'Fetching the link…', style: 'bg-tint text-accent' },
   ready: { text: '✓ Added', style: 'bg-success-soft text-success' },
   // Rejected before parsing: the file itself is the problem.
   invalid: { text: 'Can’t use this file', style: 'bg-warn-soft text-warn' },
@@ -15,6 +16,7 @@ const KIND_LABEL: Record<DocumentKind, string> = {
   pdf: 'PDF',
   docx: 'DOCX',
   text: 'Text',
+  web: 'Web page',
 }
 
 const ACTION_STYLE = 'ml-3 text-sm text-muted underline hover:text-fg'
@@ -24,7 +26,10 @@ function describe(state: UploadState): string | null {
   const { document } = state
   const kind = KIND_LABEL[document.kind]
   const pages = document.pageCount ? ` · ${document.pageCount} pages` : ''
-  return `${kind}${pages} · ${formatSize(document.size)}`
+  const from = document.sourceUrl
+    ? ` · from ${new URL(document.sourceUrl).hostname}`
+    : ''
+  return `${kind}${pages} · ${formatSize(document.size)}${from}`
 }
 
 type DocumentCardProps = UploadState & {
@@ -38,7 +43,8 @@ export default function DocumentCard(props: DocumentCardProps) {
   if (state.status === 'idle') return null
   const { status, error } = state
   const isInvalid = error?.stage === 'validation'
-  const badge = BADGE[isInvalid ? 'invalid' : status]
+  const fetching = status === 'processing' && state.fetching
+  const badge = BADGE[isInvalid ? 'invalid' : fetching ? 'fetching' : status]
   const name =
     state.document?.name ?? ('fileName' in state ? state.fileName : '')
   const summary = describe(state)
