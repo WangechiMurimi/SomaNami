@@ -100,6 +100,13 @@ describe('details step', () => {
     expect(currentLocation()).toBe('/library')
   })
 
+  it('sends a new Google account from the callback to the details step', async () => {
+    installFakeSupabase({ profile: null })
+    renderAt('/auth/callback?code=abc&next=%2Flibrary')
+    expect(await screen.findByLabelText('Display name')).toBeInTheDocument()
+    expect(currentLocation()).toBe('/welcome/details?next=%2Flibrary')
+  })
+
   it('keeps the details step signed-in only', async () => {
     installFakeSupabase()
     renderAt('/welcome/details')

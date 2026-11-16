@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { Link, Navigate } from 'react-router'
 import AuthLayout from '../features/auth/AuthLayout.tsx'
 import FormAlert from '../features/auth/FormAlert.tsx'
+import GoogleSignIn from '../features/auth/GoogleSignIn.tsx'
 import PasswordField from '../features/auth/PasswordField.tsx'
 import TextField from '../features/auth/TextField.tsx'
 import Turnstile from '../features/auth/Turnstile.tsx'
@@ -57,7 +58,12 @@ export default function SignUpPage() {
       {!isAuthConfigured() ? (
         <FormAlert>{authErrorMessage('not-configured')}</FormAlert>
       ) : (
-        <AccountForm onSent={setSentTo} />
+        <>
+          <GoogleSignIn />
+          <div className="mt-5">
+            <AccountForm onSent={setSentTo} />
+          </div>
+        </>
       )}
       <p className="mt-8 text-[15px] text-muted">
         Already have an account?{' '}
