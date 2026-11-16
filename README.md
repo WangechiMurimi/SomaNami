@@ -87,14 +87,30 @@ Email and password sign-in works without them.
 | `npm run db:test`      | pgTAP tests against the local database                |
 | `npm run db:reset`     | Rebuild the local database from the migrations        |
 
-CI runs lint, typecheck, format check, tests and build on every pull request,
-and applies the migrations to a fresh database to run the pgTAP tests.
+## CI/CD
+
+`.github/workflows/ci.yml` runs on every pull request and every push to `main`,
+in stages that each wait for the one before:
+
+1. **static**: dependency audit, lint, typecheck, format check.
+2. **unit** and **database**: Vitest with coverage (report uploaded, totals in
+   the run summary), and the pgTAP tests against a fresh local database.
+3. **e2e**: Playwright on Chromium (report uploaded when a test fails).
+4. **build**: the production build.
+5. **deploy**: a gate that records the GitHub Environment, `staging` for pull
+   requests and `production` for `main`.
+
+Netlify's Git integration does the deploying: it builds a deploy preview for
+each pull request and publishes production from `main`. Actions does not
+deploy, so nothing is published twice; branch protection that requires the
+`deploy` check keeps unchecked code off `main`.
 
 ## Deploying to Netlify
 
 Connect the repository in Netlify; `netlify.toml` sets the build command,
-publish directory and functions directory. Set `ANTHROPIC_API_KEY` in the
-site's environment variables (optionally `CLAUDE_MODEL`, `CLAUDE_EFFORT`).
+publish directory and functions directory. Which variables each environment
+needs, which are public and which are secret, and where each is set, are in
+[`docs/deployment.md`](docs/deployment.md).
 
 ## Contributing
 
