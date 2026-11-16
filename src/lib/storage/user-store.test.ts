@@ -14,22 +14,9 @@ import {
   removeUserStore,
   saveDocument,
   setStorageAdapter,
-  DEFAULT_WORKSPACE,
   userDbName,
 } from './index.ts'
-import type { StoredDocument } from '../../types/contracts.ts'
-
-const doc = (id: string): StoredDocument => ({
-  id,
-  name: `${id}.txt`,
-  size: 1,
-  kind: 'text',
-  pageCount: 1,
-  chunks: [],
-  workspaceId: DEFAULT_WORKSPACE.id,
-  createdAt: 1,
-  updatedAt: 1,
-})
+import { storedDoc } from './testing/documents.ts'
 
 const databaseNames = async (factory: IDBFactory) =>
   (await factory.databases()).map((info) => info.name)
@@ -38,7 +25,7 @@ describe('createIndexedDbAdapter', () => {
   it('keeps the legacy database name when none is given', async () => {
     const factory = new IDBFactory()
     const adapter = createIndexedDbAdapter(factory)
-    await adapter.put(DOCUMENTS, doc('a'))
+    await adapter.put(DOCUMENTS, storedDoc('a'))
     await adapter.close()
     expect(await databaseNames(factory)).toEqual([DB_NAME])
   })
@@ -46,7 +33,7 @@ describe('createIndexedDbAdapter', () => {
   it('opens the database it is given a name for', async () => {
     const factory = new IDBFactory()
     const adapter = createIndexedDbAdapter(factory, { name: 'somanami-other' })
-    await adapter.put(DOCUMENTS, doc('a'))
+    await adapter.put(DOCUMENTS, storedDoc('a'))
     await adapter.close()
     expect(await databaseNames(factory)).toEqual(['somanami-other'])
   })
@@ -93,12 +80,12 @@ describe.each<[string, () => IDBFactory | undefined]>([
 
   it('keeps two users’ materials apart', async () => {
     await openUserStore('ada')
-    await saveDocument(doc('ada-notes'))
+    await saveDocument(storedDoc('ada-notes'))
     closeUserStore()
 
     await openUserStore('ben')
     expect(await listDocuments()).toEqual([])
-    await saveDocument(doc('ben-notes'))
+    await saveDocument(storedDoc('ben-notes'))
     closeUserStore()
 
     await openUserStore('ada')
@@ -111,7 +98,7 @@ describe.each<[string, () => IDBFactory | undefined]>([
     const second = openUserStore('ben')
     await Promise.all([first, second])
 
-    await saveDocument(doc('ben-notes'))
+    await saveDocument(storedDoc('ben-notes'))
     closeUserStore()
     await openUserStore('ada')
     expect(await listDocuments()).toEqual([])
@@ -119,10 +106,10 @@ describe.each<[string, () => IDBFactory | undefined]>([
 
   it('removes only the named user’s materials', async () => {
     await openUserStore('ada')
-    await saveDocument(doc('ada-notes'))
+    await saveDocument(storedDoc('ada-notes'))
     closeUserStore()
     await openUserStore('ben')
-    await saveDocument(doc('ben-notes'))
+    await saveDocument(storedDoc('ben-notes'))
 
     // Removing the open user's store closes it first.
     await removeUserStore('ben')
@@ -149,13 +136,13 @@ describe('user stores in IndexedDB', () => {
 
   it('gives each user a database of their own, never the shared one', async () => {
     await openUserStore('ada')
-    await saveDocument(doc('a'))
+    await saveDocument(storedDoc('a'))
     expect(await databaseNames(factory)).toEqual([userDbName('ada')])
   })
 
   it('deletes the user’s database from the device', async () => {
     await openUserStore('ada')
-    await saveDocument(doc('a'))
+    await saveDocument(storedDoc('a'))
     await removeUserStore('ada')
     expect(await databaseNames(factory)).toEqual([])
   })
@@ -166,7 +153,7 @@ describe('an injected adapter', () => {
 
   it('bypasses the user scope, so tests need no signed-in user', async () => {
     setStorageAdapter(createMemoryAdapter())
-    await saveDocument(doc('a'))
+    await saveDocument(storedDoc('a'))
     expect(await listDocuments()).toHaveLength(1)
   })
 })
@@ -181,7 +168,7 @@ describe('importLegacyMaterials', () => {
     const factory = new IDBFactory()
     vi.stubGlobal('indexedDB', factory)
     const legacy = createIndexedDbAdapter(factory)
-    await legacy.put(DOCUMENTS, doc('old-notes'))
+    await legacy.put(DOCUMENTS, storedDoc('old-notes'))
     await legacy.close()
 
     await openUserStore('ada')
@@ -231,12 +218,12 @@ describe('a store removed in another tab', () => {
     const otherTab = createIndexedDbAdapter(factory, {
       name: userDbName('ada'),
     })
-    await otherTab.put(DOCUMENTS, doc('a'))
+    await otherTab.put(DOCUMENTS, storedDoc('a'))
 
     vi.stubGlobal('indexedDB', factory)
     await removeUserStore('ada')
 
-    await expect(otherTab.put(DOCUMENTS, doc('b'))).rejects.toThrow(
+    await expect(otherTab.put(DOCUMENTS, storedDoc('b'))).rejects.toThrow(
       /removed from this device/,
     )
     expect(await databaseNames(factory)).toEqual([])

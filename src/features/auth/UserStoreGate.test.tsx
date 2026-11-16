@@ -12,25 +12,12 @@ import {
   listDocuments,
   saveDocument,
   setStorageAdapter,
-  DEFAULT_WORKSPACE,
   userDbName,
 } from '../../lib/storage/index.ts'
-import type { StoredDocument } from '../../types/contracts.ts'
+import { storedDoc } from '../../lib/storage/testing/documents.ts'
 import type { AuthContextValue, AuthStatus } from '../../types/auth.ts'
 import UserStoreGate, { LEGACY_CHECK_TIMEOUT_MS } from './UserStoreGate.tsx'
 import { AuthContext } from './auth-context.ts'
-
-const doc = (id: string): StoredDocument => ({
-  id,
-  name: `${id}.txt`,
-  size: 1,
-  kind: 'text',
-  pageCount: 1,
-  chunks: [],
-  workspaceId: DEFAULT_WORKSPACE.id,
-  createdAt: 1,
-  updatedAt: 1,
-})
 
 const session = (
   userId: string | null,
@@ -66,7 +53,7 @@ let factory: IDBFactory
 
 async function seed(name: string, ids: string[]) {
   const adapter = createIndexedDbAdapter(factory, { name })
-  for (const id of ids) await adapter.put(DOCUMENTS, doc(id))
+  for (const id of ids) await adapter.put(DOCUMENTS, storedDoc(id))
   await adapter.close()
 }
 
@@ -155,7 +142,7 @@ describe('UserStoreGate', () => {
     )
     expect(await screen.findByText('library: empty')).toBeInTheDocument()
 
-    await saveDocument(doc('written-after-switch'))
+    await saveDocument(storedDoc('written-after-switch'))
     closeUserStore()
     const ben = createIndexedDbAdapter(factory, { name: userDbName('ben') })
     expect((await ben.getAll(DOCUMENTS)).map((d) => d.id)).toEqual([

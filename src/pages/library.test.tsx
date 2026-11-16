@@ -13,6 +13,7 @@ import {
   saveDocument,
   setStorageAdapter,
 } from '../lib/storage/index.ts'
+import { newDoc } from '../lib/storage/testing/documents.ts'
 import { syncOnce } from '../lib/sync/engine.ts'
 import type { DocumentKind, Workspace } from '../types/contracts.ts'
 
@@ -26,10 +27,7 @@ vi.mock('../lib/sync/engine.ts', async (importOriginal) => ({
 let biology: Workspace
 
 const material = (id: string, kind: DocumentKind, workspaceId = biology.id) =>
-  saveDocument(
-    { id, name: `${id}.${kind}`, size: 1, kind, pageCount: null, chunks: [] },
-    workspaceId,
-  )
+  saveDocument(newDoc(id, { name: `${id}.${kind}`, kind }), workspaceId)
 
 beforeEach(async () => {
   vi.mocked(syncOnce).mockResolvedValue({ pulled: 0, pushed: 0, pending: 0 })
