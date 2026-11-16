@@ -10,8 +10,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Stages, each gated on the one before (#188):
+#   static -> unit + database -> e2e -> build -> deploy
+# Cheap checks run first so a lint error never waits on a browser install.
 jobs:
-  verify:
+  static:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -27,12 +30,47 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run format:check
-      - run: npm test
-      - run: npm run build
+
+  unit:
+    needs: static
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run test:coverage
+      - name: Coverage summary
+        if: always()
+        run: |
+          summary=coverage/coverage-summary.json
+          if [ ! -f "$summary" ]; then
+            echo "No coverage summary was written." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "### Unit test coverage"
+            echo
+            echo "| Metric | Covered | Total | % |"
+            echo "| --- | ---: | ---: | ---: |"
+            jq -r '.total | to_entries[]
+              | "| \(.key) | \(.value.covered) | \(.value.total) | \(.value.pct) |"' "$summary"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: ignore
+          retention-days: 14
 
   # Migrations and row-level security tests run against a throwaway local
   # database; nothing here touches the hosted project.
   database:
+    needs: static
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -43,3 +81,62 @@ jobs:
       # Only Postgres is needed to apply migrations and run pgTAP.
       - run: supabase db start
       - run: supabase test db
+
+  e2e:
+    needs: unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      # The HTML report holds traces and screenshots; only worth keeping when
+      # something broke.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  build:
+    needs: [unit, database, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  # Netlify's Git integration builds and publishes the site itself: a deploy
+  # preview for every pull request and production from main. Deploying again
+  # from here would publish twice, so this job only records which GitHub
+  # Environment the commit is headed for and gives branch protection a single
+  # required check that covers every stage. See docs/deployment.md.
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: ${{ github.event_name == 'push' && 'production' || 'staging' }}
+    steps:
+      - name: Record the deploy target
+        env:
+          TARGET: ${{ github.event_name == 'push' && 'production' || 'staging' }}
+          WHERE: ${{ github.event_name == 'push' && 'Netlify production deploy from main' || 'Netlify deploy preview for this pull request' }}
+        run: |
+          {
+            echo "### Deploy"
+            echo
+            echo "All stages passed for \`${GITHUB_SHA::7}\`; environment: **$TARGET**."
+            echo "Netlify performs the deploy itself: $WHERE."
+          } >> "$GITHUB_STEP_SUMMARY"
