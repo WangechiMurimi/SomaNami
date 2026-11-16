@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ChatPanel from './ChatPanel.tsx'
-import { askQuestion, ChatError } from './chat-client.ts'
+import { askQuestion, ChatError, MODEL_WAKING_MESSAGE } from './chat-client.ts'
 import type { ChatTurn } from './use-chat.ts'
 import type { ChatReply } from '../../types/contracts.ts'
 
@@ -339,5 +339,52 @@ describe('ChatPanel', () => {
     expect(
       within(alert).queryByRole('button', { name: 'Try again' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('shows that the tutor is starting up, then the answer, without retyping (#201)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      vi.mocked(askQuestion)
+        .mockRejectedValueOnce(
+          new ChatError(MODEL_WAKING_MESSAGE, {
+            code: 'model-waking',
+            retryAfterSeconds: 5,
+          }),
+        )
+        .mockResolvedValueOnce({
+          answer: 'Light drives photosynthesis.',
+          citations: [],
+          answerable: true,
+          passages: [],
+        })
+      const user = userEvent.setup({
+        advanceTimers: vi.advanceTimersByTime,
+      })
+      render(<ChatPanel documents={[]} materialIds={['doc-1']} />)
+      const box = screen.getByLabelText('Ask a follow-up about your materials')
+
+      await user.type(box, 'Why do leaves need light?{Enter}')
+
+      const log = screen.getByRole('region', { name: 'Conversation' })
+      const waiting = await within(log).findByRole('status')
+      expect(waiting).toHaveTextContent('Starting up the tutor')
+      expect(waiting).toHaveTextContent('about a minute')
+      expect(log).toHaveAttribute('aria-busy', 'true')
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      await user.type(box, 'Next')
+      expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled()
+
+      await vi.advanceTimersByTimeAsync(5_000)
+
+      expect(
+        await within(log).findByText('Light drives photosynthesis.'),
+      ).toBeVisible()
+      expect(
+        within(log).getAllByText('Why do leaves need light?'),
+      ).toHaveLength(1)
+      expect(within(log).queryByText('Starting up the tutor')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

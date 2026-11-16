@@ -1,7 +1,13 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { askQuestion, ChatError } from './chat-client.ts'
-import { useChat } from './use-chat.ts'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { askQuestion, ChatError, MODEL_WAKING_MESSAGE } from './chat-client.ts'
+import {
+  MAX_WAKE_RETRY_DELAY_MS,
+  MAX_WAKE_WAIT_MS,
+  useChat,
+  WAKE_TIMED_OUT_MESSAGE,
+  wakeRetryDelayMs,
+} from './use-chat.ts'
 
 vi.mock('./chat-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./chat-client.ts')>()),
@@ -231,5 +237,122 @@ describe('useChat with a saved conversation', () => {
     )
     expect(log).toHaveBeenCalled()
     log.mockRestore()
+  })
+
+  describe('while the model starts up (#201)', () => {
+    const waking = (retryAfterSeconds = 30) =>
+      new ChatError(MODEL_WAKING_MESSAGE, {
+        code: 'model-waking',
+        retryAfterSeconds,
+      })
+
+    beforeEach(() => vi.useFakeTimers())
+    afterEach(() => vi.useRealTimers())
+
+    it('shows a waiting state, then resends the same question by itself', async () => {
+      vi.mocked(askQuestion)
+        .mockRejectedValueOnce(waking(30))
+        .mockResolvedValueOnce(answer())
+      const { result } = renderHook(() => useChat())
+
+      await act(() => result.current.send('Why light?'))
+
+      expect(result.current.status).toBe('waking')
+      expect(result.current.error).toBeNull()
+      expect(result.current.messages).toEqual([
+        expect.objectContaining({ role: 'user', content: 'Why light?' }),
+      ])
+
+      await act(() => vi.advanceTimersByTimeAsync(29_999))
+      expect(askQuestion).toHaveBeenCalledTimes(1)
+      await act(() => vi.advanceTimersByTimeAsync(1))
+
+      expect(askQuestion).toHaveBeenCalledTimes(2)
+      expect(vi.mocked(askQuestion).mock.calls[1]![0]).toEqual({
+        question: 'Why light?',
+        materialIds: [],
+        history: [],
+      })
+      expect(result.current.status).toBe('idle')
+      expect(result.current.messages.map(({ role }) => role)).toEqual([
+        'user',
+        'assistant',
+      ])
+    })
+
+    it('backs off between retries, following the server hint', async () => {
+      vi.mocked(askQuestion)
+        .mockRejectedValueOnce(waking(20))
+        .mockRejectedValueOnce(waking(20))
+        .mockResolvedValueOnce(answer())
+      const { result } = renderHook(() => useChat())
+
+      await act(() => result.current.send('Why?'))
+      await act(() => vi.advanceTimersByTimeAsync(20_000))
+      expect(askQuestion).toHaveBeenCalledTimes(2)
+      expect(result.current.status).toBe('waking')
+
+      // The second wait is half as long again.
+      await act(() => vi.advanceTimersByTimeAsync(29_999))
+      expect(askQuestion).toHaveBeenCalledTimes(2)
+      await act(() => vi.advanceTimersByTimeAsync(1))
+      expect(askQuestion).toHaveBeenCalledTimes(3)
+      expect(result.current.status).toBe('idle')
+    })
+
+    it('hands back a retryable error once the wait runs too long', async () => {
+      vi.mocked(askQuestion).mockRejectedValue(waking(45))
+      const { result } = renderHook(() => useChat())
+
+      await act(() => result.current.send('Why?'))
+      await act(() => vi.advanceTimersByTimeAsync(MAX_WAKE_WAIT_MS))
+
+      expect(result.current.status).toBe('error')
+      expect(result.current.error).toEqual({
+        message: WAKE_TIMED_OUT_MESSAGE,
+        retryable: true,
+      })
+      const calls = vi.mocked(askQuestion).mock.calls.length
+      await act(() => vi.advanceTimersByTimeAsync(MAX_WAKE_WAIT_MS))
+      expect(askQuestion).toHaveBeenCalledTimes(calls)
+
+      // The question is still there for a manual retry.
+      vi.mocked(askQuestion).mockResolvedValueOnce(answer())
+      await act(() => result.current.retry())
+      expect(result.current.status).toBe('idle')
+      expect(
+        result.current.messages.filter(({ role }) => role === 'user'),
+      ).toHaveLength(1)
+    })
+
+    it('ignores a new send while a retry is scheduled', async () => {
+      vi.mocked(askQuestion).mockRejectedValueOnce(waking())
+      const { result } = renderHook(() => useChat())
+
+      await act(() => result.current.send('Why?'))
+      await act(() => result.current.send('Another?'))
+
+      expect(askQuestion).toHaveBeenCalledTimes(1)
+    })
+
+    it('stops retrying when the chat unmounts', async () => {
+      vi.mocked(askQuestion).mockRejectedValueOnce(waking())
+      const { result, unmount } = renderHook(() => useChat())
+
+      await act(() => result.current.send('Why?'))
+      unmount()
+      await vi.advanceTimersByTimeAsync(MAX_WAKE_WAIT_MS)
+
+      expect(askQuestion).toHaveBeenCalledTimes(1)
+    })
+  })
+})
+
+describe('wakeRetryDelayMs', () => {
+  it('starts at the hint and grows by half each attempt, up to a cap', () => {
+    expect(wakeRetryDelayMs(1, 20)).toBe(20_000)
+    expect(wakeRetryDelayMs(2, 20)).toBe(30_000)
+    expect(wakeRetryDelayMs(3, 20)).toBe(MAX_WAKE_RETRY_DELAY_MS)
+    expect(wakeRetryDelayMs(1)).toBe(30_000)
   })
 })

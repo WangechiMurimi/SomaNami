@@ -1,0 +1,338 @@
+// @vitest-environment node
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { UpstreamError } from './answerer.ts'
+import type { AnswerRequest } from './answerer.ts'
+import {
+  ANSWER_FORMAT,
+  createOllamaAnswerer,
+  createOllamaProbe,
+  DEFAULT_OLLAMA_MODEL,
+  DEFAULT_OLLAMA_TIMEOUT_MS,
+  MAX_ANSWER_TOKENS,
+  NETLIFY_FUNCTION_LIMIT_MS,
+} from './ollama-answerer.ts'
+import { SYSTEM_PROMPT } from './prompt.ts'
+
+const request: AnswerRequest = {
+  question: 'Why ATP?',
+  passages: [
+    {
+      documentId: 'doc-1',
+      chunkId: 'doc-1:0',
+      text: 'Mitochondria produce ATP.',
+      source: { type: 'page', page: 1 },
+    },
+  ],
+  history: [],
+}
+
+const BASE_URL = 'http://ollama.test:11434/'
+const API_KEY = 'secret-ollama-key'
+const GOOD = { answer: 'ATP.', answerable: true, citations: ['doc-1:0'] }
+
+/** An Ollama `/api/chat` reply whose message content is `content`. */
+const reply = (content: string) =>
+  Response.json({ model: DEFAULT_OLLAMA_MODEL, message: { content } })
+
+const answerReply = (answer: unknown) => reply(JSON.stringify(answer))
+
+function fakeFetch(...responses: (Response | Error)[]) {
+  const fetch = vi.fn<typeof globalThis.fetch>()
+  for (const response of responses) {
+    if (response instanceof Error) fetch.mockRejectedValueOnce(response)
+    else fetch.mockResolvedValueOnce(response)
+  }
+  return fetch
+}
+
+/** A fetch that settles only when aborted, like one to a stalled server. */
+const stalledFetch = () =>
+  vi.fn<typeof globalThis.fetch>(
+    (_url, init) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () =>
+          reject(new DOMException('aborted', 'AbortError')),
+        )
+      }),
+  )
+
+/** Captures what an answerer threw, so tests can inspect its fields. */
+const failureOf = (promise: Promise<unknown>) =>
+  promise.then(
+    () => {
+      throw new Error('expected the answerer to fail')
+    },
+    (error: unknown) => error as UpstreamError,
+  )
+
+const sentBody = (fetch: ReturnType<typeof fakeFetch>, call = 0) =>
+  JSON.parse(String(fetch.mock.calls[call]?.[1]?.body))
+
+const sentHeaders = (fetch: ReturnType<typeof fakeFetch>) =>
+  new Headers(fetch.mock.calls[0]?.[1]?.headers)
+
+describe('createOllamaAnswerer', () => {
+  it('returns the validated structured answer', async () => {
+    const fetch = fakeFetch(answerReply(GOOD))
+
+    await expect(
+      createOllamaAnswerer({ baseUrl: BASE_URL, fetch })(request),
+    ).resolves.toEqual({ kind: 'answer', answer: GOOD })
+  })
+
+  it('posts a non-streaming, schema-constrained, deterministic chat request', async () => {
+    const fetch = fakeFetch(answerReply(GOOD))
+
+    await createOllamaAnswerer({ baseUrl: BASE_URL, fetch })(request)
+
+    expect(fetch.mock.calls[0]?.[0]).toBe('http://ollama.test:11434/api/chat')
+    expect(fetch.mock.calls[0]?.[1]?.method).toBe('POST')
+    const body = sentBody(fetch)
+    expect(body).toMatchObject({
+      model: DEFAULT_OLLAMA_MODEL,
+      stream: false,
+      format: ANSWER_FORMAT,
+      options: { temperature: 0, num_predict: MAX_ANSWER_TOKENS },
+    })
+    expect(body.messages[0]).toEqual({ role: 'system', content: SYSTEM_PROMPT })
+    expect(body.messages.at(-1).content).toContain('Why ATP?')
+  })
+
+  it('constrains output to the answer schema without a $schema key', () => {
+    expect(ANSWER_FORMAT).toEqual({
+      type: 'object',
+      properties: {
+        answer: { type: 'string' },
+        answerable: { type: 'boolean' },
+        citations: { type: 'array', items: { type: 'string' } },
+      },
+      required: ['answer', 'answerable', 'citations'],
+      additionalProperties: false,
+    })
+  })
+
+  it('honours a model override', async () => {
+    const fetch = fakeFetch(answerReply(GOOD))
+
+    await createOllamaAnswerer({ baseUrl: BASE_URL, model: 'llama3', fetch })(
+      request,
+    )
+
+    expect(sentBody(fetch).model).toBe('llama3')
+  })
+
+  it('sends a bearer token only when a key is set', async () => {
+    const withKey = fakeFetch(answerReply(GOOD))
+    const withoutKey = fakeFetch(answerReply(GOOD))
+
+    await createOllamaAnswerer({
+      baseUrl: BASE_URL,
+      apiKey: API_KEY,
+      fetch: withKey,
+    })(request)
+    await createOllamaAnswerer({ baseUrl: BASE_URL, fetch: withoutKey })(
+      request,
+    )
+
+    expect(sentHeaders(withKey).get('authorization')).toBe(`Bearer ${API_KEY}`)
+    expect(sentHeaders(withoutKey).has('authorization')).toBe(false)
+  })
+
+  it('passes an unanswerable reply through for the route to handle', async () => {
+    const unanswerable = {
+      answer: 'The documents do not cover this.',
+      answerable: false,
+      citations: [],
+    }
+    const fetch = fakeFetch(answerReply(unanswerable))
+
+    await expect(
+      createOllamaAnswerer({ baseUrl: BASE_URL, fetch })(request),
+    ).resolves.toEqual({ kind: 'answer', answer: unanswerable })
+  })
+
+  it.each([
+    ['invalid JSON', reply('{"answer": "ATP.", ')],
+    ['JSON that breaks the schema', answerReply({ answer: 'ATP.' })],
+  ])('retries once after %s', async (_label, bad) => {
+    const fetch = fakeFetch(bad, answerReply(GOOD))
+
+    await expect(
+      createOllamaAnswerer({ baseUrl: BASE_URL, fetch })(request),
+    ).resolves.toEqual({ kind: 'answer', answer: GOOD })
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(sentBody(fetch, 1)).toEqual(sentBody(fetch, 0))
+  })
+
+  it('fails upstream when the retry is invalid too', async () => {
+    const fetch = fakeFetch(reply('not json'), reply('still not json'))
+
+    const error = await failureOf(
+      createOllamaAnswerer({ baseUrl: BASE_URL, fetch })(request),
+    )
+
+    expect(error).toBeInstanceOf(UpstreamError)
+    expect(error.kind).toBe('failed')
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('times out when Ollama does not answer before the deadline', async () => {
+    const fetch = stalledFetch()
+
+    const error = await failureOf(
+      createOllamaAnswerer({ baseUrl: BASE_URL, timeoutMs: 5, fetch })(request),
+    )
+
+    expect(error).toBeInstanceOf(UpstreamError)
+    expect(error.kind).toBe('timeout')
+  })
+
+  describe('the default deadline', () => {
+    afterEach(() => vi.useRealTimers())
+
+    it('leaves room under the Netlify function limit for auth, the materials load and the reply', () => {
+      expect(
+        NETLIFY_FUNCTION_LIMIT_MS - DEFAULT_OLLAMA_TIMEOUT_MS,
+      ).toBeGreaterThanOrEqual(3_000)
+    })
+
+    it('aborts a stalled request once it passes', async () => {
+      vi.useFakeTimers()
+      const fetch = stalledFetch()
+
+      const failure = failureOf(
+        createOllamaAnswerer({ baseUrl: BASE_URL, fetch })(request),
+      )
+      await vi.advanceTimersByTimeAsync(DEFAULT_OLLAMA_TIMEOUT_MS - 1)
+      expect(fetch.mock.calls[0]?.[1]?.signal?.aborted).toBe(false)
+      await vi.advanceTimersByTimeAsync(1)
+
+      expect(await failure).toMatchObject({ kind: 'timeout' })
+    })
+  })
+
+  it('reports a network failure as unreachable', async () => {
+    const fetch = fakeFetch(new TypeError('fetch failed'))
+
+    const error = await failureOf(
+      createOllamaAnswerer({ baseUrl: BASE_URL, fetch })(request),
+    )
+
+    expect(error).toBeInstanceOf(UpstreamError)
+    expect(error.kind).toBe('unreachable')
+  })
+
+  it.each([
+    [401, 'not-configured'],
+    [403, 'not-configured'],
+    [429, 'rate-limited'],
+    [503, 'rate-limited'],
+    [404, 'failed'],
+    [500, 'failed'],
+  ])('maps a %i response to %s without retrying', async (status, kind) => {
+    const fetch = fakeFetch(
+      Response.json({ error: 'nope' }, { status }),
+      answerReply(GOOD),
+    )
+
+    const error = await failureOf(
+      createOllamaAnswerer({ baseUrl: BASE_URL, fetch })(request),
+    )
+
+    expect(error).toBeInstanceOf(UpstreamError)
+    expect(error.kind).toBe(kind)
+    expect(error.message).toContain(String(status))
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('never puts the API key in an error message', async () => {
+    const fetch = fakeFetch(
+      new Response(`invalid token ${API_KEY}`, { status: 401 }),
+    )
+
+    const error = await failureOf(
+      createOllamaAnswerer({ baseUrl: BASE_URL, apiKey: API_KEY, fetch })(
+        request,
+      ),
+    )
+
+    expect(error.message).not.toContain(API_KEY)
+    expect(error.message).toContain('[redacted]')
+  })
+
+  it('fails upstream when the reply has no message content', async () => {
+    const fetch = fakeFetch(Response.json({ done: true }))
+
+    const error = await failureOf(
+      createOllamaAnswerer({ baseUrl: BASE_URL, fetch })(request),
+    )
+
+    expect(error.kind).toBe('failed')
+  })
+
+  it("stops at the caller's deadline as a timeout", async () => {
+    const fetch = stalledFetch()
+    const caller = new AbortController()
+
+    const failure = failureOf(
+      createOllamaAnswerer({ baseUrl: BASE_URL, timeoutMs: 60_000, fetch })(
+        request,
+        { signal: caller.signal },
+      ),
+    )
+    caller.abort()
+
+    expect(await failure).toMatchObject({ kind: 'timeout' })
+  })
+})
+
+describe('createOllamaProbe', () => {
+  const signal = () => new AbortController().signal
+
+  it('asks the gateway for its tags with the bearer key', async () => {
+    const fetch = fakeFetch(Response.json({ models: [] }))
+    const probe = createOllamaProbe({
+      baseUrl: BASE_URL,
+      apiKey: API_KEY,
+      fetch,
+    })
+
+    await expect(probe(signal())).resolves.toBe(true)
+
+    const [url, init] = fetch.mock.calls[0]!
+    expect(url).toBe('http://ollama.test:11434/api/tags')
+    expect(new Headers(init?.headers).get('authorization')).toBe(
+      `Bearer ${API_KEY}`,
+    )
+  })
+
+  it.each([401, 404, 503])('counts a %i as reachable', async (status) => {
+    const fetch = fakeFetch(new Response('x', { status }))
+
+    await expect(
+      createOllamaProbe({ baseUrl: BASE_URL, fetch })(signal()),
+    ).resolves.toBe(true)
+  })
+
+  it.each([502, 504])(
+    'counts a gateway %i (Ollama not up behind Caddy) as unreachable',
+    async (status) => {
+      const fetch = fakeFetch(new Response('x', { status }))
+
+      await expect(
+        createOllamaProbe({ baseUrl: BASE_URL, fetch })(signal()),
+      ).resolves.toBe(false)
+    },
+  )
+
+  it('counts a network failure or abort as unreachable', async () => {
+    const fetch = fakeFetch(
+      new TypeError('fetch failed'),
+      new DOMException('aborted', 'AbortError'),
+    )
+    const probe = createOllamaProbe({ baseUrl: BASE_URL, fetch })
+
+    await expect(probe(signal())).resolves.toBe(false)
+    await expect(probe(signal())).resolves.toBe(false)
+  })
+})

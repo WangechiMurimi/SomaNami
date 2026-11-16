@@ -1,8 +1,9 @@
 // @vitest-environment node
-import type Anthropic from '@anthropic-ai/sdk'
+import Anthropic from '@anthropic-ai/sdk'
 import { describe, expect, it, vi } from 'vitest'
+import { UpstreamError } from './answerer.ts'
+import type { AnswerRequest } from './answerer.ts'
 import { createClaudeAnswerer, DEFAULT_MODEL } from './claude-answerer.ts'
-import type { AnswerRequest } from './claude-answerer.ts'
 import { SYSTEM_PROMPT } from './prompt.ts'
 
 const request: AnswerRequest = {
@@ -101,5 +102,41 @@ describe('createClaudeAnswerer', () => {
     await expect(createClaudeAnswerer({ client })(request)).rejects.toThrow(
       /max_tokens/,
     )
+  })
+
+  describe('maps SDK errors to provider-neutral upstream failures', () => {
+    const headers = new Headers()
+
+    it.each([
+      [
+        'rate limiting',
+        new Anthropic.RateLimitError(429, {}, 'slow down', headers),
+        'rate-limited',
+      ],
+      [
+        'a rejected API key',
+        new Anthropic.AuthenticationError(401, {}, 'bad key', headers),
+        'not-configured',
+      ],
+      [
+        'a network failure',
+        new Anthropic.APIConnectionError({ message: 'offline' }),
+        'unreachable',
+      ],
+      ['anything else', new Error('boom'), 'failed'],
+    ])('%s', async (_label, sdkError, kind) => {
+      const parse = vi.fn().mockRejectedValue(sdkError)
+      const client = { beta: { messages: { parse } } } as unknown as Pick<
+        Anthropic,
+        'beta'
+      >
+
+      const failure = await createClaudeAnswerer({ client })(request).catch(
+        (error: unknown) => error,
+      )
+
+      expect(failure).toBeInstanceOf(UpstreamError)
+      expect(failure).toMatchObject({ kind, cause: sdkError })
+    })
   })
 })

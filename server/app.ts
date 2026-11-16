@@ -21,10 +21,10 @@ import {
 } from './link/limits.ts'
 import { linkResponseHeaders } from './link/link-headers.ts'
 import type { LoadMaterials } from './chat/load-materials.ts'
-import type { Answerer } from './llm/claude-answerer.ts'
+import type { Answerer } from './llm/answerer.ts'
 
 export interface AppOptions {
-  /** Answers chat questions; `null` means the server has no Claude credentials. */
+  /** Answers chat questions; `null` means no LLM provider is configured. */
   answer?: Answerer | null
   /**
    * Verifies the caller's session. Omitting it refuses every chat, so a
@@ -88,6 +88,7 @@ export function createApp({
       authorization: request.get('authorization'),
       loadMaterials,
     })
+    if (result.headers) response.set(result.headers)
     response.status(result.status).json(result.body)
   })
 

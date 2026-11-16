@@ -1,5 +1,4 @@
-import type Anthropic from '@anthropic-ai/sdk'
-import type { AnswerRequest } from './claude-answerer.ts'
+import type { AnswerRequest } from './answerer.ts'
 
 /**
  * Fixed system prompt. It carries no per-request content, so it stays
@@ -29,11 +28,15 @@ export function renderPassages(passages: AnswerRequest['passages']): string {
   return `<passages>\n${body}\n</passages>`
 }
 
+/** A plain chat turn that both the Claude and Ollama APIs accept. */
+export interface PromptMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 /** Builds the message list: prior turns, then the passages and the question. */
-export function buildMessages(
-  request: AnswerRequest,
-): Anthropic.MessageParam[] {
-  // The API requires the first message to be from the user, so drop any
+export function buildMessages(request: AnswerRequest): PromptMessage[] {
+  // Claude requires the first message to be from the user, so drop any
   // leading assistant turns (e.g. a greeting the client kept in history).
   const firstUser = request.history.findIndex((turn) => turn.role === 'user')
   const history = firstUser === -1 ? [] : request.history.slice(firstUser)

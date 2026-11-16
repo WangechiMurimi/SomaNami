@@ -9,10 +9,14 @@ from. See [`docs/PRD.md`](docs/PRD.md) for the product requirements.
 - **Browser:** parses uploads (PDF, DOCX, TXT, Markdown) into source-referenced
   chunks, stores them locally in IndexedDB, and retrieves relevant passages
   with BM25, all without a network connection.
-- **API:** `POST /api/chat` receives the question, the retrieved passages and
-  the conversation so far, and asks Claude to answer **only** from those
-  passages. Citations the model returns are checked against the passages that
-  were sent. The Anthropic API key exists only on the server.
+- **API:** `POST /api/chat` receives the question, the ids of the learner's
+  materials and the conversation so far. It loads those materials from
+  Supabase as the learner, ranks their passages, and asks our self-hosted
+  Ollama model to answer **only** from the best ones (Claude can stand in
+  during local development, never in production). Grounding is enforced in
+  code: if no passage scores high enough the model is not called, and an
+  answer whose citations don't match the passages sent is reported as not
+  covered. Model credentials exist only on the server.
 - **Deployment:** Netlify serves the static build and runs the API as Netlify
   Functions (`netlify/functions/`). Locally, the same handlers run in Express.
 
@@ -24,13 +28,13 @@ Requires Node 24 (see `.nvmrc`).
 
 ```bash
 npm install
-cp .env.example .env    # then set ANTHROPIC_API_KEY
+cp .env.example .env    # then set OLLAMA_BASE_URL (or LLM_PROVIDER=claude)
 npm run server:dev      # API on http://localhost:3001
 npm run dev             # app on http://localhost:5173 (proxies /api to the API)
 ```
 
-Without an API key the app still uploads, stores and searches documents; the
-chat route answers `503 not-configured`.
+Without a configured model the app still uploads, stores and searches
+documents; the chat route answers `503 not-configured`.
 
 ### Local database
 
@@ -93,8 +97,20 @@ and applies the migrations to a fresh database to run the pgTAP tests.
 ## Deploying to Netlify
 
 Connect the repository in Netlify; `netlify.toml` sets the build command,
-publish directory and functions directory. Set `ANTHROPIC_API_KEY` in the
-site's environment variables (optionally `CLAUDE_MODEL`, `CLAUDE_EFFORT`).
+publish directory and functions directory. Set `OLLAMA_BASE_URL` (the Ollama
+gateway's HTTPS address) and `OLLAMA_API_KEY` (its bearer key) in the site's
+environment variables, optionally `OLLAMA_MODEL` and `OLLAMA_TIMEOUT_MS`; the
+comments in `netlify.toml` explain each. Claude is refused when
+`CONTEXT=production`, so don't set `LLM_PROVIDER=claude` there.
+
+| `LLM_PROVIDER`      | Model                                 | Where                       |
+| ------------------- | ------------------------------------- | --------------------------- |
+| `ollama` (default)  | `OLLAMA_MODEL`, default `qwen2.5:3b`  | Everywhere                  |
+| `claude`            | `CLAUDE_MODEL`, default Opus 5.5      | Local development only      |
+
+Chat errors from the model call: `503 rate-limited`, `503 not-configured`,
+`502 upstream-unreachable`, `502 upstream-failed` and `504 upstream-timeout`
+(the model missed its deadline).
 
 ## Contributing
 

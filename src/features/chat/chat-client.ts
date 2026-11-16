@@ -3,6 +3,7 @@ import type {
   ChatReply,
   ChatRequest,
   CitedPassage,
+  ModelWakingReply,
 } from '../../types/contracts.ts'
 
 const ENDPOINT = '/api/chat'
@@ -16,24 +17,41 @@ export const SESSION_ENDED_MESSAGE =
   'Your session ended. Sign in again to ask questions.'
 export const RATE_LIMITED_MESSAGE =
   'You’re asking quickly. Wait a moment and try again.'
+export const MODEL_WAKING_MESSAGE =
+  'The tutor is starting up. This takes about a minute.'
+
+/** Used when a `model-waking` reply carries no usable hint. */
+export const DEFAULT_WAKE_RETRY_SECONDS = 30
+// Bounds a server hint, so a bad value can neither spin nor stall the client.
+const MIN_WAKE_RETRY_SECONDS = 5
+const MAX_WAKE_RETRY_SECONDS = 120
 
 /** A chat failure the UI can present; `retryable` drives the retry affordance. */
 export class ChatError extends Error {
   readonly code: string
   readonly retryable: boolean
+  /** For `model-waking`: how long the server suggests waiting, in seconds. */
+  readonly retryAfterSeconds?: number
 
   constructor(
     message: string,
     {
       code = 'unknown',
       retryable = true,
+      retryAfterSeconds,
       cause,
-    }: { code?: string; retryable?: boolean; cause?: unknown } = {},
+    }: {
+      code?: string
+      retryable?: boolean
+      retryAfterSeconds?: number
+      cause?: unknown
+    } = {},
   ) {
     super(message, { cause })
     this.name = 'ChatError'
     this.code = code
     this.retryable = retryable
+    this.retryAfterSeconds = retryAfterSeconds
   }
 }
 
@@ -108,6 +126,16 @@ export async function askQuestion({
     throw new ChatError(RATE_LIMITED_MESSAGE, { code: 'rate-limited' })
   }
 
+  if (response.status === 503) {
+    const waking = await readModelWaking(response)
+    if (waking) {
+      throw new ChatError(MODEL_WAKING_MESSAGE, {
+        code: 'model-waking',
+        retryAfterSeconds: waking.retryAfterSeconds,
+      })
+    }
+  }
+
   if (!response.ok) {
     // 4xx will fail the same way on a retry, so only offer it for 5xx.
     const retryable = response.status >= 500
@@ -123,6 +151,27 @@ export async function askQuestion({
     if (cause instanceof ChatError) throw cause
     throw new ChatError(MALFORMED_MESSAGE, { code: 'malformed', cause })
   }
+}
+
+/**
+ * Reads a `model-waking` 503 (#201): the model's server was asleep and is
+ * starting. Any other 503 body, or none, returns `null`.
+ */
+async function readModelWaking(
+  response: Response,
+): Promise<ModelWakingReply | null> {
+  let body: unknown
+  try {
+    body = await response.json()
+  } catch {
+    return null
+  }
+  if ((body as ModelWakingReply | null)?.error !== 'model-waking') return null
+  const hint = Number((body as ModelWakingReply).retryAfterSeconds)
+  const retryAfterSeconds = Number.isFinite(hint)
+    ? Math.min(MAX_WAKE_RETRY_SECONDS, Math.max(MIN_WAKE_RETRY_SECONDS, hint))
+    : DEFAULT_WAKE_RETRY_SECONDS
+  return { error: 'model-waking', retryAfterSeconds }
 }
 
 const sessionEnded = () =>

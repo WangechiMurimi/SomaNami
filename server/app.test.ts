@@ -7,7 +7,7 @@ import type { FetchedLink } from './link/fetch-link.ts'
 import type { FetchLinkDependencies } from './link/handle-fetch-link.ts'
 import { LINK_BODY_LIMIT_BYTES, LINK_RATE_LIMIT } from './link/limits.ts'
 import type { LoadMaterials } from './chat/load-materials.ts'
-import type { Answerer } from './llm/claude-answerer.ts'
+import type { Answerer } from './llm/answerer.ts'
 
 const question = { question: 'Why ATP?', materialIds: ['doc-1'] }
 
@@ -93,6 +93,26 @@ describe('createApp', () => {
           source: { type: 'page', page: 1 },
         },
       ],
+    })
+  })
+
+  it('passes the model-waking Retry-After header through (#201)', async () => {
+    const answer = vi
+      .fn<Answerer>()
+      .mockResolvedValue({ kind: 'model-waking', retryAfterSeconds: 20 })
+    const app = createApp({
+      answer,
+      authenticate: allow(),
+      loadMaterials: loadMaterials(),
+    })
+
+    const response = await request(app).post('/api/chat').send(question)
+
+    expect(response.status).toBe(503)
+    expect(response.headers['retry-after']).toBe('20')
+    expect(response.body).toEqual({
+      error: 'model-waking',
+      retryAfterSeconds: 20,
     })
   })
 

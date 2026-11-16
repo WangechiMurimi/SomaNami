@@ -1,6 +1,21 @@
 # Netlify serves the Vite build as static files and the API as Functions.
-# ANTHROPIC_API_KEY (and optionally CLAUDE_MODEL / CLAUDE_EFFORT) must be set
-# in the site's environment variables; they are never exposed to the browser.
+# Chat answers come from our self-hosted Ollama (#149, #152). Set in the site's
+# environment variables, never exposed to the browser:
+# - OLLAMA_BASE_URL: the HTTPS address of the Ollama gateway (#151). Without it,
+#   chat answers 503 not-configured.
+# - OLLAMA_API_KEY: the gateway's key, sent as a bearer token. A secret.
+# - OLLAMA_MODEL (optional, default qwen2.5:3b) and OLLAMA_TIMEOUT_MS
+#   (optional, default 7000; keep it at least 3 s under the 10 s function
+#   limit, or the function is cut off before it can answer 504).
+# - AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET (a secret) and
+#   AZURE_VM_RESOURCE_ID (the VM's full ARM id): the waker identity printed by
+#   infra/azure/create-waker.sh (#201). With all four set, a chat that finds the
+#   VM asleep starts it and answers 503 model-waking; the client waits and
+#   resends. The identity can only read and start that one VM. Leave all four
+#   unset to turn waking off. Scope them to Functions.
+# - LLM_PROVIDER: leave unset (ollama). Claude is for local development only:
+#   with CONTEXT=production the server refuses to build it, so learners'
+#   passages never reach a third party. Don't set ANTHROPIC_API_KEY here.
 # Auth (#114) also needs, in the same place:
 # - VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY, VITE_TURNSTILE_SITE_KEY:
 #   public, baked into the browser bundle at build time.
