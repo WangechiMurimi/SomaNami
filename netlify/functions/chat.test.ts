@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Authenticate } from '../../server/auth/types.ts'
 import type { LoadMaterials } from '../../server/chat/load-materials.ts'
 import type { Answerer } from '../../server/llm/answerer.ts'
+import { createOllamaAnswerer } from '../../server/llm/ollama-answerer.ts'
 import {
   CHAT_BODY_LIMIT_BYTES as MAX_BODY_BYTES,
   CHAT_RATE_LIMIT,
@@ -121,6 +122,47 @@ describe('chat function', () => {
     expect(response.status).toBe(502)
     expect(await response.json()).toEqual({ error: 'materials-unavailable' })
     vi.restoreAllMocks()
+  })
+
+  it('answers a JSON 504 when Ollama misses its deadline', async () => {
+    // Settles only when aborted, like a fetch to a stalled Ollama server.
+    const stalled = vi.fn<typeof fetch>(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError')),
+          )
+        }),
+    )
+    const handler = createChatFunction({
+      answer: createOllamaAnswerer({
+        baseUrl: 'http://ollama.test',
+        timeoutMs: 5,
+        fetch: stalled,
+      }),
+      authenticate: allow(),
+      loadMaterials: vi.fn<LoadMaterials>().mockResolvedValue([
+        {
+          id: 'doc-1',
+          name: 'Cell biology.pdf',
+          chunks: [
+            {
+              id: 'doc-1:0',
+              text: 'ATP stores the energy cells use.',
+              source: { type: 'page', page: 1 },
+            },
+          ],
+        },
+      ]),
+    })
+
+    const response = await handler(
+      post(JSON.stringify({ question: 'Why ATP?', materialIds: ['doc-1'] })),
+    )
+
+    expect(stalled).toHaveBeenCalledOnce()
+    expect(response.status).toBe(504)
+    expect(await response.json()).toEqual({ error: 'upstream-timeout' })
   })
 
   describe('authentication', () => {

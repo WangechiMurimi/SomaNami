@@ -1,12 +1,14 @@
 // @vitest-environment node
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { UpstreamError } from './answerer.ts'
 import type { AnswerRequest } from './answerer.ts'
 import {
   ANSWER_FORMAT,
   createOllamaAnswerer,
   DEFAULT_OLLAMA_MODEL,
+  DEFAULT_OLLAMA_TIMEOUT_MS,
   MAX_ANSWER_TOKENS,
+  NETLIFY_FUNCTION_LIMIT_MS,
 } from './ollama-answerer.ts'
 import { SYSTEM_PROMPT } from './prompt.ts'
 
@@ -41,6 +43,17 @@ function fakeFetch(...responses: (Response | Error)[]) {
   }
   return fetch
 }
+
+/** A fetch that settles only when aborted, like one to a stalled server. */
+const stalledFetch = () =>
+  vi.fn<typeof globalThis.fetch>(
+    (_url, init) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () =>
+          reject(new DOMException('aborted', 'AbortError')),
+        )
+      }),
+  )
 
 /** Captures what an answerer threw, so tests can inspect its fields. */
 const failureOf = (promise: Promise<unknown>) =>
@@ -163,15 +176,7 @@ describe('createOllamaAnswerer', () => {
   })
 
   it('times out when Ollama does not answer before the deadline', async () => {
-    // Settles only when aborted, like a real fetch to a stalled server.
-    const fetch = vi.fn<typeof globalThis.fetch>(
-      (_url, init) =>
-        new Promise((_resolve, reject) => {
-          init?.signal?.addEventListener('abort', () =>
-            reject(new DOMException('aborted', 'AbortError')),
-          )
-        }),
-    )
+    const fetch = stalledFetch()
 
     const error = await failureOf(
       createOllamaAnswerer({ baseUrl: BASE_URL, timeoutMs: 5, fetch })(request),
@@ -179,6 +184,30 @@ describe('createOllamaAnswerer', () => {
 
     expect(error).toBeInstanceOf(UpstreamError)
     expect(error.kind).toBe('timeout')
+  })
+
+  describe('the default deadline', () => {
+    afterEach(() => vi.useRealTimers())
+
+    it('leaves room under the Netlify function limit for auth, the materials load and the reply', () => {
+      expect(
+        NETLIFY_FUNCTION_LIMIT_MS - DEFAULT_OLLAMA_TIMEOUT_MS,
+      ).toBeGreaterThanOrEqual(3_000)
+    })
+
+    it('aborts a stalled request once it passes', async () => {
+      vi.useFakeTimers()
+      const fetch = stalledFetch()
+
+      const failure = failureOf(
+        createOllamaAnswerer({ baseUrl: BASE_URL, fetch })(request),
+      )
+      await vi.advanceTimersByTimeAsync(DEFAULT_OLLAMA_TIMEOUT_MS - 1)
+      expect(fetch.mock.calls[0]?.[1]?.signal?.aborted).toBe(false)
+      await vi.advanceTimersByTimeAsync(1)
+
+      expect(await failure).toMatchObject({ kind: 'timeout' })
+    })
   })
 
   it('reports a network failure as unreachable', async () => {
