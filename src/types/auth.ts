@@ -37,12 +37,12 @@ export interface SignInInput {
   captchaToken: string
 }
 
-export interface SignUpInput extends SignInInput {
-  /** ISO time the user accepted the Terms and Privacy Notice. */
-  consentedAt: string
-  // The age screen runs before this call; only its outcome is ever stored
-  // (as `age_13_plus: true`), never the birth date.
-}
+/**
+ * Creating an account asks for nothing else: the name and the 13-or-older
+ * answer come afterwards, in `profiles`, never in user metadata (users can
+ * edit their own metadata).
+ */
+export type SignUpInput = SignInInput
 
 export interface PasswordResetInput {
   email: string

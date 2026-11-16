@@ -55,8 +55,7 @@ describe('signed out', () => {
   it.each([
     ['/sign-up', 'Create your account'],
     ['/forgot-password', 'Reset your password'],
-    ['/privacy', 'Privacy Notice'],
-    ['/terms', 'Terms'],
+    ['/your-data', 'How your data is handled'],
   ])('serves the public page %s', async (path, heading) => {
     installFakeSupabase()
     renderAt(path)
@@ -84,6 +83,28 @@ describe('signed out', () => {
     installFakeSupabase({ session: fakeSession() })
     renderAt('/library')
     expect(screen.getByRole('status')).toHaveTextContent('Loading')
+  })
+})
+
+describe('details step', () => {
+  it('sends an existing account without a profile there once, then back', async () => {
+    installFakeSupabase({ session: fakeSession(), profile: null })
+    renderAt('/library')
+    await userEvent.type(await screen.findByLabelText('Display name'), 'Ada')
+    expect(currentLocation()).toBe('/welcome/details?next=%2Flibrary')
+    await userEvent.click(screen.getByRole('checkbox'))
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'My library' }),
+    ).toBeInTheDocument()
+    expect(currentLocation()).toBe('/library')
+  })
+
+  it('keeps the details step signed-in only', async () => {
+    installFakeSupabase()
+    renderAt('/welcome/details')
+    await signInHeading()
+    expect(currentLocation()).toBe('/sign-in?next=%2Fwelcome%2Fdetails')
   })
 })
 

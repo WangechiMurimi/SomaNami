@@ -7,7 +7,7 @@ interface AuthLayoutProps {
   title: string
   lede?: ReactNode
   children: ReactNode
-  /** Wider column for reading pages such as Privacy and Terms. */
+  /** Wider column for reading pages such as How your data is handled. */
   wide?: boolean
 }
 

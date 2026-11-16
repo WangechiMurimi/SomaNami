@@ -11,6 +11,7 @@ import type {
 } from '../../types/auth.ts'
 import { AuthContext } from './auth-context.ts'
 import { toAuthErrorCode } from './auth-errors.ts'
+import { forgetCompletedProfile } from './completed-profile.ts'
 import { clearLastUser, readLastUser, writeLastUser } from './last-user.ts'
 
 type Snapshot =
@@ -96,7 +97,10 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
   // The one place snapshots land, so the offline cache always matches state.
   const commit = useCallback((next: Snapshot) => {
-    if (next.phase === 'signed-out') clearLastUser()
+    if (next.phase === 'signed-out') {
+      clearLastUser()
+      forgetCompletedProfile()
+    }
     if (next.phase === 'session' && !next.stale) writeLastUser(next.user)
     setSnapshot((prev) => keepUnchanged(prev, next))
   }, [])
@@ -190,16 +194,11 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         if (data.session) applySession(data.session)
         return OK
       },
-      async signUp({ email, password, captchaToken, consentedAt }) {
+      async signUp({ email, password, captchaToken }) {
         const { error } = await auth.signUp({
           email,
           password,
-          options: {
-            captchaToken,
-            emailRedirectTo: `${origin()}/sign-in`,
-            // Only the age screen's outcome, never the birth date.
-            data: { age_13_plus: true, consented_at: consentedAt },
-          },
+          options: { captchaToken, emailRedirectTo: `${origin()}/sign-in` },
         })
         if (!error) return OK
         const code = toAuthErrorCode(error)

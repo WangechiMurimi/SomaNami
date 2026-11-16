@@ -1,8 +1,12 @@
 const FALLBACK = '/'
 
 // Pages a visitor is sent *from*, never back *to*: returning to sign-in after
-// signing in would loop.
-const AUTH_PATHS = /^\/(sign-in|sign-up|forgot-password)(\/|\?|#|$)/
+// signing in, or to the details step after finishing it, would loop.
+const AUTH_PATHS =
+  /^\/(sign-in|sign-up|forgot-password|welcome\/details)(\/|\?|#|$)/
+
+/** The details step every new account completes before the app opens. */
+export const DETAILS_PATH = '/welcome/details'
 
 /**
  * The `?next=` target to open after sign-in, or `/` when it isn't a plain
@@ -35,4 +39,12 @@ export function signInPathFor(
 ): string {
   const here = `${pathname}${search}${hash}`
   return here === '/' ? '/sign-in' : `/sign-in?next=${encodeURIComponent(here)}`
+}
+
+/** The details step, with `?next=` when it is a safe path other than home. */
+export function detailsPathFor(next: string): string {
+  const target = safeNextPath(next)
+  return target === '/'
+    ? DETAILS_PATH
+    : `${DETAILS_PATH}?next=${encodeURIComponent(target)}`
 }
