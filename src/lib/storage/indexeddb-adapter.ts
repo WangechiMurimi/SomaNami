@@ -1,10 +1,4 @@
-import type {
-  Change,
-  Guard,
-  Removal,
-  StorageAdapter,
-  StorageRecord,
-} from './adapter.ts'
+import type { Change, Guard, StorageAdapter, StorageRecord } from './adapter.ts'
 import { requireIndexValue } from './index-value.ts'
 import { changedAt, outboxEntry } from './outbox.ts'
 import {
@@ -25,6 +19,17 @@ const promisify = <T>(request: IDBRequest<T>): Promise<T> =>
   new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error)
+  })
+
+/**
+ * Resolves once `transaction` commits. Callers wait on this rather than on
+ * their requests, because a write is not durable until its transaction is.
+ */
+const settled = (transaction: IDBTransaction): Promise<void> =>
+  new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve()
+    transaction.onerror = () => reject(transaction.error)
+    transaction.onabort = () => reject(transaction.error)
   })
 
 type RawRecord = Record<string, unknown>
@@ -239,25 +244,54 @@ export function createIndexedDbAdapter(
   ): Promise<void> => {
     const database = await db()
     const transaction = database.transaction(storeName, 'readwrite')
+    const done = settled(transaction)
     work(transaction.objectStore(storeName))
-    // Wait on the transaction rather than the request: a write is not durable
-    // until its transaction commits.
-    return new Promise((resolve, reject) => {
-      transaction.oncomplete = () => resolve()
-      transaction.onerror = () => reject(transaction.error)
-      transaction.onabort = () => reject(transaction.error)
-    })
+    return done
   }
 
-  const keysByIndex = (
-    storeName: StoreName,
-    indexName: string,
-    value: IDBValidKey | null | undefined,
-  ) =>
-    read(storeName, (store) => {
-      const key = requireIndexValue(indexName, value)
-      return promisify(store.index(indexName).getAllKeys(key))
-    })
+  const guardedCommit = async (
+    guards: readonly Guard[],
+    changes: readonly Change[],
+  ): Promise<boolean> => {
+    if (guards.length === 0 && changes.length === 0) return true
+    const database = await db()
+    const storeNames = [
+      ...new Set([
+        ...guards.map((g) => g.storeName),
+        ...changes.map((c) => c.storeName),
+      ]),
+    ]
+    // One transaction over every store involved: IndexedDB commits all of its
+    // requests together or aborts them all, which is the atomicity we need.
+    // An unknown store name throws here, before anything is written.
+    const transaction = database.transaction(storeNames, 'readwrite')
+    const done = settled(transaction)
+    // Requests issued from request callbacks keep the transaction open, so
+    // the reads and the writes they decide on commit as one unit.
+    let pending = guards.length
+    let applied = false
+    const apply = () => {
+      for (const change of changes) {
+        const store = transaction.objectStore(change.storeName)
+        if (change.type === 'put') store.put(change.record)
+        else store.delete(change.key)
+      }
+      applied = true
+    }
+    if (pending === 0) apply()
+    let holds = true
+    for (const { storeName, key, field, equals } of guards) {
+      const request = transaction.objectStore(storeName).get(key)
+      request.onsuccess = () => {
+        const record = request.result as Record<string, unknown> | undefined
+        if (record?.[field] !== equals) holds = false
+        pending -= 1
+        if (pending === 0 && holds) apply()
+      }
+    }
+    await done
+    return applied
+  }
 
   return {
     async put(storeName, record) {
@@ -290,96 +324,11 @@ export function createIndexedDbAdapter(
       })
     },
 
-    async remove(storeName, key) {
-      await write(storeName, (store) => store.delete(key))
-    },
-
-    async removeByIndex(storeName, indexName, value) {
-      const keys = await keysByIndex(storeName, indexName, value)
-      await write(storeName, (store) => {
-        for (const key of keys) store.delete(key)
-      })
-    },
-
-    async removeMany(removals: readonly Removal[]) {
-      if (removals.length === 0) return
-      const database = await db()
-      const storeNames = [...new Set(removals.map((r) => r.storeName))]
-      // One transaction over every store involved: IndexedDB commits all of its
-      // requests together or aborts them all, which is the atomicity we need.
-      // An unknown store name throws here, before anything is deleted.
-      const transaction = database.transaction(storeNames, 'readwrite')
-      const done = new Promise<void>((resolve, reject) => {
-        transaction.oncomplete = () => resolve()
-        transaction.onerror = () => reject(transaction.error)
-        transaction.onabort = () => reject(transaction.error)
-      })
-      for (const { storeName, key } of removals) {
-        transaction.objectStore(storeName).delete(key)
-      }
-      await done
-    },
-
     async commit(changes: readonly Change[]) {
-      if (changes.length === 0) return
-      const database = await db()
-      const storeNames = [...new Set(changes.map((c) => c.storeName))]
-      // One transaction over every store, as in removeMany.
-      const transaction = database.transaction(storeNames, 'readwrite')
-      const done = new Promise<void>((resolve, reject) => {
-        transaction.oncomplete = () => resolve()
-        transaction.onerror = () => reject(transaction.error)
-        transaction.onabort = () => reject(transaction.error)
-      })
-      for (const change of changes) {
-        const store = transaction.objectStore(change.storeName)
-        if (change.type === 'put') store.put(change.record)
-        else store.delete(change.key)
-      }
-      await done
+      await guardedCommit([], changes)
     },
 
-    async guardedCommit(guards: readonly Guard[], changes: readonly Change[]) {
-      if (guards.length === 0 && changes.length === 0) return true
-      const database = await db()
-      const storeNames = [
-        ...new Set([
-          ...guards.map((g) => g.storeName),
-          ...changes.map((c) => c.storeName),
-        ]),
-      ]
-      const transaction = database.transaction(storeNames, 'readwrite')
-      let applied = false
-      const done = new Promise<boolean>((resolve, reject) => {
-        transaction.oncomplete = () => resolve(applied)
-        transaction.onerror = () => reject(transaction.error)
-        transaction.onabort = () => reject(transaction.error)
-      })
-      // Requests issued from request callbacks keep the transaction open, so
-      // the reads and the writes they decide on commit as one unit.
-      let pending = guards.length
-      let holds = true
-      const write = () => {
-        if (!holds) return
-        for (const change of changes) {
-          const store = transaction.objectStore(change.storeName)
-          if (change.type === 'put') store.put(change.record)
-          else store.delete(change.key)
-        }
-        applied = true
-      }
-      if (pending === 0) write()
-      for (const { storeName, key, field, equals } of guards) {
-        const request = transaction.objectStore(storeName).get(key)
-        request.onsuccess = () => {
-          const record = request.result as Record<string, unknown> | undefined
-          if (record?.[field] !== equals) holds = false
-          pending -= 1
-          if (pending === 0) write()
-        }
-      }
-      return done
-    },
+    guardedCommit,
 
     async close() {
       closed = true

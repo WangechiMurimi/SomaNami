@@ -1,10 +1,4 @@
-import type {
-  Change,
-  Guard,
-  Removal,
-  StorageAdapter,
-  StorageRecord,
-} from './adapter.ts'
+import type { Change, Guard, StorageAdapter, StorageRecord } from './adapter.ts'
 import { requireIndexValue } from './index-value.ts'
 import { STORES } from './schema.ts'
 import type { StoreName } from './schema.ts'
@@ -64,6 +58,32 @@ export function createMemoryAdapter(): StorageAdapter {
     })
   }
 
+  const guardedCommit = async (
+    guards: readonly Guard[],
+    changes: readonly Change[],
+  ): Promise<boolean> => {
+    // Synchronous from check to write, so nothing can interleave: the same
+    // guarantee the IndexedDB transaction gives.
+    const holds = guards.every(({ storeName, key, field, equals }) => {
+      const record = entries(storeName).get(key) as
+        Record<string, unknown> | undefined
+      return record?.[field] === equals
+    })
+    if (!holds) return false
+    // Resolve every store before writing anything, so an unknown store
+    // rejects the whole batch the way an IndexedDB transaction would.
+    const targets = changes.map((change) => ({
+      change,
+      store: entries(change.storeName),
+    }))
+    for (const { change, store } of targets) {
+      if (change.type === 'put')
+        store.set(change.record.id, copy(change.record))
+      else store.delete(change.key)
+    }
+    return true
+  }
+
   return {
     async put(storeName, record) {
       entries(storeName).set(record.id, copy(record))
@@ -89,60 +109,11 @@ export function createMemoryAdapter(): StorageAdapter {
       )
     },
 
-    async remove(storeName, key) {
-      entries(storeName).delete(key)
-    },
-
-    async removeByIndex(storeName, indexName, value) {
-      const store = entries(storeName)
-      for (const record of matching(storeName, indexName, value))
-        store.delete(record.id)
-    },
-
-    async removeMany(removals: readonly Removal[]) {
-      // Resolve every store before deleting anything, so an unknown store
-      // rejects the whole batch the way an IndexedDB transaction would.
-      const targets = removals.map(({ storeName, key }) => ({
-        store: entries(storeName),
-        key,
-      }))
-      for (const { store, key } of targets) store.delete(key)
-    },
-
     async commit(changes: readonly Change[]) {
-      // As with removeMany: resolve every store first so a bad store name
-      // rejects the batch before any change lands.
-      const targets = changes.map((change) => ({
-        change,
-        store: entries(change.storeName),
-      }))
-      for (const { change, store } of targets) {
-        if (change.type === 'put')
-          store.set(change.record.id, copy(change.record))
-        else store.delete(change.key)
-      }
+      await guardedCommit([], changes)
     },
 
-    async guardedCommit(guards: readonly Guard[], changes: readonly Change[]) {
-      // Synchronous from check to write, so nothing can interleave: the same
-      // guarantee the IndexedDB transaction gives.
-      const holds = guards.every(({ storeName, key, field, equals }) => {
-        const record = entries(storeName).get(key) as
-          Record<string, unknown> | undefined
-        return record?.[field] === equals
-      })
-      if (!holds) return false
-      const targets = changes.map((change) => ({
-        change,
-        store: entries(change.storeName),
-      }))
-      for (const { change, store } of targets) {
-        if (change.type === 'put')
-          store.set(change.record.id, copy(change.record))
-        else store.delete(change.key)
-      }
-      return true
-    },
+    guardedCommit,
 
     async close() {
       // Nothing to release; present so callers can treat adapters alike.
