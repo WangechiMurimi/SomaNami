@@ -7,6 +7,11 @@
 # - SUPABASE_URL (optional; falls back to VITE_SUPABASE_URL): the Functions
 #   verify session tokens against this project's keys. With neither set, every
 #   chat request is refused with 503 not-configured.
+# Functions: chat.ts (/api/chat), health.ts (/api/health) and fetch-link.ts
+# (/api/fetch-link, #93), which fetches a learner's link server-side and
+# returns the raw bytes for the browser to parse. It is same-origin, so the
+# CSP below needs no new connect-src; its outbound requests are not subject to
+# CSP. Its rate limit lives in the function's `config`, like chat's.
 [build]
   command = "npm run build"
   publish = "dist"

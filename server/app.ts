@@ -1,5 +1,5 @@
 import express from 'express'
-import type { ErrorRequestHandler } from 'express'
+import type { ErrorRequestHandler, RequestHandler } from 'express'
 import { rateLimit } from 'express-rate-limit'
 import { API_HEADERS } from './api-headers.ts'
 import type { Authenticate } from './auth/types.ts'
@@ -9,6 +9,17 @@ import {
   CHAT_RATE_LIMIT,
   CHAT_RATE_WINDOW_SECONDS,
 } from './chat/limits.ts'
+import { fetchLink as defaultFetchLink } from './link/fetch-link.ts'
+import {
+  handleFetchLink,
+  type FetchLinkDependencies,
+} from './link/handle-fetch-link.ts'
+import {
+  LINK_BODY_LIMIT_BYTES,
+  LINK_RATE_LIMIT,
+  LINK_RATE_WINDOW_SECONDS,
+} from './link/limits.ts'
+import { linkResponseHeaders } from './link/link-headers.ts'
 import type { Answerer } from './llm/claude-answerer.ts'
 
 export interface AppOptions {
@@ -19,6 +30,8 @@ export interface AppOptions {
    * forgotten wiring fails closed rather than opening the model to anyone.
    */
   authenticate?: Authenticate
+  /** Fetches links for `/api/fetch-link`; tests inject a fake. */
+  fetchLink?: FetchLinkDependencies['fetch']
 }
 
 const refuseAll: Authenticate = async () => ({
@@ -33,6 +46,7 @@ const refuseAll: Authenticate = async () => ({
 export function createApp({
   answer = null,
   authenticate = refuseAll,
+  fetchLink = defaultFetchLink,
 }: AppOptions = {}) {
   const app = express()
 
@@ -45,22 +59,18 @@ export function createApp({
   // Limit before parsing, so a flood of large bodies is cut off cheaply. Each
   // app gets its own in-memory counter, which is enough for one dev process;
   // production relies on Netlify's per-IP limit (see netlify/functions/chat.ts).
+  app.use('/api/chat', limitPerIp(CHAT_RATE_LIMIT, CHAT_RATE_WINDOW_SECONDS))
+  // Each fetch costs an outbound request of up to 5 MB, so links get a
+  // tighter budget of their own rather than sharing chat's.
   app.use(
-    '/api/chat',
-    rateLimit({
-      windowMs: CHAT_RATE_WINDOW_SECONDS * 1000,
-      limit: CHAT_RATE_LIMIT,
-      standardHeaders: 'draft-8',
-      legacyHeaders: false,
-      handler: (_request, response, _next, options) => {
-        response.status(options.statusCode).json({ error: 'rate-limited' })
-      },
-    }),
+    '/api/fetch-link',
+    limitPerIp(LINK_RATE_LIMIT, LINK_RATE_WINDOW_SECONDS),
   )
 
   // Questions arrive with client-retrieved passages, which are JSON of a
-  // non-trivial size; documents themselves are never uploaded.
-  app.use(express.json({ limit: CHAT_BODY_LIMIT_BYTES }))
+  // non-trivial size; documents themselves are never uploaded. A link
+  // request is only `{ url }`, so it gets a far smaller cap.
+  app.use('/api/chat', express.json({ limit: CHAT_BODY_LIMIT_BYTES }))
 
   app.get('/api/health', (_request, response) => {
     response.json({ status: 'ok' })
@@ -75,6 +85,29 @@ export function createApp({
     response.status(result.status).json(result.body)
   })
 
+  app.post(
+    '/api/fetch-link',
+    express.json({ limit: LINK_BODY_LIMIT_BYTES }),
+    async (request, response) => {
+      const result = await handleFetchLink(request.body, {
+        authenticate,
+        authorization: request.get('authorization'),
+        fetch: fetchLink,
+      })
+      if (!('bytes' in result)) {
+        response.status(result.status).json(result.body)
+        return
+      }
+      // setHeader, not response.set: Express would append `charset=utf-8`
+      // to a bare text type, overriding the page's own <meta charset>.
+      for (const [name, value] of Object.entries(linkResponseHeaders(result))) {
+        response.setHeader(name, value)
+      }
+      response.status(200).end(Buffer.from(result.bytes))
+    },
+  )
+  app.use('/api/fetch-link', unreadableLinkBody)
+
   app.use('/api', (_request, response) => {
     response.status(404).json({ error: 'not-found' })
   })
@@ -84,6 +117,35 @@ export function createApp({
   return app
 }
 
+/** A per-IP limiter answering JSON, like every other /api reply. */
+function limitPerIp(limit: number, windowSeconds: number): RequestHandler {
+  return rateLimit({
+    windowMs: windowSeconds * 1000,
+    limit,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    handler: (_request, response, _next, options) => {
+      response.status(options.statusCode).json({ error: 'rate-limited' })
+    },
+  })
+}
+
+// The client only ever sends `{ url }`, so a body we can't parse means the URL
+// couldn't be used. Answering `invalid-url` keeps every failure of this route
+// inside FetchLinkErrorCode, matching the Netlify Function.
+const unreadableLinkBody: ErrorRequestHandler = (
+  error,
+  _request,
+  response,
+  next,
+) => {
+  const status = (error as { status?: number }).status
+  if (response.headersSent || (status !== 400 && status !== 413)) {
+    return next(error)
+  }
+  response.status(status).json({ error: 'invalid-url' })
+}
+
 // Express answers a malformed JSON body with an HTML error page; the client
 // expects JSON from every /api route, matching the Netlify Function.
 const jsonErrors: ErrorRequestHandler = (error, _request, response, next) => {
@@ -91,6 +153,12 @@ const jsonErrors: ErrorRequestHandler = (error, _request, response, next) => {
   const status = (error as { status?: number }).status ?? 500
   if (status === 400) {
     response.status(400).json({ error: 'invalid-json' })
+    return
+  }
+  // An over-limit body is the client's fault, not a server error; answer it
+  // the way the Netlify Function does.
+  if (status === 413) {
+    response.status(413).json({ error: 'too-large' })
     return
   }
   console.error('Unhandled API error', error)
