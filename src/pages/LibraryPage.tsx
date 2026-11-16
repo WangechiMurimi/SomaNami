@@ -20,6 +20,7 @@ const FILTERS: { label: string; kind: DocumentKind | null }[] = [
   { label: 'PDF', kind: 'pdf' },
   { label: 'Word', kind: 'docx' },
   { label: 'Text', kind: 'text' },
+  { label: 'Web', kind: 'web' },
 ]
 
 const chats = (n: number) => `${n} ${n === 1 ? 'chat' : 'chats'}`

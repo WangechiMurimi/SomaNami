@@ -20,7 +20,7 @@ export interface Chunk {
   source: Source
 }
 
-export type DocumentKind = 'pdf' | 'docx' | 'text'
+export type DocumentKind = 'pdf' | 'docx' | 'text' | 'web'
 
 /** A parsed, uploaded document as stored locally. */
 /** A topic that groups materials and the conversations about them (US-08). */
@@ -41,6 +41,10 @@ export interface NewDocument {
   kind: DocumentKind
   pageCount: number | null
   chunks: Chunk[]
+  /** The link a material was fetched from; absent for uploads and pasted text. */
+  sourceUrl?: string
+  /** When `sourceUrl` was fetched (epoch ms); the page may have changed since. */
+  fetchedAt?: number
 }
 
 /** A material saved on this device; it belongs to exactly one workspace. */
@@ -69,6 +73,39 @@ export interface Passage extends ChunkRef {
 export interface RetrievedPassage extends Passage {
   score: number
 }
+
+/**
+ * Request body of `POST /api/fetch-link`. The server only fetches; the browser
+ * parses the returned bytes like an upload. A success is the raw body with its
+ * `Content-Type`, the post-redirect URL in `X-Final-Url`, and a suggested file
+ * name in `Content-Disposition`. A failure is JSON `FetchLinkFailure`.
+ */
+export interface FetchLinkRequest {
+  url: string
+}
+
+/** Why a link could not be fetched; each maps to a message with a fallback. */
+export type FetchLinkErrorCode =
+  | 'invalid-url'
+  | 'video-not-supported'
+  | 'blocked-address'
+  | 'unreachable'
+  | 'timeout'
+  | 'too-many-redirects'
+  | 'login-or-paywall'
+  | 'unsupported-type'
+  | 'too-large'
+  | 'rate-limited'
+  | 'unauthorized'
+  | 'not-configured'
+
+/** Error body of `POST /api/fetch-link`. */
+export interface FetchLinkFailure {
+  error: FetchLinkErrorCode
+}
+
+/** Response header carrying the URL the bytes came from after redirects. */
+export const FINAL_URL_HEADER = 'X-Final-Url'
 
 export type Role = 'user' | 'assistant'
 

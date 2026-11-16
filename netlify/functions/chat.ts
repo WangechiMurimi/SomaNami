@@ -7,6 +7,7 @@ import { createMaterialsLoaderFromEnv } from '../../server/chat/load-materials.t
 import type { LoadMaterials } from '../../server/chat/load-materials.ts'
 import { createAnswererFromEnv } from '../../server/llm/answerer-from-env.ts'
 import type { Answerer } from '../../server/llm/claude-answerer.ts'
+import { readCapped } from '../../server/read-capped.ts'
 
 export interface ChatFunctionOptions {
   answer: Answerer | null
@@ -58,29 +59,6 @@ export function createChatFunction({
     })
     return Response.json(result.body, { status: result.status })
   }
-}
-
-/** Reads the body as UTF-8, or `null` as soon as it passes `limit` bytes. */
-async function readCapped(
-  request: Request,
-  limit: number,
-): Promise<string | null> {
-  if (!request.body) return ''
-  const reader = request.body.getReader()
-  const chunks: Uint8Array[] = []
-  let received = 0
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    received += value.byteLength
-    if (received > limit) {
-      // Stop pulling the rest of an oversized upload.
-      await reader.cancel()
-      return null
-    }
-    chunks.push(value)
-  }
-  return new TextDecoder().decode(Buffer.concat(chunks))
 }
 
 // Built once per function instance and reused across invocations; the remote

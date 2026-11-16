@@ -3,6 +3,9 @@ import request from 'supertest'
 import { describe, expect, it, vi } from 'vitest'
 import { createApp } from './app.ts'
 import type { Authenticate } from './auth/types.ts'
+import type { FetchedLink } from './link/fetch-link.ts'
+import type { FetchLinkDependencies } from './link/handle-fetch-link.ts'
+import { LINK_BODY_LIMIT_BYTES, LINK_RATE_LIMIT } from './link/limits.ts'
 import type { LoadMaterials } from './chat/load-materials.ts'
 import type { Answerer } from './llm/claude-answerer.ts'
 
@@ -33,6 +36,16 @@ const allow = () =>
 
 const deny = () =>
   vi.fn<Authenticate>().mockResolvedValue({ ok: false, reason: 'missing' })
+
+const pdf: FetchedLink = {
+  bytes: new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x00, 0xff, 0x0a]),
+  contentType: 'application/pdf',
+  finalUrl: 'https://example.com/papers/cells.pdf',
+  fileName: 'Cell biology.pdf',
+}
+
+const fetched = (link: FetchedLink = pdf) =>
+  vi.fn<FetchLinkDependencies['fetch']>().mockResolvedValue({ ok: true, link })
 
 describe('createApp', () => {
   it('reports health as ok', async () => {
@@ -201,6 +214,181 @@ describe('createApp', () => {
         const response = await request(app).get('/api/health')
         expect(response.status).toBe(200)
       }
+    })
+  })
+
+  it('answers an over-limit chat body with JSON 413', async () => {
+    const response = await request(createApp({ authenticate: allow() }))
+      .post('/api/chat')
+      .set('Content-Type', 'application/json')
+      .send(JSON.stringify({ question: 'x'.repeat(1024 * 1024) }))
+
+    expect(response.status).toBe(413)
+    expect(response.body).toEqual({ error: 'too-large' })
+  })
+
+  describe('POST /api/fetch-link', () => {
+    it('returns the fetched bytes with their type, final URL and name', async () => {
+      const fetchLink = fetched()
+
+      const response = await request(
+        createApp({ authenticate: allow(), fetchLink }),
+      )
+        .post('/api/fetch-link')
+        .set('Authorization', 'Bearer token')
+        .send({ url: 'https://example.com/papers/cells.pdf' })
+        .buffer(true)
+        .parse((res, done) => {
+          const chunks: Buffer[] = []
+          res.on('data', (chunk: Buffer) => chunks.push(chunk))
+          res.on('end', () => done(null, Buffer.concat(chunks)))
+        })
+
+      expect(response.status).toBe(200)
+      expect(new Uint8Array(response.body as Buffer)).toEqual(pdf.bytes)
+      expect(response.headers['content-type']).toBe('application/pdf')
+      expect(response.headers['content-length']).toBe('7')
+      expect(response.headers['x-final-url']).toBe(pdf.finalUrl)
+      expect(response.headers['content-disposition']).toBe(
+        "attachment; filename*=UTF-8''Cell%20biology.pdf",
+      )
+      expect(response.headers['cache-control']).toBe('no-store')
+      expect(response.headers['x-content-type-options']).toBe('nosniff')
+      expect(fetchLink).toHaveBeenCalledWith(
+        'https://example.com/papers/cells.pdf',
+      )
+    })
+
+    it('never invents a charset the upstream did not send', async () => {
+      const fetchLink = fetched({ ...pdf, contentType: 'text/html' })
+
+      const response = await request(
+        createApp({ authenticate: allow(), fetchLink }),
+      )
+        .post('/api/fetch-link')
+        .send({ url: 'https://example.com/' })
+
+      expect(response.headers['content-type']).toBe('text/html')
+    })
+
+    it('keeps the upstream charset', async () => {
+      const fetchLink = fetched({
+        ...pdf,
+        contentType: 'text/html; charset=ISO-8859-1',
+      })
+
+      const response = await request(
+        createApp({ authenticate: allow(), fetchLink }),
+      )
+        .post('/api/fetch-link')
+        .send({ url: 'https://example.com/' })
+
+      expect(response.headers['content-type']).toBe(
+        'text/html; charset=ISO-8859-1',
+      )
+    })
+
+    it('requires a session and never fetches without one', async () => {
+      const fetchLink = fetched()
+
+      const response = await request(
+        createApp({ authenticate: deny(), fetchLink }),
+      )
+        .post('/api/fetch-link')
+        .send({ url: 'https://example.com/' })
+
+      expect(response.status).toBe(401)
+      expect(response.body).toEqual({ error: 'unauthorized' })
+      expect(fetchLink).not.toHaveBeenCalled()
+    })
+
+    it('refuses every fetch when no authenticator is wired in', async () => {
+      const fetchLink = fetched()
+
+      const response = await request(createApp({ fetchLink }))
+        .post('/api/fetch-link')
+        .set('Authorization', 'Bearer looks-real')
+        .send({ url: 'https://example.com/' })
+
+      expect(response.status).toBe(503)
+      expect(response.body).toEqual({ error: 'not-configured' })
+      expect(fetchLink).not.toHaveBeenCalled()
+    })
+
+    it('answers an invalid body with JSON 400', async () => {
+      const response = await request(createApp({ authenticate: allow() }))
+        .post('/api/fetch-link')
+        .send({ link: 'https://example.com/' })
+
+      expect(response.status).toBe(400)
+      expect(response.body).toEqual({ error: 'invalid-url' })
+    })
+
+    it('answers malformed JSON with JSON 400', async () => {
+      const response = await request(createApp({ authenticate: allow() }))
+        .post('/api/fetch-link')
+        .set('Content-Type', 'application/json')
+        .send('{"url":')
+
+      expect(response.status).toBe(400)
+      expect(response.body).toEqual({ error: 'invalid-url' })
+    })
+
+    it('answers a body over its small limit with JSON 413', async () => {
+      const fetchLink = fetched()
+
+      const response = await request(
+        createApp({ authenticate: allow(), fetchLink }),
+      )
+        .post('/api/fetch-link')
+        .send({
+          url: `https://example.com/${'a'.repeat(LINK_BODY_LIMIT_BYTES)}`,
+        })
+
+      expect(response.status).toBe(413)
+      expect(response.body).toEqual({ error: 'invalid-url' })
+      expect(fetchLink).not.toHaveBeenCalled()
+    })
+
+    it('reports fetch failures as JSON with their status', async () => {
+      const fetchLink = vi
+        .fn<FetchLinkDependencies['fetch']>()
+        .mockResolvedValue({ ok: false, code: 'too-large' })
+
+      const response = await request(
+        createApp({ authenticate: allow(), fetchLink }),
+      )
+        .post('/api/fetch-link')
+        .send({ url: 'https://example.com/huge.pdf' })
+
+      expect(response.status).toBe(413)
+      expect(response.body).toEqual({ error: 'too-large' })
+      expect(response.headers['cache-control']).toBe('no-store')
+    })
+
+    it('answers JSON 429 once a client exceeds the link limit', async () => {
+      const app = createApp({ authenticate: deny() })
+
+      for (let index = 0; index < LINK_RATE_LIMIT; index++) {
+        const response = await request(app).post('/api/fetch-link').send({})
+        expect(response.status).toBe(401)
+      }
+      const limited = await request(app).post('/api/fetch-link').send({})
+
+      expect(limited.status).toBe(429)
+      expect(limited.body).toEqual({ error: 'rate-limited' })
+      expect(limited.headers['retry-after']).toBeDefined()
+    })
+
+    it('counts links separately from chat', async () => {
+      const app = createApp({ authenticate: deny() })
+
+      for (let index = 0; index < LINK_RATE_LIMIT; index++) {
+        await request(app).post('/api/fetch-link').send({})
+      }
+      const chat = await request(app).post('/api/chat').send({})
+
+      expect(chat.status).toBe(401)
     })
   })
 

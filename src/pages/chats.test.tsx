@@ -114,6 +114,39 @@ describe('Workspace page', () => {
     ).toContain('Seminar.txt')
   })
 
+  it('adds a material from a link to this workspace', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('Ribosomes make proteins.', {
+        headers: {
+          'Content-Type': 'text/plain',
+          'X-Final-Url': 'https://example.org/ribosomes.txt',
+        },
+      }),
+    )
+    await open(`/workspaces/${workspace.id}`)
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Add materials' }),
+    )
+    const panel = within(screen.getByRole('region', { name: 'Add materials' }))
+    await userEvent.click(panel.getByRole('button', { name: 'Add a link' }))
+    await userEvent.type(
+      panel.getByLabelText('Link'),
+      'https://example.org/ribosomes.txt',
+    )
+    await userEvent.click(panel.getByRole('button', { name: 'Add link' }))
+
+    expect(
+      await within(
+        screen.getByRole('region', { name: /Materials/ }),
+      ).findByText('ribosomes.txt'),
+    ).toBeInTheDocument()
+    const stored = await listWorkspaceDocuments(workspace.id)
+    expect(stored.find(({ name }) => name === 'ribosomes.txt')).toMatchObject({
+      sourceUrl: 'https://example.org/ribosomes.txt',
+    })
+  })
+
   it('asks a question over every material from its composer', async () => {
     const requests = serveChat()
     await open(`/workspaces/${workspace.id}`)
