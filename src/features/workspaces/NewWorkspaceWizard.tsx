@@ -2,30 +2,17 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import ErrorAlert from '../../components/ErrorAlert.tsx'
-import {
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  Clipboard,
-  LinkIcon,
-  Trash,
-} from '../../components/icons.tsx'
+import { ArrowLeft, ArrowRight, Check } from '../../components/icons.tsx'
 import { createWorkspace } from '../../lib/storage/index.ts'
 import type { NewDocument } from '../../types/contracts.ts'
 import { useLibraryContext } from '../library/library-context.ts'
-import DocumentCard from '../upload/DocumentCard.tsx'
-import AddLinkForm from '../upload/AddLinkForm.tsx'
-import PasteTextForm from '../upload/PasteTextForm.tsx'
-import UploadZone from '../upload/UploadZone.tsx'
 import { useDocumentUpload } from '../upload/use-document-upload.ts'
 import { SECONDARY } from './button-styles.ts'
+import MaterialsStep from './MaterialsStep.tsx'
+import NameStep from './NameStep.tsx'
 
 const STEPS = ['Name and topic', 'Add materials'] as const
 
-const LABEL = 'text-base leading-[1.5] font-semibold'
-const HINT = 'text-[15px] leading-[1.5] text-muted'
-const FIELD =
-  'h-12 w-full rounded-[10px] border border-edge bg-surface px-3.5 text-base text-fg'
 const PRIMARY =
   'inline-flex h-11 items-center gap-[9px] rounded-[10px] bg-accent px-[18px] text-sm font-medium text-on-accent transition-opacity hover:opacity-90 disabled:opacity-50'
 
@@ -107,10 +94,9 @@ export default function NewWorkspaceWizard() {
       { document, file },
     ])
   }, [])
-  const { upload, uploadLink, retry, reset, ...uploadState } =
-    useDocumentUpload({
-      onReady: keep,
-    })
+  const documentUpload = useDocumentUpload({
+    onReady: keep,
+  })
 
   // Move focus to the new step's heading so screen readers announce it, but
   // not on first render, where focus belongs to the page.
@@ -152,7 +138,7 @@ export default function NewWorkspaceWizard() {
     }
   }
 
-  const busy = uploadState.status === 'processing'
+  const busy = documentUpload.status === 'processing'
 
   return (
     <div className="flex flex-col gap-8">
@@ -160,180 +146,37 @@ export default function NewWorkspaceWizard() {
 
       <div className="flex flex-col gap-7 rounded-2xl border border-line bg-surface p-6 md:p-8">
         {step === 0 ? (
-          <form
-            id={`${id}-step-1`}
+          <NameStep
+            id={id}
+            formId={`${id}-step-1`}
+            name={name}
+            topic={topic}
+            nameError={nameError}
+            headingRef={heading}
+            nameInputRef={nameInput}
+            onNameChange={(value) => {
+              setName(value)
+              if (nameError) setNameError(null)
+            }}
+            onTopicChange={setTopic}
             onSubmit={next}
-            noValidate
-            className="flex flex-col gap-6"
-          >
-            <div className="flex flex-col gap-2">
-              <h2
-                ref={heading}
-                tabIndex={-1}
-                className="text-[22px] leading-[1.3] font-semibold outline-none"
-              >
-                Set up your workspace
-              </h2>
-              <p className="text-base leading-[1.6] text-muted">
-                Name your workspace and choose a topic to help keep your
-                materials organised.
-              </p>
-            </div>
-            <div className="flex flex-col gap-2">
-              <label htmlFor={`${id}-name`} className={LABEL}>
-                Workspace name
-              </label>
-              <input
-                ref={nameInput}
-                id={`${id}-name`}
-                type="text"
-                value={name}
-                required
-                onChange={(event) => {
-                  setName(event.target.value)
-                  if (nameError) setNameError(null)
-                }}
-                aria-invalid={nameError ? true : undefined}
-                aria-describedby={
-                  nameError
-                    ? `${id}-name-error ${id}-name-hint`
-                    : `${id}-name-hint`
-                }
-                placeholder="e.g. Cognitive psychology"
-                className={FIELD}
-              />
-              {nameError && (
-                <p id={`${id}-name-error`} className="text-sm text-warn">
-                  {nameError}
-                </p>
-              )}
-              <p id={`${id}-name-hint`} className={HINT}>
-                Choose a name that helps you recognise this workspace.
-              </p>
-            </div>
-            <div className="flex flex-col gap-2">
-              <label
-                htmlFor={`${id}-topic`}
-                className={`${LABEL} flex items-center gap-2`}
-              >
-                Topic
-                <span className="rounded-full bg-tile px-2.5 py-0.5 text-xs leading-[1.5] font-medium text-muted">
-                  Optional
-                </span>
-              </label>
-              <input
-                id={`${id}-topic`}
-                type="text"
-                value={topic}
-                onChange={(event) => setTopic(event.target.value)}
-                aria-describedby={`${id}-topic-hint`}
-                placeholder="e.g. Memory and learning"
-                className={FIELD}
-              />
-              <p id={`${id}-topic-hint`} className={HINT}>
-                What you want to explore first. You can start chats on other
-                topics later.
-              </p>
-            </div>
-          </form>
+          />
         ) : (
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-2">
-              <h2
-                ref={heading}
-                tabIndex={-1}
-                className="text-2xl leading-[1.3] font-medium outline-none"
-              >
-                Add the materials it should learn from
-              </h2>
-              <p className="text-[15px] leading-[1.6] text-muted">
-                Chats here answer only from what you add. You can add more at
-                any time.
-              </p>
-            </div>
-
-            <section aria-label="Upload" className="flex flex-col gap-4">
-              <UploadZone onFile={upload} disabled={busy} />
-              <DocumentCard {...uploadState} onClear={reset} onRetry={retry} />
-            </section>
-
-            <div className="flex flex-wrap gap-3">
-              {!linking && (
-                <button
-                  type="button"
-                  onClick={() => setLinking(true)}
-                  className={`${SECONDARY} self-start`}
-                >
-                  <LinkIcon size={18} strokeWidth={1.8} />
-                  Add a link
-                </button>
-              )}
-              {!pasting && (
-                <button
-                  type="button"
-                  onClick={() => setPasting(true)}
-                  className={`${SECONDARY} self-start`}
-                >
-                  <Clipboard size={18} strokeWidth={1.8} />
-                  Paste text
-                </button>
-              )}
-            </div>
-            {linking && (
-              <AddLinkForm
-                disabled={busy}
-                onLink={(url) => {
-                  void uploadLink(url)
-                  setLinking(false)
-                }}
-                onCancel={() => setLinking(false)}
-              />
-            )}
-            {pasting && (
-              <PasteTextForm
-                disabled={busy}
-                onFile={(file) => {
-                  void upload(file)
-                  setPasting(false)
-                }}
-                onCancel={() => setPasting(false)}
-              />
-            )}
-
-            {pending.length > 0 && (
-              <section aria-labelledby={`${id}-added`}>
-                <h3 id={`${id}-added`} className="text-[15px] font-medium">
-                  Added so far
-                </h3>
-                <ul className="mt-3 divide-y divide-line rounded-xl border border-line">
-                  {pending.map(({ document }) => (
-                    <li
-                      key={document.id}
-                      className="flex items-center justify-between gap-3 px-4 py-3"
-                    >
-                      <span className="min-w-0 truncate text-sm font-medium">
-                        {document.name}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setPending((current) =>
-                            current.filter(
-                              (item) => item.document.id !== document.id,
-                            ),
-                          )
-                        }
-                        className="inline-flex size-11 flex-none items-center justify-center rounded-[10px] text-muted hover:bg-tint hover:text-warn"
-                      >
-                        <Trash size={18} strokeWidth={1.8} />
-                        <span className="sr-only">Remove {document.name}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-          </div>
+          <MaterialsStep
+            id={id}
+            headingRef={heading}
+            upload={documentUpload}
+            linking={linking}
+            onLinkingChange={setLinking}
+            pasting={pasting}
+            onPastingChange={setPasting}
+            added={pending.map(({ document }) => document)}
+            onRemove={(documentId) =>
+              setPending((current) =>
+                current.filter((item) => item.document.id !== documentId),
+              )
+            }
+          />
         )}
 
         {saveError && <ErrorAlert>{saveError}</ErrorAlert>}
