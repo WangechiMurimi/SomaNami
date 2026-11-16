@@ -35,3 +35,8 @@ dist-ssr
 # Python
 .venv/
 __pycache__/
+
+# Playwright output
+test-results/
+playwright-report/
+blob-report/

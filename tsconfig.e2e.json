@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.e2e.tsbuildinfo",
+    // Specs run in Node under Playwright; the page is reached only through
+    // Playwright's API, but its types mention DOM ones.
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"]
+  },
+  "include": ["tests/e2e", "playwright.config.ts"]
+}
