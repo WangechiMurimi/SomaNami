@@ -4,19 +4,24 @@
 # Usage (Git Bash, macOS or Linux, after `az login`):
 #   ADMIN_IP=203.0.113.7 ./infra/azure/provision.sh
 #
-# Re-running is safe: existing resources are kept and their NSG rules and
-# auto-shutdown schedule re-applied. The bearer token is generated only when the
-# VM is created, printed once at the end, and never written inside the repo.
+# Re-running is safe: existing resources are kept and their NSG rules,
+# auto-shutdown schedule and idle-deallocate identity re-applied. The bearer
+# token is generated only when the VM is created, printed once at the end, and
+# never written inside the repo.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATE="$SCRIPT_DIR/cloud-init.yaml"
+# shellcheck source=infra/azure/custom-role.sh
+source "$SCRIPT_DIR/custom-role.sh"
 
 # --- Parameters (environment variables) ---------------------------------------
 RG="${RG:-somanami-llm-rg}"
-LOCATION="${LOCATION:-eastus2}"
+# Azure for Students allows only some regions (see README); D-series had no
+# usable quota there, so the default is a 4 vCPU / 16 GiB burstable AMD size.
+LOCATION="${LOCATION:-northcentralus}"
 VM_NAME="${VM_NAME:-somanami-ollama}"
-VM_SIZE="${VM_SIZE:-Standard_D4s_v5}"
+VM_SIZE="${VM_SIZE:-Standard_B4as_v2}"
 DNS_LABEL="${DNS_LABEL:-somanami-ollama}"
 ADMIN_IP="${ADMIN_IP:-}"
 ADMIN_USER="${ADMIN_USER:-azureuser}"
@@ -234,4 +239,23 @@ if [[ -n "$TOKEN" ]]; then
   fi
 fi
 
-info "Done. Stop paying for compute when idle: az vm deallocate -g $RG -n $VM_NAME"
+# --- Idle deallocate identity (#201) ---------------------------------------------------
+# The VM deallocates itself when idle (somanami-idle.timer in cloud-init). It
+# authenticates with its own system-assigned identity, so it stores no
+# credential, and that identity may only read and deallocate this one VM.
+info "System-assigned identity for idle deallocation"
+az vm identity assign -g "$RG" -n "$VM_NAME" --output none
+vm_principal="$(azq vm show -g "$RG" -n "$VM_NAME" --query identity.principalId -o tsv)"
+vm_id="$(azq vm show -g "$RG" -n "$VM_NAME" --query id -o tsv)"
+rg_id="$(azq group show -n "$RG" --query id -o tsv)"
+[[ -n "$vm_principal" && -n "$vm_id" && -n "$rg_id" ]] || die "could not read the VM's identity or resource ids"
+SELF_ROLE="SomaNami VM self-deallocate ($RG/$VM_NAME)"
+ensure_custom_role "$SELF_ROLE" \
+  "Lets the SomaNami Ollama VM read and deallocate itself when idle (#201)." \
+  "$rg_id" \
+  Microsoft.Compute/virtualMachines/read \
+  Microsoft.Compute/virtualMachines/deallocate/action
+ensure_role_assignment "$vm_principal" ServicePrincipal "$SELF_ROLE" "$vm_id"
+
+info "Done. The VM deallocates itself after 30 idle minutes."
+info "Next, let the app wake it on request: ./infra/azure/create-waker.sh (prints a secret once)."
