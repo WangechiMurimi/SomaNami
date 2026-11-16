@@ -23,6 +23,43 @@ function PendingBubble() {
   )
 }
 
+const WAKING_DOTS = [
+  '[animation-delay:0ms]',
+  '[animation-delay:200ms]',
+  '[animation-delay:400ms]',
+]
+
+/**
+ * Shown while the model's server starts from sleep (#201). The question is
+ * already in the transcript and is sent again by itself, so this only needs
+ * to say why the wait is longer than usual and that nothing is lost.
+ */
+function WakingBubble() {
+  return (
+    <li role="status" className="flex items-start gap-3">
+      <AssistantAvatar />
+      {/* The assistant bubble's shape, so the answer later lands in its place. */}
+      <div className="flex min-w-0 flex-col gap-1.5 rounded-[4px_16px_16px_16px] border border-line bg-surface px-[18px] py-3.5">
+        <span className="flex items-center gap-2.5 text-[15px] leading-[1.5] font-medium">
+          Starting up the tutor
+          <span aria-hidden="true" className="flex items-center gap-1">
+            {WAKING_DOTS.map((delay) => (
+              <span
+                key={delay}
+                className={`size-1.5 animate-pulse rounded-full bg-accent motion-reduce:animate-none ${delay}`}
+              />
+            ))}
+          </span>
+        </span>
+        <span className="text-sm leading-[1.5] text-muted">
+          This takes about a minute. Your question will be sent as soon as it’s
+          ready.
+        </span>
+      </div>
+    </li>
+  )
+}
+
 /** Re-asks for the latest answer in another form (US-05). */
 function AnotherFormat({ onPick }: { onPick: (prompt: string) => void }) {
   const id = useId()
@@ -85,7 +122,9 @@ export default function ChatPanel({
   const endRef = useRef<HTMLDivElement>(null)
 
   const isSending = status === 'sending'
-  const canSend = draft.trim().length > 0 && !isSending
+  const isWaking = status === 'waking'
+  const isBusy = isSending || isWaking
+  const canSend = draft.trim().length > 0 && !isBusy
   const latest = messages.at(-1)
   // Only a grounded answer has something to reshape; after a refusal or a
   // failure the learner needs to rephrase instead.
@@ -95,7 +134,7 @@ export default function ChatPanel({
   useLayoutEffect(() => {
     // New turns arrive at the bottom; bring them into view as they land.
     endRef.current?.scrollIntoView?.({ block: 'nearest' })
-  }, [messages, isSending])
+  }, [messages, status])
 
   useEffect(() => {
     // A failure leaves the question in the transcript, so point at the way out.
@@ -111,8 +150,8 @@ export default function ChatPanel({
 
   return (
     <div className={`flex flex-col gap-6 ${className}`}>
-      <section aria-label="Conversation" aria-busy={isSending}>
-        {messages.length === 0 && !isSending ? (
+      <section aria-label="Conversation" aria-busy={isBusy}>
+        {messages.length === 0 && !isBusy ? (
           <p className="text-muted">
             Ask a question and the answer will appear here, with the passages it
             came from.
@@ -127,6 +166,7 @@ export default function ChatPanel({
               />
             ))}
             {isSending && <PendingBubble />}
+            {isWaking && <WakingBubble />}
           </ol>
         )}
         <div ref={endRef} />

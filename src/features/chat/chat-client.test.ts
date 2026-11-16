@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setSupabaseClient } from '../../lib/auth/supabase-client.ts'
 import {
   askQuestion,
+  DEFAULT_WAKE_RETRY_SECONDS,
+  MODEL_WAKING_MESSAGE,
   RATE_LIMITED_MESSAGE,
   SESSION_ENDED_MESSAGE,
 } from './chat-client.ts'
@@ -217,6 +219,47 @@ describe('askQuestion', () => {
       code: 'rate-limited',
       retryable: true,
       message: RATE_LIMITED_MESSAGE,
+    })
+  })
+
+  describe('while the model starts up (#201)', () => {
+    const waking = (body: unknown) =>
+      mockFetch(async () => ({
+        ok: false,
+        status: 503,
+        json: async () => body,
+      }))
+
+    it('reports model-waking with the server’s retry hint', async () => {
+      waking({ error: 'model-waking', retryAfterSeconds: 20 })
+
+      await expect(askQuestion({ question: 'Why?' })).rejects.toMatchObject({
+        code: 'model-waking',
+        message: MODEL_WAKING_MESSAGE,
+        retryable: true,
+        retryAfterSeconds: 20,
+      })
+    })
+
+    it.each([
+      [0, 5],
+      [9999, 120],
+      ['soon', DEFAULT_WAKE_RETRY_SECONDS],
+    ])('bounds a retry hint of %s to %s', async (hint, expected) => {
+      waking({ error: 'model-waking', retryAfterSeconds: hint })
+
+      await expect(askQuestion({ question: 'Why?' })).rejects.toMatchObject({
+        retryAfterSeconds: expected,
+      })
+    })
+
+    it('treats any other 503 as a plain retryable failure', async () => {
+      waking({ error: 'rate-limited' })
+
+      await expect(askQuestion({ question: 'Why?' })).rejects.toMatchObject({
+        code: 'http_503',
+        retryable: true,
+      })
     })
   })
 })

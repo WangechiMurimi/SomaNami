@@ -106,7 +106,12 @@ Screen details the code depends on:
   chip. Under the latest grounded answer, "Show another format" (Example,
   Summary) asks a follow-up in the same chat; level and format settings need
   server work (TODO #28, #40). A failed request shows "Couldn't get an answer.
-  Try again."; there is no offline state.
+  Try again."; there is no offline state. When the model's server is asleep
+  (#201), an assistant-shaped bubble says "Starting up the tutor" with three
+  pulsing `accent` dots and "This takes about a minute. Your question will be
+  sent as soon as it's ready." The question stays in the transcript, the
+  composer is disabled, and the question is resent automatically with backoff;
+  after about four minutes a retryable warning takes over.
 - **Library:** a search field filters conversations and file names, grouped
   under Conversations and Files. Type filters use the file types the app
   records (All · PDF · Word · Text). Clicking a file starts a loose chat with

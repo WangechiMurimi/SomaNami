@@ -1,5 +1,9 @@
-import { useCallback, useRef, useState } from 'react'
-import { askQuestion, ChatError } from './chat-client.ts'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  askQuestion,
+  ChatError,
+  DEFAULT_WAKE_RETRY_SECONDS,
+} from './chat-client.ts'
 import { resolveCitations } from './describe-source.ts'
 import type { ResolvedCitation } from './describe-source.ts'
 import type { ChatReply, StoredDocument } from '../../types/contracts.ts'
@@ -15,7 +19,35 @@ export type ChatTurn =
       citations: ResolvedCitation[]
     }
 
-export type ChatStatus = 'idle' | 'sending' | 'error'
+/**
+ * `waking`: the model's server is starting (#201); the question is kept and
+ * sent again automatically.
+ */
+export type ChatStatus = 'idle' | 'sending' | 'waking' | 'error'
+
+/**
+ * How long to keep retrying a waking model before handing control back to
+ * the learner. A start normally takes about a minute; this leaves room for a
+ * slow boot without leaving someone waiting indefinitely.
+ */
+export const MAX_WAKE_WAIT_MS = 4 * 60_000
+/** Caps one wait between automatic retries. */
+export const MAX_WAKE_RETRY_DELAY_MS = 45_000
+
+export const WAKE_TIMED_OUT_MESSAGE =
+  'The tutor is taking longer than usual to start. Try again in a minute.'
+
+/**
+ * The wait before automatic retry `attempt` (1-based): the server's hint,
+ * growing by half each time so a slow start isn't polled at a fixed pace.
+ */
+export function wakeRetryDelayMs(
+  attempt: number,
+  retryAfterSeconds: number = DEFAULT_WAKE_RETRY_SECONDS,
+): number {
+  const growth = 1.5 ** Math.max(0, attempt - 1)
+  return Math.min(MAX_WAKE_RETRY_DELAY_MS, retryAfterSeconds * 1000 * growth)
+}
 
 export interface ChatErrorState {
   message: string
@@ -72,6 +104,23 @@ export function useChat({
   // The question still awaiting a reply, so `retry` needs no re-typing.
   const unanswered = useRef<string | null>(null)
   const inFlight = useRef(false)
+  // The current wait for a waking model: when it began, retries so far, and
+  // the pending timer. Cleared on any answer or hand-back to the learner.
+  const wake = useRef<{
+    since: number
+    attempt: number
+    timer: ReturnType<typeof setTimeout> | null
+  } | null>(null)
+  // Lets the retry timer call the latest `ask` without re-arming on renders.
+  const askRef = useRef<typeof ask | null>(null)
+
+  const stopWaking = useCallback(() => {
+    if (wake.current?.timer) clearTimeout(wake.current.timer)
+    wake.current = null
+  }, [])
+
+  // A timer must not fire into an unmounted chat.
+  useEffect(() => stopWaking, [stopWaking])
 
   const append = useCallback((message: ChatTurn) => {
     transcript.current = [...transcript.current, message]
@@ -85,6 +134,8 @@ export function useChat({
     ) => {
       const trimmed = question?.trim() ?? ''
       if (!trimmed || inFlight.current) return
+      // While the model wakes, only the scheduled retry may send.
+      if (wake.current?.timer && !resend) return
       inFlight.current = true
       unanswered.current = trimmed
       setError(null)
@@ -121,6 +172,7 @@ export function useChat({
           ),
         })
         unanswered.current = null
+        stopWaking()
         setStatus('idle')
         // Saving is best-effort: the answer is already on screen, and a storage
         // failure must not turn a successful answer into an error.
@@ -130,14 +182,39 @@ export function useChat({
           console.error('Could not save the conversation', saveError)
         }
       } catch (failure) {
+        if (failure instanceof ChatError && failure.code === 'model-waking') {
+          const now = Date.now()
+          const since = wake.current?.since ?? now
+          const attempt = (wake.current?.attempt ?? 0) + 1
+          const delay = wakeRetryDelayMs(attempt, failure.retryAfterSeconds)
+          if (now + delay - since <= MAX_WAKE_WAIT_MS) {
+            // The question stays in the transcript and in `unanswered`; the
+            // learner sees a waiting state, not an error, and retypes nothing.
+            const timer = setTimeout(() => {
+              if (wake.current) wake.current.timer = null
+              void askRef.current?.(unanswered.current, { resend: true })
+            }, delay)
+            wake.current = { since, attempt, timer }
+            setStatus('waking')
+            return
+          }
+          stopWaking()
+          setError({ message: WAKE_TIMED_OUT_MESSAGE, retryable: true })
+          setStatus('error')
+          return
+        }
+        stopWaking()
         setError(toErrorState(failure))
         setStatus('error')
       } finally {
         inFlight.current = false
       }
     },
-    [append, documents, materialIds, onAnswered],
+    [append, documents, materialIds, onAnswered, stopWaking],
   )
+  useEffect(() => {
+    askRef.current = ask
+  }, [ask])
 
   const send = useCallback((question: string) => ask(question), [ask])
 
