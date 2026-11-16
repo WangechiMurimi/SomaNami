@@ -301,6 +301,14 @@ export async function setWorkspacePinned(
   return updated
 }
 
+/** Throws unless workspace `id` exists; the default one is created on first use. */
+async function requireWorkspace(id: string): Promise<void> {
+  const workspace = isLooseWorkspace(id)
+    ? await ensureDefaultWorkspace()
+    : await getWorkspace(id)
+  if (!workspace) throw new Error(`No workspace "${id}"`)
+}
+
 /**
  * The workspace uploads go to before the user has made one. Created on first
  * use, so a fresh install and an upgraded one end up with the same record.
@@ -378,11 +386,7 @@ export async function saveDocument(
     : DEFAULT_WORKSPACE.id,
 ): Promise<StoredDocument> {
   assert(document?.id, 'saveDocument needs a document with an id')
-  const workspace =
-    workspaceId === DEFAULT_WORKSPACE.id
-      ? await ensureDefaultWorkspace()
-      : await getWorkspace(workspaceId)
-  if (!workspace) throw new Error(`No workspace "${workspaceId}"`)
+  await requireWorkspace(workspaceId)
   const now = Date.now()
   const stored: StoredDocument = {
     ...document,
@@ -474,10 +478,7 @@ export async function moveDocument(
   const db = store()
   const document = await db.get<StoredDocument>(DOCUMENTS, id)
   if (!document) throw new Error(`No document "${id}"`)
-  const target = isLooseWorkspace(workspaceId)
-    ? await ensureDefaultWorkspace()
-    : await getWorkspace(workspaceId)
-  if (!target) throw new Error(`No workspace "${workspaceId}"`)
+  await requireWorkspace(workspaceId)
   if (document.workspaceId === workspaceId) return document
 
   const left = isLooseWorkspace(document.workspaceId)
