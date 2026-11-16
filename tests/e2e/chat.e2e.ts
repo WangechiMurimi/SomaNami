@@ -11,16 +11,12 @@ test.describe('Ask about a document', () => {
     await signIn(page)
     await uploadFixture(page)
 
-    await page.getByRole('link', { name: 'Ask about this' }).click()
-    await expect(
-      page.getByRole('heading', { name: 'What would you like to understand?' }),
-    ).toBeVisible()
-    await expect(
-      page.getByRole('button', { name: 'photosynthesis.txt', pressed: true }),
-    ).toBeVisible()
-
+    // Sending from Home starts a chat over the attached file and asks the
+    // question there straight away.
     await page
-      .getByRole('textbox', { name: 'Ask a question about your materials' })
+      .getByRole('textbox', {
+        name: 'Ask a question or share what you’re reading',
+      })
       .fill(QUESTION)
     await page.getByRole('button', { name: 'Send' }).click()
 

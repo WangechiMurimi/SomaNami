@@ -39,10 +39,17 @@ export async function signIn(page: Page) {
   ).toBeVisible()
 }
 
-/** Uploads the fixture from the home composer and waits until it is indexed. */
+/**
+ * Attaches the fixture in Home's composer and waits until it is read and
+ * saved: only a finished attachment's chip offers a Remove button.
+ */
 export async function uploadFixture(page: Page) {
   const chooser = page.waitForEvent('filechooser')
   await page.getByRole('button', { name: 'Upload files' }).click()
   await (await chooser).setFiles(FIXTURE_DOCUMENT)
-  await expect(page.getByText('✓ Ready to explore')).toBeVisible()
+  await expect(
+    page
+      .getByRole('list', { name: 'Attached files' })
+      .getByRole('button', { name: 'Remove photosynthesis.txt' }),
+  ).toBeVisible()
 }
