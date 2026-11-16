@@ -7,7 +7,14 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'coverage', '.netlify']),
+  // Gitignored local copies (agent worktrees, Python venvs); see vite.config.ts.
+  globalIgnores([
+    'dist',
+    'coverage',
+    '.netlify',
+    '.claude/worktrees',
+    '**/.venv',
+  ]),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [js.configs.recommended, tseslint.configs.recommended],

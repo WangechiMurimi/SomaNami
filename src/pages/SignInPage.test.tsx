@@ -133,16 +133,39 @@ describe('SignInPage', () => {
     expect(auth.signInWithPassword).not.toHaveBeenCalled()
   })
 
-  it('goes to the code screen when the account has an authenticator', async () => {
-    const { auth, state } = installFakeSupabase()
-    auth.signInWithPassword.mockImplementationOnce(async () => {
-      const session = fakeSession({ mfa: true })
-      state.session = session
-      return { data: { session, user: session.user }, error: null }
-    })
+  it('offers Google first, passing next along', async () => {
+    const { auth } = installFakeSupabase()
     page('/sign-in?next=%2Flibrary')
-    await fillAndSubmit()
-    expect(await redirectedTo()).toBe('/sign-in/verify?next=%2Flibrary')
+    const google = await screen.findByRole('button', {
+      name: 'Continue with Google',
+    })
+    await userEvent.click(google)
+    expect(auth.signInWithOAuth).toHaveBeenCalledWith({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=%2Flibrary`,
+      },
+    })
+    expect(google).toHaveTextContent('Opening Google…')
+    expect(google).toBeDisabled()
+  })
+
+  it('explains when Google sign-in can’t start', async () => {
+    const { auth } = installFakeSupabase()
+    auth.signInWithOAuth.mockResolvedValueOnce({
+      data: { provider: 'google', url: null },
+      error: new AuthApiError('off', 400, 'provider_disabled'),
+    } as never)
+    page()
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Continue with Google' }),
+    )
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Google sign-in isn’t available',
+    )
+    expect(
+      screen.getByRole('button', { name: 'Continue with Google' }),
+    ).toBeEnabled()
   })
 
   it('skips the form when already signed in', async () => {

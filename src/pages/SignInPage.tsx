@@ -3,13 +3,14 @@ import type { FormEvent } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router'
 import AuthLayout from '../features/auth/AuthLayout.tsx'
 import FormAlert from '../features/auth/FormAlert.tsx'
+import GoogleSignIn from '../features/auth/GoogleSignIn.tsx'
 import PasswordField from '../features/auth/PasswordField.tsx'
 import TextField from '../features/auth/TextField.tsx'
 import Turnstile from '../features/auth/Turnstile.tsx'
 import { useAuth } from '../features/auth/auth-context.ts'
 import { authErrorMessage } from '../features/auth/auth-errors.ts'
 import { PRIMARY_BUTTON, TEXT_LINK } from '../features/auth/auth-ui.ts'
-import { safeNextPath, verifyPathFor } from '../features/auth/safe-next.ts'
+import { safeNextPath } from '../features/auth/safe-next.ts'
 import { useCaptcha } from '../features/auth/use-captcha.ts'
 import { useFocusFirstError } from '../features/auth/use-focus-first-error.ts'
 import { isAuthConfigured } from '../lib/auth/is-configured.ts'
@@ -34,9 +35,6 @@ export default function SignInPage() {
 
   if (status === 'signed-in' || status === 'signed-in-offline') {
     return <Navigate to={next} replace />
-  }
-  if (status === 'needs-mfa') {
-    return <Navigate to={verifyPathFor(next)} replace />
   }
 
   const configured = isAuthConfigured()
@@ -77,47 +75,50 @@ export default function SignInPage() {
       {!configured ? (
         <FormAlert>{authErrorMessage('not-configured')}</FormAlert>
       ) : (
-        <form
-          ref={formRef}
-          noValidate
-          onSubmit={handleSubmit}
-          className="flex flex-col gap-5"
-        >
-          {formError && <FormAlert>{formError}</FormAlert>}
-          <TextField
-            id="sign-in-email"
-            label="Email"
-            type="email"
-            name="email"
-            autoComplete="email"
-            inputMode="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            error={fieldErrors.email}
-          />
-          <PasswordField
-            id="sign-in-password"
-            label="Password"
-            name="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            error={fieldErrors.password}
-          />
-          <p className="-mt-2 text-[14px]">
-            <Link to="/forgot-password" className={TEXT_LINK}>
-              Forgot your password?
-            </Link>
-          </p>
-          <Turnstile onToken={captcha.onToken} resetKey={captcha.resetKey} />
-          <button
-            type="submit"
-            disabled={submitting}
-            className={PRIMARY_BUTTON}
+        <>
+          <GoogleSignIn next={next} />
+          <form
+            ref={formRef}
+            noValidate
+            onSubmit={handleSubmit}
+            className="mt-5 flex flex-col gap-5"
           >
-            {submitting ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
+            {formError && <FormAlert>{formError}</FormAlert>}
+            <TextField
+              id="sign-in-email"
+              label="Email"
+              type="email"
+              name="email"
+              autoComplete="email"
+              inputMode="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              error={fieldErrors.email}
+            />
+            <PasswordField
+              id="sign-in-password"
+              label="Password"
+              name="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              error={fieldErrors.password}
+            />
+            <p className="-mt-2 text-[14px]">
+              <Link to="/forgot-password" className={TEXT_LINK}>
+                Forgot your password?
+              </Link>
+            </p>
+            <Turnstile onToken={captcha.onToken} resetKey={captcha.resetKey} />
+            <button
+              type="submit"
+              disabled={submitting}
+              className={PRIMARY_BUTTON}
+            >
+              {submitting ? 'Signing in…' : 'Sign in'}
+            </button>
+          </form>
+        </>
       )}
       <p className="mt-8 text-[15px] text-muted">
         New to SomaNami?{' '}

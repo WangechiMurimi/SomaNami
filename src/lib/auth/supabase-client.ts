@@ -23,11 +23,24 @@ export function readSupabaseConfig(
 // `undefined` means "not built yet"; `null` means "built, but unconfigured".
 let client: SupabaseClient | null | undefined
 
+/**
+ * PKCE keeps tokens out of redirect URLs: Google, confirmation and recovery
+ * links all return a one-time `?code=` that only this browser can exchange.
+ * The exchange happens in one place, /auth/callback, so the client must not
+ * also try it on whatever page the link opens.
+ */
+export const AUTH_OPTIONS = {
+  flowType: 'pkce',
+  detectSessionInUrl: false,
+} as const
+
 /** The app's single Supabase client, or `null` when the project isn't configured. */
 export function getSupabaseClient(): SupabaseClient | null {
   if (client === undefined) {
     const config = readSupabaseConfig()
-    client = config ? createClient(config.url, config.publishableKey) : null
+    client = config
+      ? createClient(config.url, config.publishableKey, { auth: AUTH_OPTIONS })
+      : null
   }
   return client
 }

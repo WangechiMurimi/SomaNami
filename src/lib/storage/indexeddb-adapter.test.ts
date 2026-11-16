@@ -1,5 +1,5 @@
 import { IDBFactory } from 'fake-indexeddb'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createIndexedDbAdapter, deleteDatabase } from './indexeddb-adapter.ts'
 import {
   CONVERSATIONS,
@@ -399,6 +399,17 @@ describe('deleteDatabase (#124)', () => {
     await released
     await expect(deleting).resolves.toBeUndefined()
     expect(await factory.databases()).toEqual([])
+  })
+
+  it('says when another tab is in the way, then finishes once it lets go', async () => {
+    const other = await openRaw(factory)
+    const onBlocked = vi.fn()
+    const deleting = deleteDatabase(factory, DB_NAME, { onBlocked })
+    expect(await settledYet(deleting)).toBe(pending)
+    expect(onBlocked).toHaveBeenCalledOnce()
+
+    other.close()
+    await expect(deleting).resolves.toBeUndefined()
   })
 
   it('finishes at once when our own adapter is the other connection', async () => {

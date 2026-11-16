@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setSupabaseClient } from '../../lib/auth/supabase-client.ts'
 import AuthProvider from './AuthProvider.tsx'
 import { useAuth } from './auth-context.ts'
+import {
+  hasCompletedProfile,
+  rememberCompletedProfile,
+} from './completed-profile.ts'
 import { readLastUser, writeLastUser } from './last-user.ts'
 import { fakeSession, installFakeSupabase } from './testing/fake-supabase.ts'
 
@@ -141,30 +145,18 @@ describe('network errors never sign the user out', () => {
 
 describe('stale session checks', () => {
   it('ignores a session check that finishes after sign-out', async () => {
-    const { auth, emit } = installFakeSupabase({ session: fakeSession() })
-    const { result } = renderAuth()
-    await waitFor(() => expect(result.current.status).toBe('signed-in'))
-
-    // A refresh starts evaluating the session, then stalls on the MFA check.
+    const { auth } = installFakeSupabase({ session: fakeSession() })
+    // The boot restore stalls on reading the saved session.
     let release: () => void = () => {}
-    auth.mfa.getAuthenticatorAssuranceLevel.mockImplementationOnce(
+    auth.getSession.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
           release = () =>
-            resolve({
-              data: {
-                currentLevel: 'aal1',
-                nextLevel: 'aal1',
-                currentAuthenticationMethods: [],
-              },
-              error: null,
-            })
+            resolve({ data: { session: fakeSession() }, error: null })
         }) as never,
     )
-    act(() => emit('TOKEN_REFRESHED', fakeSession()))
-    await waitFor(() =>
-      expect(auth.mfa.getAuthenticatorAssuranceLevel).toHaveBeenCalledTimes(2),
-    )
+    const { result } = renderAuth()
+    expect(result.current.status).toBe('loading')
 
     await act(() => result.current.signOut())
     expect(result.current.status).toBe('signed-out')
@@ -195,73 +187,98 @@ describe('stale session checks', () => {
   })
 })
 
-describe('MFA', () => {
-  it('needs a code when the account has a verified authenticator', async () => {
-    installFakeSupabase({ session: fakeSession({ mfa: true }) })
+describe('Google and emailed links', () => {
+  it('starts Google sign-in with a callback that carries a safe next', async () => {
+    const { auth } = installFakeSupabase()
     const { result } = renderAuth()
-    await waitFor(() => expect(result.current.status).toBe('needs-mfa'))
-    expect(result.current.user).not.toBeNull()
-    // Half-signed-in users can't come back offline without the code.
-    expect(readLastUser()).toBeNull()
-  })
+    await waitFor(() => expect(result.current.status).toBe('signed-out'))
 
-  it('is signed in once the code is verified', async () => {
-    const { auth } = installFakeSupabase({
-      session: fakeSession({ mfa: true }),
-    })
-    const { result } = renderAuth()
-    await waitFor(() => expect(result.current.status).toBe('needs-mfa'))
-
-    await act(async () => {
-      await result.current.mfa.verify('factor-1', '123456')
-    })
-    expect(auth.mfa.challengeAndVerify).toHaveBeenCalledWith({
-      factorId: 'factor-1',
-      code: '123456',
-    })
-    await waitFor(() => expect(result.current.status).toBe('signed-in'))
-  })
-
-  it('maps a wrong code', async () => {
-    const { auth } = installFakeSupabase({
-      session: fakeSession({ mfa: true }),
-    })
-    auth.mfa.challengeAndVerify.mockResolvedValueOnce({
-      data: null,
-      error: new AuthApiError('bad', 422, 'mfa_verification_failed'),
-    } as never)
-    const { result } = renderAuth()
-    await waitFor(() => expect(result.current.status).toBe('needs-mfa'))
-
-    await expect(
-      result.current.mfa.verify('factor-1', '000000'),
-    ).resolves.toEqual({ ok: false, error: 'invalid-code' })
-  })
-
-  it('wraps listing, enrolling and removing factors', async () => {
-    const { auth } = installFakeSupabase({
-      session: fakeSession({ mfa: true }),
-      aal: 'aal2',
-    })
-    const { result } = renderAuth()
-    await waitFor(() => expect(result.current.status).toBe('signed-in'))
-
-    await expect(result.current.mfa.listFactors()).resolves.toEqual([
-      { id: 'factor-1', friendlyName: null, status: 'verified' },
-    ])
-    await expect(result.current.mfa.enrollTotp('Phone')).resolves.toEqual({
-      factorId: 'factor-2',
-      qrCode: 'data:image/svg+xml;utf-8,<svg/>',
-      secret: 'SECRET',
-    })
-    expect(auth.mfa.enroll).toHaveBeenCalledWith({
-      factorType: 'totp',
-      friendlyName: 'Phone',
-    })
-    await expect(result.current.mfa.unenroll('factor-1')).resolves.toEqual({
+    await expect(result.current.signInWithGoogle('/library')).resolves.toEqual({
       ok: true,
     })
-    expect(auth.mfa.unenroll).toHaveBeenCalledWith({ factorId: 'factor-1' })
+    expect(auth.signInWithOAuth).toHaveBeenCalledWith({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=%2Flibrary`,
+      },
+    })
+
+    await result.current.signInWithGoogle('//evil.example')
+    expect(auth.signInWithOAuth).toHaveBeenLastCalledWith({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    })
+  })
+
+  it('maps a disabled Google provider', async () => {
+    const { auth } = installFakeSupabase()
+    auth.signInWithOAuth.mockResolvedValueOnce({
+      data: { provider: 'google', url: null },
+      error: new AuthApiError('off', 400, 'provider_disabled'),
+    } as never)
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.status).toBe('signed-out'))
+    await expect(result.current.signInWithGoogle()).resolves.toEqual({
+      ok: false,
+      error: 'provider-unavailable',
+    })
+  })
+
+  it('signs in once a link’s code is exchanged', async () => {
+    const { auth } = installFakeSupabase()
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.status).toBe('signed-out'))
+
+    await act(async () => {
+      await expect(result.current.exchangeCode('abc')).resolves.toEqual({
+        ok: true,
+      })
+    })
+    expect(auth.exchangeCodeForSession).toHaveBeenCalledWith('abc')
+    // Already signed in when the promise resolves, so callers can navigate.
+    expect(result.current.status).toBe('signed-in')
+  })
+
+  it('maps a code opened in another browser', async () => {
+    const { auth } = installFakeSupabase()
+    auth.exchangeCodeForSession.mockResolvedValueOnce({
+      data: { session: null, user: null },
+      error: new AuthApiError('missing', 400, 'pkce_code_verifier_not_found'),
+    })
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.status).toBe('signed-out'))
+    await expect(result.current.exchangeCode('abc')).resolves.toEqual({
+      ok: false,
+      error: 'link-expired',
+    })
+  })
+
+  it('exposes the name Google gave, for prefilling only', async () => {
+    installFakeSupabase({ session: fakeSession({ name: '  Ada L ' }) })
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.status).toBe('signed-in'))
+    expect(result.current.user).toEqual({
+      id: 'user-1',
+      email: 'learner@example.com',
+      name: 'Ada L',
+    })
+    // The offline cache keeps only what it did before.
+    expect(readLastUser()).toEqual({
+      id: 'user-1',
+      email: 'learner@example.com',
+    })
+  })
+})
+
+describe('profile record', () => {
+  it('is forgotten on sign-out, like the last user', async () => {
+    installFakeSupabase({ session: fakeSession() })
+    rememberCompletedProfile('user-1')
+    const { result } = renderAuth()
+    await waitFor(() => expect(result.current.status).toBe('signed-in'))
+
+    await act(() => result.current.signOut())
+    expect(hasCompletedProfile('user-1')).toBe(false)
   })
 })
 
@@ -295,24 +312,19 @@ describe('account actions', () => {
     expect(result.current.status).toBe('signed-in')
   })
 
-  it('signs up with only the age outcome and consent time', async () => {
+  it('signs up without writing anything to user metadata', async () => {
     const { auth } = installFakeSupabase()
     const { result } = renderAuth()
     await waitFor(() => expect(result.current.status).toBe('signed-out'))
 
-    await expect(
-      result.current.signUp({
-        ...SIGN_IN,
-        consentedAt: '2026-11-13T00:00:00Z',
-      }),
-    ).resolves.toEqual({ ok: true })
+    await expect(result.current.signUp(SIGN_IN)).resolves.toEqual({ ok: true })
+    // Users can edit their own metadata, so age and consent never go there.
     expect(auth.signUp).toHaveBeenCalledWith({
       email: 'a@example.com',
       password: 'pw',
       options: {
         captchaToken: 'tok',
-        emailRedirectTo: `${window.location.origin}/sign-in`,
-        data: { age_13_plus: true, consented_at: '2026-11-13T00:00:00Z' },
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     })
   })
@@ -330,9 +342,7 @@ describe('account actions', () => {
     const { result } = renderAuth()
     await waitFor(() => expect(result.current.status).toBe('signed-out'))
 
-    await expect(
-      result.current.signUp({ ...SIGN_IN, consentedAt: 'now' }),
-    ).resolves.toEqual({ ok: true })
+    await expect(result.current.signUp(SIGN_IN)).resolves.toEqual({ ok: true })
   })
 
   it('reports password reset as sent whether or not the account exists', async () => {
@@ -350,7 +360,7 @@ describe('account actions', () => {
     })
     expect(auth.resetPasswordForEmail).toHaveBeenCalledWith('a@example.com', {
       captchaToken: 'tok',
-      redirectTo: `${window.location.origin}/update-password`,
+      redirectTo: `${window.location.origin}/auth/callback?next=%2Fupdate-password`,
     })
 
     auth.resetPasswordForEmail.mockResolvedValueOnce({
@@ -406,19 +416,18 @@ describe('without a Supabase project', () => {
 
     const notConfigured = { ok: false, error: 'not-configured' }
     await expect(result.current.signIn(SIGN_IN)).resolves.toEqual(notConfigured)
-    await expect(
-      result.current.signUp({ ...SIGN_IN, consentedAt: 'now' }),
-    ).resolves.toEqual(notConfigured)
+    await expect(result.current.signUp(SIGN_IN)).resolves.toEqual(notConfigured)
     await expect(
       result.current.requestPasswordReset({ email: 'a', captchaToken: 't' }),
     ).resolves.toEqual(notConfigured)
     await expect(result.current.updatePassword('x')).resolves.toEqual(
       notConfigured,
     )
-    await expect(result.current.mfa.verify('f', '1')).resolves.toEqual(
+    await expect(result.current.signInWithGoogle()).resolves.toEqual(
       notConfigured,
     )
-    await expect(result.current.mfa.listFactors()).resolves.toEqual([])
-    await expect(result.current.mfa.enrollTotp()).rejects.toThrow()
+    await expect(result.current.exchangeCode('c')).resolves.toEqual(
+      notConfigured,
+    )
   })
 })

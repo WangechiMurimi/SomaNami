@@ -61,11 +61,13 @@ The project lives at the repository root. Folders marked *(planned)* don't exist
 	- **Tests:** Follow `[name].test.[ext]` and colocate unit tests with their corresponding source files.
 	- **Coverage target:** Aim for at least 80% coverage of critical application logic.
 6. **Auth and storage conventions** (#114):
-	- Every route is signed-in only unless it is listed as public in `src/App.tsx` (sign-in, sign-up, password reset, privacy, terms).
+	- Every route is signed-in only unless it is listed as public in `src/App.tsx`: `sign-in`, `sign-up`, `forgot-password`, `update-password`, `auth/callback` and `your-data` (How your data is handled).
+	- Signed-in screens also sit below `RequireProfile`, which sends an account without a complete profile to `welcome/details`; that route is the only one between `RequireAuth` and it.
 	- Read the session through `useAuth()`; never call Supabase Auth from a component directly.
 	- Storage belongs to the signed-in user: read and write it only below `UserStoreGate`.
 	- Shared auth types live in `src/types/auth.ts` (client) and `server/auth/types.ts` (server). Change them deliberately; other branches depend on them.
 	- Passwords, tokens and birth dates are never logged, stored by our code, or sent to our server. Only Supabase handles passwords.
+	- Per-user details (display name, the 13-or-older answer) live in the `profiles` table, never in Auth user metadata, which users can edit themselves (ADR 0001).
 	- Error messages never reveal whether an account exists.
 
 ## Workflow Execution Rules for Agents

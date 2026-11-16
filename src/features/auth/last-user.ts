@@ -1,6 +1,6 @@
 import type { AuthUser } from '../../types/auth.ts'
 
-// The account that last *fully* signed in here (MFA included). Offline, an
+// The account that last signed in here. Offline, an
 // expired access token can't be refreshed and supabase-js reports no session
 // even though it keeps the refresh token; this lets the user keep reading their
 // own materials (US-07). It holds only the id and email Supabase already

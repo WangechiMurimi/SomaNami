@@ -83,6 +83,25 @@ describe('SessionsSection with real storage', () => {
     expect(await databaseNames()).not.toContain(userDbName('user-7'))
   })
 
+  it('asks to close other tabs while one holds the store, then finishes', async () => {
+    await renderWithMaterial()
+    // Another tab's connection, which doesn't step aside by itself.
+    const other = await new Promise<IDBDatabase>((resolve) => {
+      const request = factory.open(userDbName('user-7'))
+      request.onsuccess = () => resolve(request.result)
+    })
+
+    await confirmRemoval()
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Close SomaNami in your other tabs to finish.',
+    )
+    expect(await databaseNames()).toContain(userDbName('user-7'))
+
+    other.close()
+    expect(await redirectedTo()).toBe('/sign-in')
+    expect(await databaseNames()).not.toContain(userDbName('user-7'))
+  })
+
   it('keeps the library usable when the delete fails', async () => {
     await renderWithMaterial()
     vi.spyOn(factory, 'deleteDatabase').mockImplementationOnce(() => {

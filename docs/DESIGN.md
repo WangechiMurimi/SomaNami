@@ -74,6 +74,16 @@ one is picked) · Chat (answers with "From your materials" citations; replies
 the materials can't support are labelled "Not answered from your materials") ·
 Library (a real table with type filters).
 
+**Auth screens (wireframes, ADR 0001).** Sign in · Create account · A few
+details (display name, "I'm 13 or older") · Forgot and new password · Signing
+you in (`/auth/callback`) · How your data is handled. "Continue with Google"
+comes first, then an "or use your email" rule and the email form. These
+screens are deliberately plain until the auth design is final: monochrome,
+square corners, the only fill on the primary action, through the tokens in
+`src/features/auth/auth-ui.ts`. They keep 48 px inputs, 44 px buttons, ≥ 3:1
+borders, visible focus and errors that don't rely on colour alone. Account
+shows the display name and email above the sign-out options.
+
 The persistent sidebar holds: New workspace, Home, Workspaces, My library,
 Saved conversations, Recent chats, an "On this device" status card, and the
 profile row.

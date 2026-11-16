@@ -109,11 +109,11 @@ describe('UserStoreGate', () => {
     expect(await screen.findByText('library: ada-notes')).toBeInTheDocument()
   })
 
-  it.each<AuthStatus>(['loading', 'signed-out', 'needs-mfa'])(
+  it.each<AuthStatus>(['loading', 'signed-out'])(
     'renders nothing that reads storage while %s',
     async (status) => {
       render(
-        <Harness auth={session(status === 'needs-mfa' ? 'ada' : null, status)}>
+        <Harness auth={session(null, status)}>
           <Library />
         </Harness>,
       )
