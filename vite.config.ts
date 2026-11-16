@@ -9,6 +9,12 @@ import { configDefaults, defineConfig } from 'vitest/config'
  */
 const LOCAL_ONLY_DIRS = ['.claude/worktrees/**', '**/.venv/**']
 
+/**
+ * Kept out of Vitest only. Nothing under .claude/ is ours to test, and
+ * tests/e2e/ holds Playwright specs, which Vitest can't run.
+ */
+const NOT_VITEST_DIRS = ['.claude/**', 'tests/e2e/**']
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -21,7 +27,11 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.ts'],
     globals: false,
-    exclude: [...configDefaults.exclude, ...LOCAL_ONLY_DIRS],
+    exclude: [
+      ...configDefaults.exclude,
+      ...LOCAL_ONLY_DIRS,
+      ...NOT_VITEST_DIRS,
+    ],
     alias: [
       // Vitest resolves packages like Node, which picks mammoth's Node build
       // (no `arrayBuffer` input). Use the browser build the app ships with.
