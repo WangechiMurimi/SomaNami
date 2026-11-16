@@ -9,5 +9,6 @@
     // reading fixtures; app code stays browser-only.
     "types": ["vite/client", "node"]
   },
-  "include": ["src"]
+  // docs/ holds contract tests that sit beside the schemas they check.
+  "include": ["src", "docs/**/*.test.ts"]
 }

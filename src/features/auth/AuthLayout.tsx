@@ -7,7 +7,7 @@ interface AuthLayoutProps {
   title: string
   lede?: ReactNode
   children: ReactNode
-  /** Wider column for reading pages such as Privacy and Terms. */
+  /** Wider column for reading pages such as How your data is handled. */
   wide?: boolean
 }
 
@@ -21,10 +21,7 @@ export default function AuthLayout({
   return (
     <div className="min-h-screen bg-ground text-fg">
       <header className="flex h-20 items-center justify-between px-4 pt-5 md:px-12">
-        <Link
-          to="/"
-          className="font-brand text-2xl leading-[1.5] font-bold text-fg"
-        >
+        <Link to="/" className="text-xl leading-[1.5] font-semibold text-fg">
           SomaNami
         </Link>
         <ThemeToggle />

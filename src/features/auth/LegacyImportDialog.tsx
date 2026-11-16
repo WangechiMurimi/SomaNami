@@ -97,9 +97,8 @@ export default function LegacyImportDialog({
           className="mt-3 text-[15px] leading-[1.6] text-muted"
         >
           Documents and conversations were saved on this device before you
-          signed in. Moving them puts them in your library. They stay on this
-          device either way; nothing is uploaded. If you leave them aside, they
-          stay where they are and you won’t be asked again.
+          signed in. Moving them puts them in your library. If you leave them
+          aside, they stay where they are and you won’t be asked again.
         </p>
 
         {failed && (

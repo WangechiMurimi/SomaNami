@@ -9,7 +9,16 @@ export interface VerifiedUser {
 }
 
 export type AuthOutcome =
-  { ok: true; user: VerifiedUser } | { ok: false; reason: AuthFailure }
+  | {
+      ok: true
+      user: VerifiedUser
+      /**
+       * The verified bearer token, so the server can query Supabase as this
+       * user and let RLS scope every row. Never log or persist it.
+       */
+      accessToken: string
+    }
+  | { ok: false; reason: AuthFailure }
 
 /**
  * Checks a raw `Authorization` header. Transport-neutral, so Express and the

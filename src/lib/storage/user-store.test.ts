@@ -27,6 +27,8 @@ const doc = (id: string): StoredDocument => ({
   pageCount: 1,
   chunks: [],
   workspaceId: DEFAULT_WORKSPACE.id,
+  createdAt: 1,
+  updatedAt: 1,
 })
 
 const databaseNames = async (factory: IDBFactory) =>

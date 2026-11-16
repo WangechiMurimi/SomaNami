@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { IDBFactory } from 'fake-indexeddb'
 import { Route } from 'react-router'
@@ -56,17 +56,10 @@ async function renderWithMaterial() {
   )
 }
 
+// Signing out clears this device's copy (#147); with no cloud configured
+// there is nothing to save first.
 async function confirmRemoval() {
-  await userEvent.click(
-    screen.getByRole('button', {
-      name: 'Sign out and remove my materials from this device',
-    }),
-  )
-  await userEvent.click(
-    within(screen.getByRole('alertdialog')).getByRole('button', {
-      name: 'Remove and sign out',
-    }),
-  )
+  await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
 }
 
 describe('SessionsSection with real storage', () => {
@@ -86,6 +79,25 @@ describe('SessionsSection with real storage', () => {
 
     await confirmRemoval()
 
+    expect(await redirectedTo()).toBe('/sign-in')
+    expect(await databaseNames()).not.toContain(userDbName('user-7'))
+  })
+
+  it('asks to close other tabs while one holds the store, then finishes', async () => {
+    await renderWithMaterial()
+    // Another tab's connection, which doesn't step aside by itself.
+    const other = await new Promise<IDBDatabase>((resolve) => {
+      const request = factory.open(userDbName('user-7'))
+      request.onsuccess = () => resolve(request.result)
+    })
+
+    await confirmRemoval()
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Close SomaNami in your other tabs to finish.',
+    )
+    expect(await databaseNames()).toContain(userDbName('user-7'))
+
+    other.close()
     expect(await redirectedTo()).toBe('/sign-in')
     expect(await databaseNames()).not.toContain(userDbName('user-7'))
   })

@@ -32,6 +32,46 @@ npm run dev             # app on http://localhost:5173 (proxies /api to the API)
 Without an API key the app still uploads, stores and searches documents; the
 chat route answers `503 not-configured`.
 
+### Local database
+
+Schema changes live in `supabase/migrations/` and their row-level security
+tests in `supabase/tests/`. Running them needs
+[Docker Desktop](https://www.docker.com/products/docker-desktop/) (running) and
+the Supabase CLI (`brew install supabase/tap/supabase`).
+
+```bash
+npm run db:start    # local Supabase; prints the API URL and keys for .env
+npm run db:test     # pgTAP tests for migrations and RLS
+npm run db:reset    # rebuild the database from the migrations
+npm run db:stop
+```
+
+Learners' materials and chats live in `workspaces`, `documents`, `chunks`,
+`conversations`, `conversation_materials` and `messages`: each row belongs to
+one account (`user_id`), and deleting a parent deletes everything under it.
+
+Devices sync with these tables (`src/lib/sync/`): each device keeps working
+offline and pushes its outbox and pulls other devices' changes when online.
+The newer edit wins, and a deleted record never comes back (`deletions` holds
+their ids). The sync engine's test against the real local stack is skipped
+unless you pass the stack's URL and keys:
+
+```bash
+eval "$(supabase status -o env | sed 's/^/export SYNC_IT_/')"
+npx vitest run src/lib/sync/supabase-cloud.integration.test.ts
+```
+
+Add a migration with `supabase migration new <name>`. The hosted database is
+not updated by CI: after a migration is merged, apply it with
+`supabase db push` (once, after `supabase link`).
+
+Google sign-in locally needs a Google OAuth web client whose authorised
+redirect URI is `http://127.0.0.1:54321/auth/v1/callback`. Put its id and
+secret in `supabase/.env` (gitignored) as
+`SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` and
+`SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`, then restart with `npm run db:start`.
+Email and password sign-in works without them.
+
 ## Scripts
 
 | Script                 | What it does                                          |
@@ -43,8 +83,12 @@ chat route answers `503 not-configured`.
 | `npm run lint`         | ESLint                                                |
 | `npm run format:check` | Prettier check (`npm run format` to fix)              |
 | `npm run build`        | Production build to `dist/`                           |
+| `npm run db:start`     | Local Supabase in Docker (`db:stop` to stop it)       |
+| `npm run db:test`      | pgTAP tests against the local database                |
+| `npm run db:reset`     | Rebuild the local database from the migrations        |
 
-CI runs lint, typecheck, format check, tests and build on every pull request.
+CI runs lint, typecheck, format check, tests and build on every pull request,
+and applies the migrations to a fresh database to run the pgTAP tests.
 
 ## Deploying to Netlify
 

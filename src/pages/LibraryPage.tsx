@@ -6,6 +6,7 @@ import { newChatPath } from '../features/chat/conversation-materials.ts'
 import { KIND_LABEL } from '../features/library/kind-label.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
 import UploadSection from '../features/upload/UploadSection.tsx'
+import { useSync } from '../features/sync/sync-context.ts'
 import { useWorkspaces } from '../features/workspaces/use-workspaces.ts'
 import { DEFAULT_WORKSPACE, listConversations } from '../lib/storage/index.ts'
 import type { DocumentKind, StoredDocument } from '../types/contracts.ts'
@@ -30,9 +31,12 @@ function RemoveMaterial({
   onDone,
 }: {
   material: StoredDocument
-  onDone: () => void
+  /** Called with what to tell the learner, or nothing if they cancelled. */
+  onDone: (notice?: string) => void
 }) {
   const { remove } = useLibraryContext()
+  const { status: sync, flush } = useSync()
+  const inCloud = sync !== 'off'
   const [effect, setEffect] = useState<{ ending: number; keeping: number }>()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -58,11 +62,22 @@ function RemoveMaterial({
     setBusy(true)
     try {
       await remove(material.id)
-      onDone()
     } catch (cause) {
       console.error('Could not remove the material', cause)
       setError('We couldn’t remove it. Try again.')
       setBusy(false)
+      return
+    }
+    // Deleted here and queued for the cloud; only say "deleted" once the
+    // cloud has confirmed it (#147). If it can't yet, the queue keeps it and
+    // a later sync finishes the job, so say exactly that.
+    try {
+      await flush()
+      onDone(`‘${material.name}’ deleted`)
+    } catch {
+      onDone(
+        `‘${material.name}’ was deleted from this device. It will be erased from your account the next time you’re online.`,
+      )
     }
   }
 
@@ -72,9 +87,13 @@ function RemoveMaterial({
       confirmLabel="Remove"
       busy={busy || !effect}
       onConfirm={() => void confirm()}
-      onCancel={onDone}
+      onCancel={() => onDone()}
     >
-      <p>It will be removed from this device.</p>
+      <p>
+        {inCloud
+          ? 'It will be deleted from your account and all your devices, original file included.'
+          : 'It will be removed from this device.'}
+      </p>
       {effect && effect.ending > 0 && (
         <p className="mt-2">
           {chats(effect.ending)} that only used this material will be removed
@@ -106,6 +125,7 @@ export default function LibraryPage() {
   const [kind, setKind] = useState<DocumentKind | null>(null)
   const [target, setTarget] = useState<string>(DEFAULT_WORKSPACE.id)
   const [removing, setRemoving] = useState<StoredDocument | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const shown = kind
     ? documents.filter((document) => document.kind === kind)
@@ -168,6 +188,10 @@ export default function LibraryPage() {
         <h2 id="materials-heading" className={H2}>
           Materials
         </h2>
+        {/* Always rendered, so screen readers announce the message when it appears. */}
+        <p role="status" className="text-sm text-muted empty:hidden">
+          {notice}
+        </p>
         {status === 'loading' ? (
           <p role="status" className="text-muted">
             Opening your library…
@@ -272,7 +296,13 @@ export default function LibraryPage() {
       </section>
 
       {removing && (
-        <RemoveMaterial material={removing} onDone={() => setRemoving(null)} />
+        <RemoveMaterial
+          material={removing}
+          onDone={(message) => {
+            setRemoving(null)
+            if (message) setNotice(message)
+          }}
+        />
       )}
     </div>
   )

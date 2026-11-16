@@ -75,7 +75,7 @@ describe('useDocumentUpload onReady', () => {
 
     await act(() => result.current.upload(file))
 
-    expect(onReady).toHaveBeenCalledWith(parsed)
+    expect(onReady).toHaveBeenCalledWith(parsed, file)
     expect(result.current.status).toBe('ready')
   })
 

@@ -6,5 +6,11 @@
     "lib": ["ES2023"],
     "types": ["node"]
   },
-  "include": ["server", "netlify", "src/types", "vite.config.ts"]
+  "include": [
+    "server",
+    "netlify",
+    "src/types",
+    "src/lib/retrieval",
+    "vite.config.ts"
+  ]
 }
