@@ -35,3 +35,6 @@ dist-ssr
 # Python
 .venv/
 __pycache__/
+
+# Vitest coverage reports (npm run test:coverage)
+coverage/
