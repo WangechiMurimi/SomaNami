@@ -1,10 +1,10 @@
 import { Navigate, Outlet, useLocation } from 'react-router'
 import { useAuth } from './auth-context.ts'
-import { signInPathFor, verifyPathFor } from './safe-next.ts'
+import { signInPathFor } from './safe-next.ts'
 
 /**
  * Layout route guarding every signed-in screen: signed-out visitors go to
- * sign-in (and come back afterwards), half-signed-in ones to the code screen.
+ * sign-in, and come back afterwards.
  */
 export default function RequireAuth() {
   const { status } = useAuth()
@@ -21,11 +21,6 @@ export default function RequireAuth() {
   }
   if (status === 'signed-out') {
     return <Navigate to={signInPathFor(pathname, search, hash)} replace />
-  }
-  if (status === 'needs-mfa') {
-    return (
-      <Navigate to={verifyPathFor(`${pathname}${search}${hash}`)} replace />
-    )
   }
   return <Outlet />
 }

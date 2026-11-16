@@ -122,8 +122,14 @@ export function closeUserStore(): void {
   void closing?.adapter.close()
 }
 
-/** Deletes one user's materials from this device, for shared computers. */
-export async function removeUserStore(userId: string): Promise<void> {
+/**
+ * Deletes one user's materials from this device, for shared computers.
+ * `onBlocked` fires if another tab must close before the delete can finish.
+ */
+export async function removeUserStore(
+  userId: string,
+  { onBlocked }: { onBlocked?: () => void } = {},
+): Promise<void> {
   if (current?.userId === userId) {
     const closing = current
     current = undefined
@@ -132,7 +138,7 @@ export async function removeUserStore(userId: string): Promise<void> {
   }
   memoryStores.delete(userId)
   const factory = globalThis.indexedDB
-  if (factory) await deleteDatabase(factory, userDbName(userId))
+  if (factory) await deleteDatabase(factory, userDbName(userId), { onBlocked })
 }
 
 // Functions that touch storage more than once take the store once up front, so

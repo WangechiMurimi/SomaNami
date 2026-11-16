@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -55,8 +55,7 @@ describe('signed out', () => {
   it.each([
     ['/sign-up', 'Create your account'],
     ['/forgot-password', 'Reset your password'],
-    ['/privacy', 'Privacy Notice'],
-    ['/terms', 'Terms'],
+    ['/your-data', 'How your data is handled'],
   ])('serves the public page %s', async (path, heading) => {
     installFakeSupabase()
     renderAt(path)
@@ -87,14 +86,32 @@ describe('signed out', () => {
   })
 })
 
-describe('needs-mfa', () => {
-  it('sends shell routes to the code screen', async () => {
-    installFakeSupabase({ session: fakeSession({ mfa: true }) })
+describe('details step', () => {
+  it('sends an existing account without a profile there once, then back', async () => {
+    installFakeSupabase({ session: fakeSession(), profile: null })
     renderAt('/library')
-    // The code screen itself belongs to WS-E; only the redirect is checked here.
-    await waitFor(() =>
-      expect(currentLocation()).toBe('/sign-in/verify?next=%2Flibrary'),
-    )
+    await userEvent.type(await screen.findByLabelText('Display name'), 'Ada')
+    expect(currentLocation()).toBe('/welcome/details?next=%2Flibrary')
+    await userEvent.click(screen.getByRole('checkbox'))
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'My library' }),
+    ).toBeInTheDocument()
+    expect(currentLocation()).toBe('/library')
+  })
+
+  it('sends a new Google account from the callback to the details step', async () => {
+    installFakeSupabase({ profile: null })
+    renderAt('/auth/callback?code=abc&next=%2Flibrary')
+    expect(await screen.findByLabelText('Display name')).toBeInTheDocument()
+    expect(currentLocation()).toBe('/welcome/details?next=%2Flibrary')
+  })
+
+  it('keeps the details step signed-in only', async () => {
+    installFakeSupabase()
+    renderAt('/welcome/details')
+    await signInHeading()
+    expect(currentLocation()).toBe('/sign-in?next=%2Fwelcome%2Fdetails')
   })
 })
 

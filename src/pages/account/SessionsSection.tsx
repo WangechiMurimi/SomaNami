@@ -43,6 +43,7 @@ export default function SessionsSection() {
   const [busy, setBusy] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [removeFailed, setRemoveFailed] = useState(false)
+  const [blocked, setBlocked] = useState(false)
 
   async function finish(scope: 'local' | 'global') {
     setBusy(true)
@@ -54,14 +55,17 @@ export default function SessionsSection() {
     if (!user) return
     setBusy(true)
     setRemoveFailed(false)
+    setBlocked(false)
     try {
-      await removeUserStore(user.id)
+      // The delete waits for every other tab to let go of the store.
+      await removeUserStore(user.id, { onBlocked: () => setBlocked(true) })
     } catch {
       // Signing out now would leave the materials behind while the person
       // believes they're gone, so stay here and let them try again. The
       // removal closed the store first; reopen it so the app keeps working.
       await openUserStore(user.id).catch(() => {})
       setRemoveFailed(true)
+      setBlocked(false)
       setBusy(false)
       return
     }
@@ -145,6 +149,11 @@ export default function SessionsSection() {
             Your materials and chats will be deleted from this device. They
             aren’t saved anywhere else yet, so this can’t be undone.
           </p>
+          {blocked && (
+            <p role="status" className="mt-2 font-medium text-fg">
+              Close SomaNami in your other tabs to finish.
+            </p>
+          )}
           {removeFailed && (
             <p role="alert" className="mt-2 text-warn">
               We couldn’t remove them, so you’re still signed in. Try again.

@@ -47,3 +47,16 @@ describe('getSupabaseClient', () => {
     expect(getSupabaseClient()).toBe(first)
   })
 })
+
+describe('client auth options', () => {
+  it('uses PKCE and leaves code exchange to /auth/callback', () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://demo.supabase.co')
+    vi.stubEnv('VITE_SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_123')
+    const auth = getSupabaseClient()?.auth as unknown as {
+      flowType: string
+      detectSessionInUrl: boolean
+    }
+    expect(auth.flowType).toBe('pkce')
+    expect(auth.detectSessionInUrl).toBe(false)
+  })
+})

@@ -7,10 +7,7 @@ import {
   fakeSession,
   installFakeSupabase,
 } from '../features/auth/testing/fake-supabase.ts'
-import {
-  redirectedTo,
-  renderAt,
-} from '../features/auth/testing/render-routes.tsx'
+import { renderAt } from '../features/auth/testing/render-routes.tsx'
 import { setSupabaseClient } from '../lib/auth/supabase-client.ts'
 import UpdatePasswordPage from './UpdatePasswordPage.tsx'
 
@@ -89,11 +86,5 @@ describe('UpdatePasswordPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/offline/i)
     expect(screen.queryByLabelText('New password')).not.toBeInTheDocument()
     vi.restoreAllMocks()
-  })
-
-  it('asks for the authenticator code first when the account has one', async () => {
-    installFakeSupabase({ session: fakeSession({ mfa: true }) })
-    page()
-    expect(await redirectedTo()).toBe('/sign-in/verify?next=%2Fupdate-password')
   })
 })

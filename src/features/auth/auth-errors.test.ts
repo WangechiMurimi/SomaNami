@@ -4,7 +4,11 @@ import {
   AuthWeakPasswordError,
 } from '@supabase/supabase-js'
 import { describe, expect, it } from 'vitest'
-import { authErrorMessage, toAuthErrorCode } from './auth-errors.ts'
+import {
+  authErrorMessage,
+  redirectErrorCode,
+  toAuthErrorCode,
+} from './auth-errors.ts'
 
 const api = (code: string, status = 400) =>
   new AuthApiError('server message', status, code)
@@ -17,8 +21,10 @@ describe('toAuthErrorCode', () => {
     ['weak_password', 'weak-password'],
     ['same_password', 'weak-password'],
     ['captcha_failed', 'captcha-failed'],
-    ['mfa_verification_failed', 'invalid-code'],
-    ['mfa_challenge_expired', 'invalid-code'],
+    ['otp_expired', 'link-expired'],
+    ['flow_state_not_found', 'link-expired'],
+    ['pkce_code_verifier_not_found', 'link-expired'],
+    ['provider_disabled', 'provider-unavailable'],
     ['over_request_rate_limit', 'rate-limited'],
     ['over_email_send_rate_limit', 'rate-limited'],
     ['user_already_exists', 'email-in-use'],
@@ -77,7 +83,9 @@ describe('authErrorMessage', () => {
       'email-in-use',
       'weak-password',
       'captcha-failed',
-      'invalid-code',
+      'oauth-cancelled',
+      'link-expired',
+      'provider-unavailable',
       'rate-limited',
       'offline',
       'not-configured',
@@ -85,5 +93,22 @@ describe('authErrorMessage', () => {
     ] as const) {
       expect(authErrorMessage(code)).toMatch(/\S/)
     }
+  })
+})
+
+describe('redirectErrorCode', () => {
+  const params = (query: string) => new URLSearchParams(query)
+
+  it('is null when the redirect reports no error', () => {
+    expect(redirectErrorCode(params('code=abc'))).toBeNull()
+  })
+
+  it.each([
+    ['error=access_denied', 'oauth-cancelled'],
+    ['error=access_denied&error_code=otp_expired', 'link-expired'],
+    ['error=server_error&error_code=provider_disabled', 'provider-unavailable'],
+    ['error=server_error&error_code=something_new', 'unknown'],
+  ])('maps %s to %s', (query, expected) => {
+    expect(redirectErrorCode(params(query))).toBe(expected)
   })
 })

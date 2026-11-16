@@ -7,16 +7,19 @@
  * Where the current visitor stands.
  * - `signed-in-offline`: a saved session exists but can't be refreshed while
  *   offline; the user keeps reading their local materials (US-07).
- * - `needs-mfa`: the password was accepted, but the account has a verified
- *   authenticator, so a code is required before the app opens.
  */
 export type AuthStatus =
-  'loading' | 'signed-out' | 'needs-mfa' | 'signed-in' | 'signed-in-offline'
+  'loading' | 'signed-out' | 'signed-in' | 'signed-in-offline'
 
 export interface AuthUser {
   /** Supabase user id (UUID); also names the user's local store. */
   id: string
   email: string
+  /**
+   * The name Google gave, used only to prefill the details step. Users can
+   * edit it in their metadata, so it is never trusted for anything else.
+   */
+  name?: string
 }
 
 /** Failure reasons the UI can word for people; never reveals whether an account exists. */
@@ -26,7 +29,9 @@ export type AuthErrorCode =
   | 'email-in-use'
   | 'weak-password'
   | 'captcha-failed'
-  | 'invalid-code'
+  | 'oauth-cancelled'
+  | 'link-expired'
+  | 'provider-unavailable'
   | 'rate-limited'
   | 'offline'
   | 'not-configured'
@@ -40,51 +45,34 @@ export interface SignInInput {
   captchaToken: string
 }
 
-export interface SignUpInput extends SignInInput {
-  /** ISO time the user accepted the Terms and Privacy Notice. */
-  consentedAt: string
-  // The age screen runs before this call; only its outcome is ever stored
-  // (as `age_13_plus: true`), never the birth date.
-}
+/**
+ * Creating an account asks for nothing else: the name and the 13-or-older
+ * answer come afterwards, in `profiles`, never in user metadata (users can
+ * edit their own metadata).
+ */
+export type SignUpInput = SignInInput
 
 export interface PasswordResetInput {
   email: string
   captchaToken: string
 }
 
-export interface MfaFactor {
-  id: string
-  friendlyName: string | null
-  status: 'verified' | 'unverified'
-}
-
-/** What the enrol screen needs to show the user. */
-export interface TotpEnrollment {
-  factorId: string
-  /** SVG data URI of the QR code. */
-  qrCode: string
-  /** The same secret as text, for typing into an authenticator by hand. */
-  secret: string
-}
-
-export interface MfaApi {
-  listFactors(): Promise<MfaFactor[]>
-  enrollTotp(friendlyName?: string): Promise<TotpEnrollment>
-  /** Challenges and verifies in one step; also completes a `needs-mfa` sign-in. */
-  verify(factorId: string, code: string): Promise<AuthResult>
-  unenroll(factorId: string): Promise<AuthResult>
-}
-
 /** What `useAuth()` returns. */
 export interface AuthContextValue {
   status: AuthStatus
-  /** Set for `needs-mfa`, `signed-in` and `signed-in-offline`. */
+  /** Set for `signed-in` and `signed-in-offline`. */
   user: AuthUser | null
   signIn(input: SignInInput): Promise<AuthResult>
   signUp(input: SignUpInput): Promise<AuthResult>
+  /**
+   * Sends the browser to Google; it comes back to /auth/callback and then to
+   * `next`. Resolves only if leaving failed.
+   */
+  signInWithGoogle(next?: string): Promise<AuthResult>
+  /** Finishes a Google, confirmation or recovery link by exchanging its one-time code. */
+  exchangeCode(code: string): Promise<AuthResult>
   /** `global` signs out every device; `local` only this one. */
   signOut(options?: { scope?: 'local' | 'global' }): Promise<void>
   requestPasswordReset(input: PasswordResetInput): Promise<AuthResult>
   updatePassword(password: string): Promise<AuthResult>
-  mfa: MfaApi
 }
