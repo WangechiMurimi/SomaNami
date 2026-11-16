@@ -7,6 +7,9 @@
 # Never commit a copy with real values substituted.
 #
 # Progress log on the VM: /var/log/somanami-setup.log (contains no secrets).
+# Idle deallocate (#201): `journalctl -u somanami-idle` shows each decision;
+# `sudo DRY_RUN=1 /usr/local/sbin/somanami-idle-check.sh` reports one without
+# acting. It needs the VM's managed identity and role from provision.sh.
 # Check completion with: cloud-init status --wait
 
 package_update: true
@@ -91,6 +94,164 @@ write_files:
           }
       }
 
+  # --- Idle deallocate (#201) -------------------------------------------------
+  # Deallocates this VM once no chat or embedding request has reached Ollama
+  # for IDLE_MINUTES. It reads only the time and path of Ollama's per-request
+  # log line, never a body, and calls ARM with the VM's own managed identity,
+  # so the VM holds no credential. infra/azure/test-idle-check.sh tests this
+  # exact script; keep the test hooks (SOMANAMI_TEST_*) working.
+  - path: /usr/local/sbin/somanami-idle-check.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      # Usage: somanami-idle-check.sh            (run by somanami-idle.timer)
+      #        DRY_RUN=1 somanami-idle-check.sh  (report the decision only)
+      set -euo pipefail
+
+      IDLE_MINUTES="${IDLE_MINUTES:-30}"
+      GRACE_MINUTES="${GRACE_MINUTES:-15}"
+      DRY_RUN="${DRY_RUN:-0}"
+      # Test hooks; unset on the VM.
+      NOW="${SOMANAMI_TEST_NOW:-$(date +%s)}"
+      UPTIME="${SOMANAMI_TEST_UPTIME:-$(cut -d. -f1 /proc/uptime)}"
+      LOG_FILE="${SOMANAMI_TEST_LOG_FILE:-}"
+      BOOT_FINISHED="${SOMANAMI_TEST_BOOT_FINISHED:-/var/lib/cloud/instance/boot-finished}"
+      IMDS="${SOMANAMI_TEST_IMDS:-http://169.254.169.254}"
+      ARM="${SOMANAMI_TEST_ARM:-https://management.azure.com}"
+      API_VERSION=2024-07-01
+
+      say() { echo "idle-check: $*"; }
+      positive() { [[ "$1" =~ ^[1-9][0-9]*$ ]]; }
+      positive "$IDLE_MINUTES" || { say "IDLE_MINUTES must be a positive integer"; exit 2; }
+      [[ "$GRACE_MINUTES" =~ ^[0-9]+$ ]] || { say "GRACE_MINUTES must be an integer"; exit 2; }
+
+      # One line per request, "<epoch.usec> host ollama[pid]: [GIN] ... | POST "/api/chat"".
+      # Probes (GET /api/tags) don't count: only real work keeps the VM up.
+      ollama_log() {
+        if [[ -n "$LOG_FILE" ]]; then
+          cat "$LOG_FILE"
+        else
+          journalctl -u ollama -o short-unix --no-pager -q \
+            --since "@$((NOW - IDLE_MINUTES * 60 - 60))"
+        fi
+      }
+      last_request="$(ollama_log |
+        awk '/\[GIN\]/ && /\|[[:space:]]*POST[[:space:]]+"\/api\/(chat|embed)"/ {
+               split($1, t, "."); if (t[1] + 0 > last) last = t[1] + 0
+             } END { print last + 0 }')"
+
+      boot=$((NOW - UPTIME))
+      last_activity=$((last_request > boot ? last_request : boot))
+      idle_min=$(((NOW - last_activity) / 60))
+      uptime_min=$((UPTIME / 60))
+      state="last activity ${idle_min} min ago, up ${uptime_min} min, window ${IDLE_MINUTES} min"
+
+      if [[ ! -e "$BOOT_FINISHED" ]]; then
+        say "keep: first-boot setup still running ($state)"
+        exit 0
+      fi
+      if ((UPTIME < GRACE_MINUTES * 60)); then
+        say "keep: inside the ${GRACE_MINUTES}-min boot grace period ($state)"
+        exit 0
+      fi
+      if ((NOW - last_activity < IDLE_MINUTES * 60)); then
+        say "keep: active ($state)"
+        exit 0
+      fi
+      if [[ "$DRY_RUN" == 1 ]]; then
+        say "would deallocate: idle ($state)"
+        exit 0
+      fi
+
+      say "deallocating: idle ($state)"
+      # The token stays in variables and reaches curl on stdin, never argv,
+      # so it is not visible in the process list or the journal.
+      token_json="$(curl -fsS --max-time 10 -H Metadata:true \
+        "$IMDS/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fmanagement.azure.com%2F")"
+      token="$(printf '%s' "$token_json" | sed -n 's/.*"access_token" *: *"\([^"]*\)".*/\1/p')"
+      unset token_json
+      [[ -n "$token" ]] || { say "no managed-identity token from IMDS"; exit 1; }
+      resource_id="$(curl -fsS --max-time 10 -H Metadata:true \
+        "$IMDS/metadata/instance/compute/resourceId?api-version=2021-02-01&format=text")"
+      [[ "$resource_id" =~ ^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\.Compute/virtualMachines/[^/]+$ ]] ||
+        { say "unexpected resource id from IMDS"; exit 1; }
+      status="$(printf 'header = "Authorization: Bearer %s"\n' "$token" |
+        curl --config - -sS --max-time 30 -o /dev/null -w '%{http_code}' \
+          -X POST -H 'Content-Length: 0' \
+          "$ARM$resource_id/deallocate?api-version=$API_VERSION" || true)"
+      unset token
+      case "$status" in
+        200 | 202) say "deallocate accepted ($status)" ;;
+        *) say "deallocate refused (${status:-no response})"; exit 1 ;;
+      esac
+
+  - path: /etc/systemd/system/somanami-idle.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Deallocate this VM when Ollama has been idle (SomaNami #201)
+      After=ollama.service network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=oneshot
+      # Optional overrides: IDLE_MINUTES=, GRACE_MINUTES=, DRY_RUN=1
+      EnvironmentFile=-/etc/somanami/idle.env
+      ExecStart=/usr/local/sbin/somanami-idle-check.sh
+      # It only reads the journal and calls IMDS and ARM over HTTPS.
+      DynamicUser=yes
+      SupplementaryGroups=systemd-journal
+      NoNewPrivileges=yes
+      ProtectSystem=strict
+      ProtectHome=yes
+      PrivateTmp=yes
+      PrivateDevices=yes
+      RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+  - path: /etc/systemd/system/somanami-idle.timer
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Check every 5 minutes whether the VM is idle (SomaNami #201)
+
+      [Timer]
+      OnBootSec=5min
+      OnUnitActiveSec=5min
+      AccuracySec=30s
+
+      [Install]
+      WantedBy=timers.target
+
+  # After every start, load the chat model before the learner's retry lands,
+  # so a woken VM answers its first question warm.
+  - path: /usr/local/sbin/somanami-warmup.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      for _ in $(seq 1 60); do
+        curl -fsS -o /dev/null http://127.0.0.1:11434/api/tags && break
+        sleep 2
+      done
+      curl -fsS -o /dev/null http://127.0.0.1:11434/api/chat \
+        -d '{"model":"qwen2.5:3b","messages":[],"keep_alive":"24h"}'
+
+  - path: /etc/systemd/system/somanami-warmup.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Load the SomaNami chat model after boot
+      After=ollama.service
+      Wants=ollama.service
+
+      [Service]
+      Type=oneshot
+      DynamicUser=yes
+      ExecStart=/usr/local/sbin/somanami-warmup.sh
+
+      [Install]
+      WantedBy=multi-user.target
+
   - path: /etc/apt/apt.conf.d/20auto-upgrades
     permissions: '0644'
     content: |
@@ -143,9 +304,13 @@ write_files:
       # --- Unattended security upgrades ----------------------------------------
       systemctl enable --now unattended-upgrades
 
-      # Load the chat model now so the first real request is warm.
-      curl -fsS -o /dev/null http://127.0.0.1:11434/api/chat \
-        -d '{"model":"qwen2.5:3b","messages":[],"keep_alive":"24h"}' || true
+      # --- Wake and sleep (#201) ----------------------------------------------
+      # Warm-up loads the chat model on every boot, now included; the idle
+      # timer deallocates the VM once nobody has asked anything for a while.
+      systemctl daemon-reload
+      systemctl enable somanami-warmup.service
+      systemctl start somanami-warmup.service || true
+      systemctl enable --now somanami-idle.timer
 
       echo "== somanami-setup done $(date -u +%FT%TZ)"
 

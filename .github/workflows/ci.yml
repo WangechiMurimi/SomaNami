@@ -67,3 +67,15 @@ jobs:
           sudo install caddy /usr/local/bin/caddy
           caddy version
       - run: npm run test:gateway
+
+  # Runs the VM's idle-deallocate script against fixture logs and a mock
+  # IMDS/ARM (#201).
+  vm-idle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - run: npm run test:idle

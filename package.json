@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:gateway": "bash infra/azure/test-gateway.sh",
+    "test:idle": "bash infra/azure/test-idle-check.sh",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc -b",
