@@ -23,8 +23,17 @@ const rejectFile = ({ code, message }: FileProblem) =>
 export const chunkIdFor = (documentId: string, index: number): string =>
   `${documentId}:${index}`
 
+/** Where a material came from when it wasn't picked from disk. */
+export interface DocumentOrigin {
+  sourceUrl: string
+  fetchedAt: number
+}
+
 /** Validates and parses a file into a document with source-referenced chunks; throws `UploadError`. */
-export async function parseDocument(file: File): Promise<NewDocument> {
+export async function parseDocument(
+  file: File,
+  origin?: DocumentOrigin,
+): Promise<NewDocument> {
   const validation = validateFile(file)
   if (!validation.ok) throw rejectFile(validation.error)
 
@@ -65,5 +74,9 @@ export async function parseDocument(file: File): Promise<NewDocument> {
       id: chunkIdFor(id, index),
       ...chunk,
     })),
+    ...(origin && {
+      sourceUrl: origin.sourceUrl,
+      fetchedAt: origin.fetchedAt,
+    }),
   }
 }

@@ -42,6 +42,23 @@ describe('parseDocument', () => {
     expect(doc.chunks[1]!.source).toMatchObject({ type: 'line', startLine: 3 })
   })
 
+  it('records where a linked material came from', async () => {
+    const doc = await parseDocument(new File(['hello'], 'page.txt'), {
+      sourceUrl: 'https://example.org/page',
+      fetchedAt: 1_700_000_000_000,
+    })
+    expect(doc).toMatchObject({
+      sourceUrl: 'https://example.org/page',
+      fetchedAt: 1_700_000_000_000,
+    })
+  })
+
+  it('leaves uploads without a source url', async () => {
+    const doc = await parseDocument(new File(['hello'], 'notes.txt'))
+    expect(doc).not.toHaveProperty('sourceUrl')
+    expect(doc).not.toHaveProperty('fetchedAt')
+  })
+
   it('routes .docx files to the DOCX parser', async () => {
     vi.mocked(parseDocx).mockResolvedValue({
       chunks: [{ text: 'Hi', source: { type: 'paragraph', paragraph: 1 } }],
