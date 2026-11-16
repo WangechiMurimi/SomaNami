@@ -26,7 +26,7 @@ export default function PasswordField(props: PasswordFieldProps) {
           onClick={() => setVisible((v) => !v)}
           aria-label={visible ? 'Hide password' : 'Show password'}
           aria-controls={props.id}
-          className="h-10 min-w-[44px] rounded-[8px] px-3 text-[13px] font-medium text-accent hover:bg-tint"
+          className="h-10 min-w-[2.75rem] rounded-[8px] px-3 text-[0.8125rem] font-medium text-accent hover:bg-tint"
         >
           {visible ? 'Hide' : 'Show'}
         </button>

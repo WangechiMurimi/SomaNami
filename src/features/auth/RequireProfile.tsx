@@ -65,7 +65,7 @@ export default function RequireProfile() {
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-ground px-4 text-center">
       {result === 'failed' ? (
         <>
-          <p role="alert" className="text-[15px] text-fg">
+          <p role="alert" className="text-[0.9375rem] text-fg">
             We couldn’t load your account details.
           </p>
           <button
@@ -74,13 +74,13 @@ export default function RequireProfile() {
               setCheck(null)
               setAttempt((n) => n + 1)
             }}
-            className="text-[15px] font-medium text-accent underline underline-offset-2"
+            className="text-[0.9375rem] font-medium text-accent underline underline-offset-2"
           >
             Try again
           </button>
         </>
       ) : (
-        <p role="status" className="text-[15px] text-muted">
+        <p role="status" className="text-[0.9375rem] text-muted">
           Loading…
         </p>
       )}

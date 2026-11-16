@@ -79,7 +79,7 @@ export default function HelpPage() {
               {index + 1}
             </span>
             <h2 className="mt-1 text-xl leading-[1.3] font-medium">{title}</h2>
-            <p className="text-[15px] leading-[1.6] text-muted">{body}</p>
+            <p className="text-[0.9375rem] leading-[1.6] text-muted">{body}</p>
           </li>
         ))}
       </ol>
@@ -97,7 +97,7 @@ export default function HelpPage() {
               <dt>
                 <span className={`${LABEL} ${style}`}>{name}</span>
               </dt>
-              <dd className="text-[15px] leading-[1.6] text-muted">
+              <dd className="text-[0.9375rem] leading-[1.6] text-muted">
                 {meaning}
               </dd>
             </div>
@@ -105,7 +105,7 @@ export default function HelpPage() {
         </dl>
       </section>
 
-      <p className="text-[15px]">
+      <p className="text-[0.9375rem]">
         <Link
           to="/your-data"
           className="font-semibold text-accent hover:underline"

@@ -20,11 +20,14 @@ function Breadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
   if (crumbs.length === 0) return null
   return (
     <nav aria-label="Breadcrumb" className="min-w-0">
-      <ol className="flex min-w-0 items-center gap-[5px] text-[15px] leading-[1.5] text-muted">
+      <ol className="flex min-w-0 items-center gap-[0.3125rem] text-[0.9375rem] leading-[1.5] text-muted">
         {crumbs.map((crumb, index) => {
           const last = index === crumbs.length - 1
           return (
-            <li key={index} className="flex min-w-0 items-center gap-[5px]">
+            <li
+              key={index}
+              className="flex min-w-0 items-center gap-[0.3125rem]"
+            >
               {index > 0 && <span aria-hidden="true">/</span>}
               {last || !crumb.to ? (
                 <span
@@ -75,7 +78,7 @@ export default function AppShell() {
           className={`${
             menuOpen ? 'fixed inset-y-0 left-0 z-20 flex' : 'hidden'
           } ${
-            rail ? 'w-20' : 'w-[260px]'
+            rail ? 'w-20' : 'w-[16.25rem]'
           } flex-none flex-col border-r border-line bg-side md:sticky md:top-0 md:flex md:h-screen`}
         >
           <Sidebar rail={rail} />
@@ -119,7 +122,7 @@ export default function AppShell() {
             <Breadcrumbs crumbs={crumbs} />
             <Link
               to="/help"
-              className="ml-auto inline-flex h-11 flex-none items-center gap-[7px] rounded-[10px] px-2 text-[15px] text-fg hover:text-accent"
+              className="ml-auto inline-flex h-11 flex-none items-center gap-[0.4375rem] rounded-[10px] px-2 text-[0.9375rem] text-fg hover:text-accent"
             >
               <svg {...ICON} width="22" height="22" strokeWidth="1.7">
                 <circle cx="12" cy="12" r="10" />
@@ -129,7 +132,7 @@ export default function AppShell() {
               Help
             </Link>
           </header>
-          <main className="mx-auto w-full max-w-[1376px] px-4 pt-8 pb-24 md:px-12 md:pt-12">
+          <main className="mx-auto w-full max-w-[86rem] px-4 pt-8 pb-24 md:px-12 md:pt-12">
             <Outlet />
           </main>
         </div>

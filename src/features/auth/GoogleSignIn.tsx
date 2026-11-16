@@ -55,7 +55,7 @@ export default function GoogleSignIn({ next = '/' }: { next?: string }) {
         </svg>
         {leaving ? 'Opening Google…' : 'Continue with Google'}
       </button>
-      <p className="flex items-center gap-3 text-[13px] leading-[1.5] text-muted">
+      <p className="flex items-center gap-3 text-[0.8125rem] leading-[1.5] text-muted">
         <span aria-hidden="true" className="h-px flex-1 bg-line" />
         or use your email
         <span aria-hidden="true" className="h-px flex-1 bg-line" />

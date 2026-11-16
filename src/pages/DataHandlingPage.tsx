@@ -6,7 +6,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-7">
       <h2 className="text-xl leading-[1.3] font-medium">{title}</h2>
-      <ul className="ml-5 flex list-disc flex-col gap-2 text-[15px] leading-[1.6] text-fg">
+      <ul className="ml-5 flex list-disc flex-col gap-2 text-[0.9375rem] leading-[1.6] text-fg">
         {children}
       </ul>
     </section>
@@ -26,7 +26,7 @@ export default function DataHandlingPage() {
       lede="What SomaNami keeps, what happens when you ask a question, and how to remove your data. Answers come only from the materials you add."
     >
       <div className="flex flex-col gap-8">
-        <p className="text-[13px] leading-[1.5] text-muted">
+        <p className="text-[0.8125rem] leading-[1.5] text-muted">
           Last updated <Confirm>date</Confirm>
         </p>
 
@@ -101,7 +101,7 @@ export default function DataHandlingPage() {
           </li>
         </Section>
 
-        <p className="text-[15px] leading-[1.6] text-muted">
+        <p className="text-[0.9375rem] leading-[1.6] text-muted">
           Questions? <Confirm>how learners reach you.</Confirm>
         </p>
       </div>

@@ -59,7 +59,7 @@ function BrandLink({ className = '' }: { className?: string }) {
       className={`flex items-center gap-3 self-start rounded-[10px] text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${className}`}
     >
       <BrandMark size={44} />
-      <span className="font-brand text-[27px] leading-[1.5] font-bold">
+      <span className="font-brand text-[1.6875rem] leading-[1.5] font-bold">
         SomaNami
       </span>
     </Link>
@@ -74,7 +74,7 @@ function BrandPanel() {
       className="flex min-w-0 flex-col justify-between gap-12 border-t border-line bg-side px-4 py-12 sm:px-8 lg:flex-[1_1_520px] lg:border-t-0 lg:border-r lg:px-16"
     >
       <BrandLink className="hidden lg:flex" />
-      <div className="flex max-w-[520px] flex-col gap-7">
+      <div className="flex max-w-[32.5rem] flex-col gap-7">
         <div className="flex flex-col gap-3">
           {/* Not a heading: each screen's own title is the page's h1. */}
           <p className="font-display text-[2rem] leading-[1.25] font-normal tracking-[-0.01em] text-fg lg:text-[2.5rem]">
@@ -107,7 +107,7 @@ function BrandPanel() {
                 <span className="text-base leading-[1.5] font-semibold text-fg">
                   {feature.title}
                 </span>
-                <span className="text-[15px] leading-[1.55] text-muted">
+                <span className="text-[0.9375rem] leading-[1.55] text-muted">
                   {feature.body}
                 </span>
               </span>
@@ -159,13 +159,15 @@ export default function AuthLayout({
     <div className="flex min-h-screen flex-col bg-ground text-fg lg:flex-row-reverse">
       <main className="flex min-w-0 flex-col px-4 pt-8 pb-12 sm:px-8 lg:flex-[1_1_480px] lg:items-center lg:justify-center lg:py-12">
         <BrandLink className="mb-10 lg:hidden" />
-        <div className="mx-auto w-full max-w-[420px]">
+        <div className="mx-auto w-full max-w-[26.25rem]">
           {eyebrow && <p className={`${STEP_LABEL} mb-2`}>{eyebrow}</p>}
           <h1 className="font-display text-[2rem] leading-[1.25] font-normal tracking-[-0.01em]">
             {title}
           </h1>
           {lede && (
-            <p className="mt-2 text-[15px] leading-[1.6] text-muted">{lede}</p>
+            <p className="mt-2 text-[0.9375rem] leading-[1.6] text-muted">
+              {lede}
+            </p>
           )}
           <div className="mt-6">{children}</div>
         </div>

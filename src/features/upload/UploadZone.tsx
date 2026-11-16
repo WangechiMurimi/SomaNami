@@ -51,7 +51,7 @@ export default function UploadZone({
         onChange={handleChange}
         className="sr-only"
       />
-      <span className="flex size-[52px] items-center justify-center rounded-[14px] bg-tint text-accent">
+      <span className="flex size-[3.25rem] items-center justify-center rounded-[14px] bg-tint text-accent">
         <svg
           width="24"
           height="24"
@@ -68,13 +68,13 @@ export default function UploadZone({
           <path d="m8 17 4-4 4 4" />
         </svg>
       </span>
-      <span className="mt-1.5 text-[17px] leading-[1.5] font-medium text-fg">
+      <span className="mt-1.5 text-[1.0625rem] leading-[1.5] font-medium text-fg">
         Drop notes, readings or slides here
       </span>
       <span className="text-sm leading-[1.5] font-semibold text-accent underline-offset-2 hover:underline">
         or browse your files
       </span>
-      <small className="text-[13px] leading-[1.5] text-muted">
+      <small className="text-[0.8125rem] leading-[1.5] text-muted">
         {SUPPORTED_LABEL}, up to {MAX_FILE_BYTES / 1024 / 1024} MB
       </small>
     </label>

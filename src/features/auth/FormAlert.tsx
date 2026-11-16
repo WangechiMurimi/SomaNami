@@ -14,7 +14,7 @@ export default function FormAlert({
     <div
       role={tone === 'warn' ? 'alert' : 'status'}
       tabIndex={-1}
-      className={`rounded-[10px] px-4 py-3 text-[14px] leading-[1.5] font-medium ${colours}`}
+      className={`rounded-[10px] px-4 py-3 text-[0.875rem] leading-[1.5] font-medium ${colours}`}
     >
       {children}
     </div>

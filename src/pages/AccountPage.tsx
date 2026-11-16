@@ -66,17 +66,17 @@ export default function AccountPage() {
             </span>
             <dl className="min-w-0">
               <dt className="sr-only">Name</dt>
-              <dd className="text-[15px] leading-[1.5] font-semibold break-words text-fg">
+              <dd className="text-[0.9375rem] leading-[1.5] font-semibold break-words text-fg">
                 {nameText}
               </dd>
               <dt className="sr-only">Email</dt>
-              <dd className="text-[15px] leading-[1.5] break-all text-muted">
+              <dd className="text-[0.9375rem] leading-[1.5] break-all text-muted">
                 {email}
               </dd>
             </dl>
           </div>
           {online && (
-            <p className="text-[15px]">
+            <p className="text-[0.9375rem]">
               <Link to={detailsPathFor('/account')} className={TEXT_LINK}>
                 Change your name
               </Link>

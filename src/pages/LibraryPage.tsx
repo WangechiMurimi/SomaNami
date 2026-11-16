@@ -155,7 +155,7 @@ function FileRow({
         <button
           type="button"
           onClick={onStart}
-          className="flex min-h-11 max-w-[24rem] min-w-0 items-center gap-3 text-left text-[15px] leading-[1.5] font-medium text-fg"
+          className="flex min-h-11 max-w-[24rem] min-w-0 items-center gap-3 text-left text-[0.9375rem] leading-[1.5] font-medium text-fg"
         >
           <KindIcon kind={material.kind} />
           <span className="truncate group-hover:underline">
@@ -220,10 +220,10 @@ function ConversationResults({
             to={chatPath(conversation)}
             className="flex min-h-14 items-center justify-between gap-3 px-5 py-3 hover:bg-tint/50"
           >
-            <span className="min-w-0 truncate text-[15px] font-medium text-fg">
+            <span className="min-w-0 truncate text-[0.9375rem] font-medium text-fg">
               {conversation.title}
             </span>
-            <span className="flex-none text-[13px] text-muted">
+            <span className="flex-none text-[0.8125rem] text-muted">
               {placeOf(conversation)}
             </span>
           </Link>
@@ -342,7 +342,7 @@ export default function LibraryPage() {
             id={`${id}-target`}
             value={target}
             onChange={(event) => setTarget(event.target.value)}
-            className="h-11 max-w-full rounded-[10px] border border-edge bg-surface px-3 text-[15px] text-fg"
+            className="h-11 max-w-full rounded-[10px] border border-edge bg-surface px-3 text-[0.9375rem] text-fg"
           >
             <option value={DEFAULT_WORKSPACE.id}>No workspace</option>
             {userWorkspaces(workspaces).map((workspace) => (
@@ -386,7 +386,7 @@ export default function LibraryPage() {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Conversations and file names"
-                  className="h-11 w-full rounded-[10px] border border-edge bg-surface pr-3 pl-10 text-[15px] text-fg"
+                  className="h-11 w-full rounded-[10px] border border-edge bg-surface pr-3 pl-10 text-[0.9375rem] text-fg"
                 />
               </div>
             </div>
@@ -413,7 +413,7 @@ export default function LibraryPage() {
                   </button>
                 ))}
               </div>
-              <span aria-live="polite" className="text-[13px] text-muted">
+              <span aria-live="polite" className="text-[0.8125rem] text-muted">
                 Showing {shown.length} of {documents.length}
               </span>
             </div>
