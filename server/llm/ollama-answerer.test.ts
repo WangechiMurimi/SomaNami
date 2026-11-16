@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
-import type { ChatRequest } from '../../src/types/contracts.ts'
 import { UpstreamError } from './answerer.ts'
+import type { AnswerRequest } from './answerer.ts'
 import {
   ANSWER_FORMAT,
   createOllamaAnswerer,
@@ -10,7 +10,7 @@ import {
 } from './ollama-answerer.ts'
 import { SYSTEM_PROMPT } from './prompt.ts'
 
-const request: ChatRequest = {
+const request: AnswerRequest = {
   question: 'Why ATP?',
   passages: [
     {
