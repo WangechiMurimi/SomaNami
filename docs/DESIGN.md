@@ -105,7 +105,7 @@ Screen details the code depends on:
   Save / Saved toggle (`aria-pressed`). Cited passages open in place from their
   chip. Under the latest grounded answer, "Show another format" (Example,
   Summary) asks a follow-up in the same chat; level and format settings need
-  server work (TODO #NEW-2). A failed request shows "Couldn't get an answer.
+  server work (TODO #28, #40). A failed request shows "Couldn't get an answer.
   Try again."; there is no offline state.
 - **Library:** a search field filters conversations and file names, grouped
   under Conversations and Files. Type filters use the file types the app

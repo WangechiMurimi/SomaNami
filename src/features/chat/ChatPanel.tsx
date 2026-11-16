@@ -132,7 +132,7 @@ export default function ChatPanel({
         <div ref={endRef} />
       </section>
 
-      {/* TODO(#NEW-2): the Level and Format controls from the chat design
+      {/* TODO(#28): the Level control (and Format, #40) from the chat design
           go here once the server can answer at a level and in a format. */}
       {canReformat && <AnotherFormat onPick={send} />}
 

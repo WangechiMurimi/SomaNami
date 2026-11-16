@@ -77,7 +77,7 @@ function NewChat({
       const conversation = await createConversation({
         workspaceId: workspace.id,
         materialIds: chosen,
-        // TODO(#NEW-7): let the LLM title the chat from its first question.
+        // TODO(#178): let the LLM title the chat from its first question.
         title: titleFrom(question),
       })
       navigate(chatPath(conversation), { state: { question: question.trim() } })
