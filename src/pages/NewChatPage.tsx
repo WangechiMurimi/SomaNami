@@ -3,6 +3,8 @@ import { Link, useParams, useSearchParams } from 'react-router'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
 import Composer from '../components/Composer.tsx'
 import { Check, Plus } from '../components/icons.tsx'
+import Loading from '../components/Loading.tsx'
+import NotFound from '../components/NotFound.tsx'
 import { useStartChat } from '../features/chat/use-start-chat.ts'
 import { WAYS_IN } from '../features/chat/ways-in.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
@@ -192,25 +194,15 @@ export default function NewChatPage() {
   const { documents, status } = useLibraryContext()
 
   if (workspaceState.status === 'loading' || status === 'loading') {
-    return (
-      <p role="status" className="text-muted">
-        Opening your workspace…
-      </p>
-    )
+    return <Loading>Opening your workspace…</Loading>
   }
   if (workspaceState.status === 'missing') {
     return (
-      <div>
-        <h1 className={H1}>We can’t find that workspace</h1>
-        <p className={LEDE}>
-          <Link
-            to="/workspaces"
-            className="font-semibold text-accent underline"
-          >
-            See your workspaces
-          </Link>
-        </p>
-      </div>
+      <NotFound
+        title="We can’t find that workspace"
+        linkTo="/workspaces"
+        linkLabel="See your workspaces"
+      />
     )
   }
   const { workspace } = workspaceState

@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
 import Composer from '../components/Composer.tsx'
 import { ArrowRight, Plus } from '../components/icons.tsx'
+import Loading from '../components/Loading.tsx'
+import NotFound from '../components/NotFound.tsx'
 import { Chats, FileIcon } from '../features/chat/chat-icons.tsx'
 import {
   chatPath,
@@ -23,7 +25,7 @@ import type {
   StoredDocument,
   Workspace,
 } from '../types/contracts.ts'
-import { H1, H2, LEDE } from './page-heading.ts'
+import { H2 } from './page-heading.ts'
 
 const HEADER_BUTTON =
   'inline-flex h-11 items-center gap-2 rounded-[10px] border border-edge bg-surface px-4 text-sm font-medium text-fg hover:bg-tint'
@@ -381,26 +383,16 @@ export default function WorkspacePage() {
   ])
 
   if (state.status === 'loading') {
-    return (
-      <p role="status" className="text-muted">
-        Opening your workspace…
-      </p>
-    )
+    return <Loading>Opening your workspace…</Loading>
   }
   if (state.status === 'missing') {
     return (
-      <div>
-        <h1 className={H1}>We can’t find that workspace</h1>
-        <p className={LEDE}>
-          It may have been removed.{' '}
-          <Link
-            to="/workspaces"
-            className="font-semibold text-accent underline"
-          >
-            See your workspaces
-          </Link>
-        </p>
-      </div>
+      <NotFound
+        title="We can’t find that workspace"
+        note="It may have been removed."
+        linkTo="/workspaces"
+        linkLabel="See your workspaces"
+      />
     )
   }
   return <WorkspaceView key={state.workspace.id} workspace={state.workspace} />

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router'
 import ConfirmDialog from '../components/ConfirmDialog.tsx'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
 import { ArrowRight, Trash } from '../components/icons.tsx'
+import Loading from '../components/Loading.tsx'
 import { chatPath } from '../features/chat/conversation-materials.ts'
 import { useRecentConversations } from '../features/chat/use-recent-conversations.ts'
 import KindIcon from '../features/library/KindIcon.tsx'
@@ -361,9 +362,7 @@ export default function LibraryPage() {
           {notice}
         </p>
         {status === 'loading' ? (
-          <p role="status" className="text-muted">
-            Opening your library…
-          </p>
+          <Loading>Opening your library…</Loading>
         ) : documents.length === 0 ? (
           <p className="rounded-xl border border-line bg-surface p-6 text-muted">
             Nothing here yet. Upload a document above to start.

@@ -2,6 +2,7 @@ import { useId, useState } from 'react'
 import { Link } from 'react-router'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
 import { ArrowRight } from '../components/icons.tsx'
+import Loading from '../components/Loading.tsx'
 import { chatPath } from '../features/chat/conversation-materials.ts'
 import { useRecentConversations } from '../features/chat/use-recent-conversations.ts'
 import { userWorkspaces } from '../features/workspaces/user-workspaces.ts'
@@ -71,9 +72,7 @@ export default function ConversationsPage() {
       </div>
 
       {status === 'loading' ? (
-        <p role="status" className="text-muted">
-          Opening your chats…
-        </p>
+        <Loading>Opening your chats…</Loading>
       ) : status === 'error' ? (
         <p role="alert" className="rounded-xl bg-warn-soft p-6 text-warn">
           We couldn’t open your saved chats. Reload the page to try again.

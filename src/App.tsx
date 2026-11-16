@@ -1,5 +1,6 @@
-import { BrowserRouter, Link, Route, Routes } from 'react-router'
+import { BrowserRouter, Route, Routes } from 'react-router'
 import AppShell from './app/AppShell.tsx'
+import NotFound from './components/NotFound.tsx'
 import AuthProvider from './features/auth/AuthProvider.tsx'
 import RequireAuth from './features/auth/RequireAuth.tsx'
 import RequireProfile from './features/auth/RequireProfile.tsx'
@@ -23,19 +24,9 @@ import SignUpPage from './pages/SignUpPage.tsx'
 import UpdatePasswordPage from './pages/UpdatePasswordPage.tsx'
 import WorkspacePage from './pages/WorkspacePage.tsx'
 import WorkspacesPage from './pages/WorkspacesPage.tsx'
-import { H1, LEDE } from './pages/page-heading.ts'
 
 function NotFoundPage() {
-  return (
-    <div>
-      <h1 className={H1}>Page not found</h1>
-      <p className={LEDE}>
-        <Link to="/" className="font-semibold text-accent underline">
-          Go home
-        </Link>
-      </p>
-    </div>
-  )
+  return <NotFound title="Page not found" linkTo="/" linkLabel="Go home" />
 }
 
 // Storage is per user, so sync and the library start only once that user's

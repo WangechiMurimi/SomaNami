@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
 import { ArrowRight, Plus } from '../components/icons.tsx'
+import Loading from '../components/Loading.tsx'
 import { useRecentConversations } from '../features/chat/use-recent-conversations.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
 import { userWorkspaces } from '../features/workspaces/user-workspaces.ts'
@@ -64,9 +65,7 @@ export default function WorkspacesPage() {
       )}
 
       {status === 'loading' ? (
-        <p role="status" className="text-muted">
-          Opening your workspaces…
-        </p>
+        <Loading>Opening your workspaces…</Loading>
       ) : status === 'error' ? (
         <p role="alert" className="rounded-xl bg-warn-soft p-6 text-warn">
           We couldn’t open your workspaces. Reload the page to try again.
