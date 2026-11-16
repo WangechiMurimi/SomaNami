@@ -165,6 +165,40 @@ describe('chat function', () => {
     expect(await response.json()).toEqual({ error: 'upstream-timeout' })
   })
 
+  it('answers model-waking with a Retry-After header while the VM starts (#201)', async () => {
+    const handler = createChatFunction({
+      answer: vi
+        .fn<Answerer>()
+        .mockResolvedValue({ kind: 'model-waking', retryAfterSeconds: 30 }),
+      authenticate: allow(),
+      loadMaterials: vi.fn<LoadMaterials>().mockResolvedValue([
+        {
+          id: 'doc-1',
+          name: 'Cell biology.pdf',
+          chunks: [
+            {
+              id: 'doc-1:0',
+              text: 'ATP stores the energy cells use.',
+              source: { type: 'page', page: 1 },
+            },
+          ],
+        },
+      ]),
+    })
+
+    const response = await handler(
+      post(JSON.stringify({ question: 'Why ATP?', materialIds: ['doc-1'] })),
+    )
+
+    expect(response.status).toBe(503)
+    expect(response.headers.get('Retry-After')).toBe('30')
+    expect(response.headers.get('Cache-Control')).toBeTruthy()
+    expect(await response.json()).toEqual({
+      error: 'model-waking',
+      retryAfterSeconds: 30,
+    })
+  })
+
   describe('authentication', () => {
     it('passes the Authorization header to the authenticator', async () => {
       const authenticate = allow()

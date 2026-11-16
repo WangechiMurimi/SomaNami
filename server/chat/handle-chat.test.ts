@@ -330,6 +330,20 @@ describe('handleChat', () => {
     })
   })
 
+  it('answers 503 model-waking with Retry-After while the model VM starts', async () => {
+    const answer = vi
+      .fn<Answerer>()
+      .mockResolvedValue({ kind: 'model-waking', retryAfterSeconds: 30 })
+
+    const result = await handleChat(request(), { answer, ...signedIn() })
+
+    expect(result).toEqual({
+      status: 503,
+      headers: { 'Retry-After': '30' },
+      body: { error: 'model-waking', retryAfterSeconds: 30 },
+    })
+  })
+
   it('rejects a malformed body with the problems listed', async () => {
     const answer = vi.fn<Answerer>()
 

@@ -2,7 +2,13 @@ import process from 'node:process'
 import type { Answerer } from './answerer.ts'
 import { createClaudeAnswerer } from './claude-answerer.ts'
 import type { Effort } from './claude-answerer.ts'
-import { createOllamaAnswerer } from './ollama-answerer.ts'
+import {
+  createOllamaAnswerer,
+  createOllamaProbe,
+  DEFAULT_OLLAMA_TIMEOUT_MS,
+} from './ollama-answerer.ts'
+import { azureVmConfigFromEnv, createVmPowerClient } from '../azure/vm-power.ts'
+import { withVmWake } from './vm-wake.ts'
 
 const EFFORTS: readonly Effort[] = ['low', 'medium', 'high']
 
@@ -34,13 +40,28 @@ export function createAnswererFromEnv(
 
 function ollamaFromEnv(env: NodeJS.ProcessEnv): Answerer | null {
   if (!env.OLLAMA_BASE_URL) return null
-  const timeoutMs = Number(env.OLLAMA_TIMEOUT_MS)
-  return createOllamaAnswerer({
-    baseUrl: env.OLLAMA_BASE_URL,
-    apiKey: env.OLLAMA_API_KEY || undefined,
+  const parsedTimeout = Number(env.OLLAMA_TIMEOUT_MS)
+  const timeoutMs =
+    Number.isInteger(parsedTimeout) && parsedTimeout > 0
+      ? parsedTimeout
+      : undefined
+  const baseUrl = env.OLLAMA_BASE_URL
+  const apiKey = env.OLLAMA_API_KEY || undefined
+  const answerer = createOllamaAnswerer({
+    baseUrl,
+    apiKey,
     model: env.OLLAMA_MODEL || undefined,
-    timeoutMs:
-      Number.isInteger(timeoutMs) && timeoutMs > 0 ? timeoutMs : undefined,
+    timeoutMs,
+  })
+
+  // Waking is opt-in: without the AZURE_* settings a sleeping VM is simply
+  // unreachable, as before #201.
+  const azure = azureVmConfigFromEnv(env)
+  if (!azure) return answerer
+  return withVmWake(answerer, {
+    vm: createVmPowerClient(azure),
+    probe: createOllamaProbe({ baseUrl, apiKey }),
+    answerTimeoutMs: timeoutMs ?? DEFAULT_OLLAMA_TIMEOUT_MS,
   })
 }
 

@@ -69,7 +69,7 @@ export function createOllamaAnswerer({
   const redact = (text: string) =>
     apiKey ? text.split(apiKey).join('[redacted]') : text
 
-  return async (request) => {
+  return async (request, { signal: external } = {}) => {
     const body = JSON.stringify({
       model,
       messages: [
@@ -84,9 +84,13 @@ export function createOllamaAnswerer({
 
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
+    // Whichever deadline comes first ends the call: ours, or the caller's.
+    const signal = external
+      ? AbortSignal.any([controller.signal, external])
+      : controller.signal
     try {
       for (let attempt = 1; ; attempt++) {
-        const content = await chat(controller.signal)
+        const content = await chat(signal)
         const answer = parseAnswer(content)
         if (answer) return { kind: 'answer', answer }
         if (attempt >= MAX_ATTEMPTS) {
@@ -137,7 +141,7 @@ export function createOllamaAnswerer({
     if (signal.aborted) {
       return new UpstreamError(
         'timeout',
-        `Ollama did not answer within ${timeoutMs} ms`,
+        `Ollama did not answer within its deadline (at most ${timeoutMs} ms)`,
       )
     }
     return new UpstreamError('unreachable', 'Ollama is unreachable', {
@@ -177,4 +181,39 @@ function statusError(status: number, detail: string): UpstreamError {
     return new UpstreamError('rate-limited', message)
   }
   return new UpstreamError('failed', message)
+}
+
+export interface OllamaProbeOptions {
+  baseUrl: string
+  apiKey?: string
+  /** Injected in tests; defaults to the global `fetch`. */
+  fetch?: typeof fetch
+}
+
+/**
+ * Builds a cheap reachability check: `GET /api/tags` through the gateway. It
+ * resolves `false` when nothing answers, or when the gateway answers 502 or
+ * 504 because Ollama behind it isn't up yet: what a sleeping or booting VM
+ * looks like (#201). Any other reply, even 401 or Ollama's queue-full 503,
+ * means the VM is up, and the answerer reports the rest.
+ */
+export function createOllamaProbe({
+  baseUrl,
+  apiKey,
+  fetch: fetchImpl = fetch,
+}: OllamaProbeOptions): (signal: AbortSignal) => Promise<boolean> {
+  const url = `${baseUrl.replace(/\/+$/, '')}/api/tags`
+  const headers: Record<string, string> = apiKey
+    ? { Authorization: `Bearer ${apiKey}` }
+    : {}
+  return async (signal) => {
+    try {
+      const response = await fetchImpl(url, { headers, signal })
+      // The model list is not needed; release the connection.
+      await response.body?.cancel()
+      return response.status !== 502 && response.status !== 504
+    } catch {
+      return false
+    }
+  }
 }

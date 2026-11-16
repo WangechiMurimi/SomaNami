@@ -14,6 +14,8 @@ export type AnswerOutcome =
   | { kind: 'answer'; answer: ModelAnswer }
   // The model declined on safety grounds; there is no answer to show.
   | { kind: 'refusal' }
+  // The model's VM was asleep and is starting (#201); ask again shortly.
+  | { kind: 'model-waking'; retryAfterSeconds: number }
 
 /**
  * What the model is asked: the question, the passages the server retrieved
@@ -25,8 +27,19 @@ export interface AnswerRequest {
   history: HistoryTurn[]
 }
 
+export interface AnswerOptions {
+  /**
+   * Aborts the call early, on top of the provider's own deadline; a wrapper
+   * that spends part of the time budget first (#201) passes what is left.
+   */
+  signal?: AbortSignal
+}
+
 /** Answers one grounded question; the chat route depends only on this. */
-export type Answerer = (request: AnswerRequest) => Promise<AnswerOutcome>
+export type Answerer = (
+  request: AnswerRequest,
+  options?: AnswerOptions,
+) => Promise<AnswerOutcome>
 
 /**
  * Why a provider call failed, in terms the chat route can map to a status

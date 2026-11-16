@@ -57,7 +57,10 @@ export function createChatFunction({
       authorization: request.headers.get('authorization') ?? undefined,
       loadMaterials,
     })
-    return Response.json(result.body, { status: result.status })
+    return Response.json(result.body, {
+      status: result.status,
+      headers: result.headers,
+    })
   }
 }
 

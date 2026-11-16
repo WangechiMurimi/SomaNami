@@ -5,6 +5,7 @@ import {
 import type {
   ChatReply,
   CitedPassage,
+  ModelWakingReply,
   Passage,
 } from '../../src/types/contracts.ts'
 import type { Authenticate } from '../auth/types.ts'
@@ -16,7 +17,9 @@ import type { LoadMaterials } from './load-materials.ts'
 /** A transport-neutral response, so Express and Netlify share one handler. */
 export interface HandlerResponse {
   status: number
-  body: ChatReply | { error: string; issues?: string[] }
+  body: ChatReply | ModelWakingReply | { error: string; issues?: string[] }
+  /** Extra response headers, applied by each transport. */
+  headers?: Record<string, string>
 }
 
 export const NO_PASSAGES_ANSWER =
@@ -150,6 +153,18 @@ export async function handleChat(
     })
   } catch (error) {
     return upstreamFailure(error)
+  }
+
+  // The model's VM is starting (#201). 503 with Retry-After is the standard
+  // "come back shortly"; the typed body lets the client wait and resend the
+  // question rather than show a failure.
+  if (outcome.kind === 'model-waking') {
+    const { retryAfterSeconds } = outcome
+    return {
+      status: 503,
+      headers: { 'Retry-After': String(retryAfterSeconds) },
+      body: { error: 'model-waking', retryAfterSeconds },
+    }
   }
 
   if (outcome.kind === 'refusal') {

@@ -146,6 +146,16 @@ export interface ChatReply {
 }
 
 /**
+ * `503` body of `POST /api/chat` while the model's VM starts from sleep
+ * (#201). The client keeps the question and asks again after about
+ * `retryAfterSeconds`; the same value is sent as a `Retry-After` header.
+ */
+export interface ModelWakingReply {
+  error: 'model-waking'
+  retryAfterSeconds: number
+}
+
+/**
  * A chat. `materialIds` are the only materials it may draw on; retrieval never
  * looks beyond them. A chat in a user's workspace may use only that
  * workspace's materials (US-08 AC3). A loose chat, started outside any

@@ -88,6 +88,7 @@ export function createApp({
       authorization: request.get('authorization'),
       loadMaterials,
     })
+    if (result.headers) response.set(result.headers)
     response.status(result.status).json(result.body)
   })
 

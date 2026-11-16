@@ -96,6 +96,26 @@ describe('createApp', () => {
     })
   })
 
+  it('passes the model-waking Retry-After header through (#201)', async () => {
+    const answer = vi
+      .fn<Answerer>()
+      .mockResolvedValue({ kind: 'model-waking', retryAfterSeconds: 20 })
+    const app = createApp({
+      answer,
+      authenticate: allow(),
+      loadMaterials: loadMaterials(),
+    })
+
+    const response = await request(app).post('/api/chat').send(question)
+
+    expect(response.status).toBe(503)
+    expect(response.headers['retry-after']).toBe('20')
+    expect(response.body).toEqual({
+      error: 'model-waking',
+      retryAfterSeconds: 20,
+    })
+  })
+
   it('answers a malformed JSON body with JSON', async () => {
     const response = await request(createApp())
       .post('/api/chat')

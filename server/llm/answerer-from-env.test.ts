@@ -2,17 +2,33 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createAnswererFromEnv } from './answerer-from-env.ts'
 import { createClaudeAnswerer } from './claude-answerer.ts'
-import { createOllamaAnswerer } from './ollama-answerer.ts'
+import { createOllamaAnswerer, createOllamaProbe } from './ollama-answerer.ts'
+import { withVmWake } from './vm-wake.ts'
 
 vi.mock('./claude-answerer.ts', () => ({
   createClaudeAnswerer: vi.fn(() => async () => ({ kind: 'refusal' })),
 }))
 vi.mock('./ollama-answerer.ts', () => ({
   createOllamaAnswerer: vi.fn(() => async () => ({ kind: 'refusal' })),
+  createOllamaProbe: vi.fn(() => async () => true),
+  DEFAULT_OLLAMA_TIMEOUT_MS: 7000,
+}))
+vi.mock('./vm-wake.ts', () => ({
+  withVmWake: vi.fn(() => async () => ({ kind: 'refusal' })),
 }))
 
 const claude = vi.mocked(createClaudeAnswerer)
 const ollama = vi.mocked(createOllamaAnswerer)
+const probe = vi.mocked(createOllamaProbe)
+const wake = vi.mocked(withVmWake)
+
+const AZURE = {
+  AZURE_TENANT_ID: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+  AZURE_CLIENT_ID: 'client-id',
+  AZURE_CLIENT_SECRET: 'client-secret',
+  AZURE_VM_RESOURCE_ID:
+    '/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/somanami-llm-rg/providers/Microsoft.Compute/virtualMachines/somanami-ollama',
+}
 
 describe('createAnswererFromEnv', () => {
   afterEach(() => vi.clearAllMocks())
@@ -68,6 +84,51 @@ describe('createAnswererFromEnv', () => {
         expect(ollama.mock.calls[0]?.[0].timeoutMs).toBeUndefined()
       },
     )
+
+    it('does not wrap the answerer in a waker without the AZURE_* settings', () => {
+      createAnswererFromEnv({ OLLAMA_BASE_URL: 'http://localhost:11434' })
+
+      expect(wake).not.toHaveBeenCalled()
+    })
+
+    it('wakes the VM on request when all AZURE_* settings are present (#201)', () => {
+      const answerer = createAnswererFromEnv({
+        OLLAMA_BASE_URL: 'https://llm.example',
+        OLLAMA_API_KEY: 'k',
+        OLLAMA_TIMEOUT_MS: '6500',
+        ...AZURE,
+      })
+
+      expect(answerer).toBeTypeOf('function')
+      expect(probe).toHaveBeenCalledWith({
+        baseUrl: 'https://llm.example',
+        apiKey: 'k',
+      })
+      expect(wake).toHaveBeenCalledWith(ollama.mock.results[0]?.value, {
+        vm: expect.objectContaining({
+          getInstanceView: expect.any(Function),
+          start: expect.any(Function),
+        }),
+        probe: probe.mock.results[0]?.value,
+        answerTimeoutMs: 6500,
+      })
+    })
+
+    it('keeps waking off when the AZURE_* settings are incomplete', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      createAnswererFromEnv({
+        OLLAMA_BASE_URL: 'https://llm.example',
+        ...AZURE,
+        AZURE_CLIENT_SECRET: '',
+      })
+
+      expect(wake).not.toHaveBeenCalled()
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('AZURE_CLIENT_SECRET'),
+      )
+      warn.mockRestore()
+    })
 
     it('returns null without OLLAMA_BASE_URL', () => {
       expect(createAnswererFromEnv({ LLM_PROVIDER: 'ollama' })).toBeNull()

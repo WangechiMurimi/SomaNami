@@ -5,6 +5,7 @@ import type { AnswerRequest } from './answerer.ts'
 import {
   ANSWER_FORMAT,
   createOllamaAnswerer,
+  createOllamaProbe,
   DEFAULT_OLLAMA_MODEL,
   DEFAULT_OLLAMA_TIMEOUT_MS,
   MAX_ANSWER_TOKENS,
@@ -267,5 +268,71 @@ describe('createOllamaAnswerer', () => {
     )
 
     expect(error.kind).toBe('failed')
+  })
+
+  it("stops at the caller's deadline as a timeout", async () => {
+    const fetch = stalledFetch()
+    const caller = new AbortController()
+
+    const failure = failureOf(
+      createOllamaAnswerer({ baseUrl: BASE_URL, timeoutMs: 60_000, fetch })(
+        request,
+        { signal: caller.signal },
+      ),
+    )
+    caller.abort()
+
+    expect(await failure).toMatchObject({ kind: 'timeout' })
+  })
+})
+
+describe('createOllamaProbe', () => {
+  const signal = () => new AbortController().signal
+
+  it('asks the gateway for its tags with the bearer key', async () => {
+    const fetch = fakeFetch(Response.json({ models: [] }))
+    const probe = createOllamaProbe({
+      baseUrl: BASE_URL,
+      apiKey: API_KEY,
+      fetch,
+    })
+
+    await expect(probe(signal())).resolves.toBe(true)
+
+    const [url, init] = fetch.mock.calls[0]!
+    expect(url).toBe('http://ollama.test:11434/api/tags')
+    expect(new Headers(init?.headers).get('authorization')).toBe(
+      `Bearer ${API_KEY}`,
+    )
+  })
+
+  it.each([401, 404, 503])('counts a %i as reachable', async (status) => {
+    const fetch = fakeFetch(new Response('x', { status }))
+
+    await expect(
+      createOllamaProbe({ baseUrl: BASE_URL, fetch })(signal()),
+    ).resolves.toBe(true)
+  })
+
+  it.each([502, 504])(
+    'counts a gateway %i (Ollama not up behind Caddy) as unreachable',
+    async (status) => {
+      const fetch = fakeFetch(new Response('x', { status }))
+
+      await expect(
+        createOllamaProbe({ baseUrl: BASE_URL, fetch })(signal()),
+      ).resolves.toBe(false)
+    },
+  )
+
+  it('counts a network failure or abort as unreachable', async () => {
+    const fetch = fakeFetch(
+      new TypeError('fetch failed'),
+      new DOMException('aborted', 'AbortError'),
+    )
+    const probe = createOllamaProbe({ baseUrl: BASE_URL, fetch })
+
+    await expect(probe(signal())).resolves.toBe(false)
+    await expect(probe(signal())).resolves.toBe(false)
   })
 })
