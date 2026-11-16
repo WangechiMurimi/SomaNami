@@ -6,6 +6,9 @@
   --glow-top: #e5d6fd;
   --glow-bottom: #ffe7e8;
   --glow-shadow: rgba(120, 100, 180, 0.18);
+  /* Stronger frame colours for the active state; both keep 3:1 on the page. */
+  --active-top: var(--accent);
+  --active-bottom: #b0507a;
   border: 5px solid transparent;
   border-radius: 24px;
   background:
@@ -19,6 +22,7 @@
     --glow-top: #4b3f86;
     --glow-bottom: #6a3e58;
     --glow-shadow: rgba(169, 166, 240, 0.22);
+    --active-bottom: #e39ab8;
   }
 }
 
@@ -26,13 +30,25 @@
   --glow-top: #4b3f86;
   --glow-bottom: #6a3e58;
   --glow-shadow: rgba(169, 166, 240, 0.22);
+  --active-bottom: #e39ab8;
 }
 
 /*
- * Active, the gradient frame is the input boundary: it glows rather than
- * gaining a second ring on top of it.
+ * Active, the gradient frame itself is the focus indicator: it shifts to the
+ * stronger colours and glows, rather than a second box appearing inside it.
  */
 .composer:focus-within {
-  outline: none;
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(180deg, var(--active-top), var(--active-bottom)) border-box;
   box-shadow: 0 0 28px 4px var(--glow-shadow);
+}
+
+/*
+ * The global :focus-visible outline is unlayered, so it beats the textarea's
+ * Tailwind outline-none; switch it off here, where the frame shows focus.
+ * The composer's buttons keep their own outlines.
+ */
+.composer textarea:focus-visible {
+  outline: none;
 }
