@@ -46,6 +46,10 @@ npm run db:reset    # rebuild the database from the migrations
 npm run db:stop
 ```
 
+Learners' materials and chats live in `workspaces`, `documents`, `chunks`,
+`conversations`, `conversation_materials` and `messages`: each row belongs to
+one account (`user_id`), and deleting a parent deletes everything under it.
+
 Add a migration with `supabase migration new <name>`. The hosted database is
 not updated by CI: after a migration is merged, apply it with
 `supabase db push` (once, after `supabase link`).
