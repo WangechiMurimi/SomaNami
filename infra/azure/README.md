@@ -59,6 +59,18 @@ Set these as environment variables. Only `ADMIN_IP` is required.
 | `WAIT_MINUTES`   | `25`                                       | How long the script waits for the gateway to answer.                   |
 | `ASSUME_YES`     | `0`                                        | Set to `1` to skip the confirmation prompt.                    |
 
+## Network rules
+
+`provision.sh` creates one NSG with three inbound allow rules. Everything else is denied by Azure's default rules.
+
+| Rule              | Port | Source            | Why                                                                                   |
+| ----------------- | ---- | ----------------- | ------------------------------------------------------------------------------------- |
+| `allow-https`     | 443  | Internet          | The API, behind Caddy's TLS and bearer-token check.                                   |
+| `allow-http-acme` | 80   | Internet          | Let's Encrypt HTTP-01 challenge and Caddy's redirect to HTTPS. No API traffic is served. |
+| `allow-ssh-admin` | 22   | `ADMIN_IP` only   | Operator access: check cloud-init, re-pull models, rotate the token.                  |
+
+Issue #150 asked for an NSG that allows only 443. Ports 80 and 22 are a deliberate deviation, explained in [ADR 0003](../../docs/architecture/0003-ollama-on-azure.md#network-exposure-detail-in-151). Caddy can also renew its certificate with the TLS-ALPN-01 challenge on 443 alone, so you can delete the `allow-http-acme` rule if you want 443 and SSH only. Ollama's port 11434 is never opened, and Ollama listens on `127.0.0.1` regardless.
+
 ## Run order
 
 1. **Provision.** This takes about 10–20 minutes. Most of that is the first boot pulling about 2.5 GB of models:
