@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Measures grounded-chat latency against the Ollama gateway so ADR 0003 can
+// Measures grounded-chat latency against the Ollama gateway so we can
 // settle where the chat API runs (Netlify Function vs. the VM itself).
 //
 // Usage (Git Bash, from the repo root; Node 22.18+ for .ts imports):
@@ -194,7 +194,7 @@ async function main() {
     `  network     ${fmt(networkMs)} per round trip from here (subtract when far from the VM)`,
   )
 
-  // ADR 0003: keep Option A (Netlify Function -> VM) while warm p95 < ~8 s.
+  // Design decision (infra/azure/README.md): keep Option A (Netlify Function -> VM) while warm p95 < ~8 s.
   const verdict =
     p95 < 8000
       ? 'p95 < 8 s: Option A (Netlify Function -> VM) fits.'

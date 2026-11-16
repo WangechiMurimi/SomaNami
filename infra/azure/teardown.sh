@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deletes the SomaNami Ollama resource group and everything in it (ADR 0003, #150):
+# Deletes the SomaNami Ollama resource group and everything in it (#150):
 # the VM, its disk, public IP, NSG, virtual network and auto-shutdown schedule.
 #
 # Usage: ./infra/azure/teardown.sh            (RG defaults to somanami-llm-rg)

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Provisions the SomaNami Ollama VM on Azure (ADR 0003, #150).
+# Provisions the SomaNami Ollama VM on Azure (see infra/azure/README.md, #150).
 #
 # Usage (Git Bash, macOS or Linux, after `az login`):
 #   ADMIN_IP=203.0.113.7 ./infra/azure/provision.sh

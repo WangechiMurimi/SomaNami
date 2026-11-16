@@ -1,5 +1,5 @@
 #cloud-config
-# Template for the SomaNami Ollama VM (ADR 0003, #150, #151).
+# Template for the SomaNami Ollama VM (infra/azure/README.md, #150, #151).
 #
 # provision.sh replaces two placeholders before passing this as custom data:
 #   __DOMAIN__            the Azure DNS name, <label>.<region>.cloudapp.azure.com

@@ -1,6 +1,6 @@
 # Ollama on Azure
 
-These scripts provision the private, self-hosted model that answers SomaNami chat in production (#149, #150, #151). The design and its trade-offs are in [ADR 0003](../../docs/architecture/0003-ollama-on-azure.md).
+These scripts provision the private, self-hosted model that answers SomaNami chat in production (#149, #150, #151). The reasons for this design are in [Design decisions](#design-decisions).
 
 In short: one Ubuntu 24.04 CPU VM runs Ollama (`qwen2.5:3b` for chat, `nomic-embed-text` for embeddings) on `127.0.0.1:11434`. Caddy sits in front of it on port 443. Caddy gets a TLS certificate automatically for the Azure DNS name, requires a bearer token, and forwards only `/api/chat`, `/api/embed` and `/api/tags`. The VM shuts itself down every night to save credits.
 
@@ -8,7 +8,7 @@ In short: one Ubuntu 24.04 CPU VM runs Ollama (`qwen2.5:3b` for chat, `nomic-emb
 | --------------------- | -------------------------------------------------------------------------------- |
 | `provision.sh`        | Creates the resource group, NSG, VM and auto-shutdown, then prints the token once. |
 | `cloud-init.yaml`     | A template the VM runs on first boot: installs Ollama and Caddy, pulls the models, turns on unattended upgrades. |
-| `measure-latency.mjs` | Times grounded-chat requests (cold, p50, p95) to settle the hosting question in the ADR. |
+| `measure-latency.mjs` | Times grounded-chat requests (cold, p50, p95) to settle the hosting question (see [Design decisions](#open-question-where-the-chat-api-runs)). |
 | `teardown.sh`         | Deletes the whole resource group after you confirm.                             |
 
 **No secrets live in this folder.** The token is generated when you run `provision.sh`, sent to the VM, and printed once. Keep it in a password manager, in Netlify's environment variables, and in your untracked `.env`.
@@ -59,6 +59,51 @@ Set these as environment variables. Only `ADMIN_IP` is required.
 | `WAIT_MINUTES`   | `25`                                       | How long the script waits for the gateway to answer.                   |
 | `ASSUME_YES`     | `0`                                        | Set to `1` to skip the confirmation prompt.                    |
 
+## Design decisions
+
+This section records why the setup looks the way it does, for reviewers and for whoever operates the VM next.
+
+### Why a CPU VM with small models
+
+Learners' documents may go only to SomaNami's own infrastructure, and answers must come from our own model (#149, #143). So the model runs on a VM we control, not on a hosted model API.
+
+| Option                                    | Verdict                                                                                                                                                                                                 |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CPU VM + small quantised models** (chosen) | `qwen2.5:3b` (about 2 GB) and `nomic-embed-text` (about 0.3 GB) fit in 16 GiB and run acceptably on AVX-512 cores. Cheap enough for student credit when deallocated between sessions.                 |
+| GPU VM (NC/NV series)                     | Much faster, but student subscriptions have no GPU quota by default, and the cheapest sizes cost about USD 0.5–1+/hour, which would use up the credit in days.                                          |
+| Azure Container Apps (serverless)         | No GPU on consumption plans. Scale-to-zero means loading a multi-GB model on a cold start (tens of seconds), far over Netlify's ~10 s function limit; an always-on replica costs about as much as the VM. |
+| Azure OpenAI / AI Foundry                 | A third party runs the model under its own terms, which breaks the "our own self-hosted model" promise.                                                                                                 |
+| Ollama exposed directly, IP allowlist     | Netlify Functions have no fixed egress IPs, and Ollama has no authentication or TLS of its own.                                                                                                         |
+
+A 3B model answers less well than a frontier model, so grounding is enforced in code (retrieval-score gate, citation check, output schema), not trusted to the model (#149).
+
+### Why `Standard_D4s_v5` by default
+
+Issue #150 asked for the D8s_v5 class. The size is the `VM_SIZE` parameter, and the default is the 4-vCPU `Standard_D4s_v5`:
+
+- 8 vCPUs is often over a student subscription's regional quota.
+- It costs half as much (see [Cost](#cost-approximate)).
+- On a CPU, token generation is bound mostly by memory bandwidth, so going from 4 to 8 vCPUs is expected to be roughly 1.3–1.6× faster, not 2×.
+
+Use `VM_SIZE=Standard_D8s_v5` if the latency measurement says it's needed and the quota allows it.
+
+### Why ports 80 and 22 are open as well as 443
+
+See [Network rules](#network-rules). In short: 80 makes certificate issuance and renewal more robust and serves only redirects; 22 is open to one admin address only. Neither carries API traffic.
+
+### Open question: where the chat API runs
+
+CPU inference may not fit inside a synchronous Netlify Function (about 10 s, of which `OLLAMA_TIMEOUT_MS` = 8.5 s is the model's share).
+
+- **Option A (default): Netlify Function → VM.** Keep it if warm p95 is under ~8 s.
+- **Option B: run the Express chat API on the VM.** No 10 s limit, but the VM then holds Supabase credentials, verifies sessions, needs a CSP `connect-src` entry, and its uptime becomes chat's uptime.
+
+Decide after running [Measure latency](#measure-latency). Before switching to B, try fewer or shorter passages, a `num_predict` cap, and `VM_SIZE=Standard_D8s_v5`.
+
+### Data handling on the VM
+
+Documents pass through the VM only inside requests. Nothing stores them: no database, no file writes, and Ollama keeps prompts only in memory while the model is loaded. Ollama's log has one line per request (method, path, status, latency); `OLLAMA_DEBUG` must stay unset because debug mode can log prompts. Caddy has no access log configured and never logs bodies.
+
 ## Network rules
 
 `provision.sh` creates one NSG with three inbound allow rules. Everything else is denied by Azure's default rules.
@@ -69,7 +114,12 @@ Set these as environment variables. Only `ADMIN_IP` is required.
 | `allow-http-acme` | 80   | Internet          | Let's Encrypt HTTP-01 challenge and Caddy's redirect to HTTPS. No API traffic is served. |
 | `allow-ssh-admin` | 22   | `ADMIN_IP` only   | Operator access: check cloud-init, re-pull models, rotate the token.                  |
 
-Issue #150 asked for an NSG that allows only 443. Ports 80 and 22 are a deliberate deviation, explained in [ADR 0003](../../docs/architecture/0003-ollama-on-azure.md#network-exposure-detail-in-151). Caddy can also renew its certificate with the TLS-ALPN-01 challenge on 443 alone, so you can delete the `allow-http-acme` rule if you want 443 and SSH only. Ollama's port 11434 is never opened, and Ollama listens on `127.0.0.1` regardless.
+Issue #150 asked for an NSG that allows only 443. Ports 80 and 22 are a deliberate deviation:
+
+- **80**: Caddy uses it for the Let's Encrypt HTTP-01 challenge (its first choice) and to redirect plain HTTP to HTTPS. Every request on it gets a redirect, so no API traffic is served. Keeping it makes the first certificate and unattended renewals less likely to fail.
+- **22**: open to `ADMIN_IP/32` only, for checking cloud-init, re-pulling models and rotating the token. The alternative is to close it and use `az vm run-command invoke`, which needs no inbound port but is awkward for troubleshooting.
+
+Caddy can also renew its certificate with the TLS-ALPN-01 challenge on 443 alone, so you can delete the `allow-http-acme` rule if you want 443 and SSH only. Ollama's port 11434 is never opened, and Ollama listens on `127.0.0.1` regardless.
 
 ## Run order
 
@@ -83,7 +133,7 @@ Issue #150 asked for an NSG that allows only 443. Ports 80 and 22 are a delibera
    - **Netlify:** go to Site configuration, then Environment variables. Add `OLLAMA_BASE_URL` and `OLLAMA_API_KEY`, and optionally `OLLAMA_MODEL` and `OLLAMA_TIMEOUT_MS`. Scope them to Functions, then redeploy.
    - **Local:** add the same lines to your untracked `.env`. Never put them in `.env.example`.
 3. **Verify the gateway** (see [Verification](#verification)).
-4. **Measure latency** and record the result in ADR 0003 (see [Measure latency](#measure-latency)).
+4. **Measure latency** and record the result in the pull request or issue #149 (see [Measure latency](#measure-latency)).
 5. **Deallocate when you finish** (see [Day to day](#day-to-day)).
 
 If the script stops after it created the VM, it still prints the token. Re-running it is safe: existing resources are kept, and the NSG rules and shutdown schedule are re-applied. A re-run doesn't create a new token. To get a new one, see [Rotate the token](#rotate-the-token).
@@ -139,7 +189,7 @@ The script reports:
 - how many requests went over the 8.5 s budget
 - the network baseline
 
-ADR 0003 keeps **Option A (Netlify Function → VM) if warm p95 is under ~8 s**. Add the numbers to the ADR.
+Keep **Option A (Netlify Function → VM) if warm p95 is under ~8 s** (see [Design decisions](#open-question-where-the-chat-api-runs)). Record the numbers on issue #149.
 
 ## Day to day
 
