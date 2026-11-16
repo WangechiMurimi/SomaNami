@@ -1,6 +1,7 @@
-import type { StorageAdapter } from './adapter.ts'
+import type { Change, StorageAdapter, StorageRecord } from './adapter.ts'
 import { createIndexedDbAdapter, deleteDatabase } from './indexeddb-adapter.ts'
-import { DB_NAME, STORES } from './schema.ts'
+import { changedAt, outboxEntry } from './outbox.ts'
+import { DB_NAME, OUTBOX, SYNCED_STORES } from './schema.ts'
 
 /**
  * Before accounts, everything on a device lived in one shared database. These
@@ -52,7 +53,7 @@ export async function hasLegacyMaterials(
   const database = await openLegacyIfPresent(factory)
   if (!database) return false
   try {
-    const names = STORES.map((store) => store.name).filter((name) =>
+    const names = SYNCED_STORES.filter((name) =>
       database.objectStoreNames.contains(name),
     )
     if (names.length === 0) return false
@@ -67,10 +68,10 @@ export async function hasLegacyMaterials(
 }
 
 /**
- * Copies every legacy record into `target`, checks each one arrived, and only
- * then deletes the legacy database. Any failure leaves the legacy database
- * untouched; copies already made are harmless because a retry overwrites them
- * by id.
+ * Copies every legacy record into `target`, checks each one arrived, queues
+ * them all for upload, and only then deletes the legacy database. Any failure
+ * leaves the legacy database untouched; copies already made are harmless
+ * because a retry overwrites them by id.
  */
 export async function moveLegacyMaterials({
   target,
@@ -82,8 +83,12 @@ export async function moveLegacyMaterials({
   if (!factory) return
   const legacy = createIndexedDbAdapter(factory, { name: DB_NAME })
   try {
-    for (const { name } of STORES) {
-      const records = await legacy.getAll(name)
+    // Only materials move: the legacy outbox is rebuilt below, in the target.
+    const queued: Change[] = []
+    for (const name of SYNCED_STORES) {
+      const records = await legacy.getAll<
+        StorageRecord & { updatedAt?: unknown; createdAt?: unknown }
+      >(name)
       for (const record of records) await target.put(name, record)
 
       const arrived = new Set((await target.getAll(name)).map((r) => r.id))
@@ -92,7 +97,14 @@ export async function moveLegacyMaterials({
         throw new Error(
           `Moved ${name} did not all arrive (${missing.length} of ${records.length} missing)`,
         )
+      for (const record of records)
+        queued.push({
+          type: 'put',
+          storeName: OUTBOX,
+          record: outboxEntry(name, record.id, 'upsert', changedAt(record)),
+        })
     }
+    await target.commit(queued)
   } finally {
     // The delete below waits on every open connection, this one included.
     await legacy.close()

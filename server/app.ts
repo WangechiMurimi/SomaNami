@@ -9,6 +9,7 @@ import {
   CHAT_RATE_LIMIT,
   CHAT_RATE_WINDOW_SECONDS,
 } from './chat/limits.ts'
+import type { LoadMaterials } from './chat/load-materials.ts'
 import type { Answerer } from './llm/claude-answerer.ts'
 
 export interface AppOptions {
@@ -19,6 +20,8 @@ export interface AppOptions {
    * forgotten wiring fails closed rather than opening the model to anyone.
    */
   authenticate?: Authenticate
+  /** Loads chat materials as the caller; `null` means Supabase isn't configured. */
+  loadMaterials?: LoadMaterials | null
 }
 
 const refuseAll: Authenticate = async () => ({
@@ -33,6 +36,7 @@ const refuseAll: Authenticate = async () => ({
 export function createApp({
   answer = null,
   authenticate = refuseAll,
+  loadMaterials = null,
 }: AppOptions = {}) {
   const app = express()
 
@@ -58,8 +62,9 @@ export function createApp({
     }),
   )
 
-  // Questions arrive with client-retrieved passages, which are JSON of a
-  // non-trivial size; documents themselves are never uploaded.
+  // Chat bodies are small now (a question, material ids and recent history);
+  // the cap mainly bounds a long history. Original files go from the browser
+  // straight to Supabase Storage (#145), never through this server.
   app.use(express.json({ limit: CHAT_BODY_LIMIT_BYTES }))
 
   app.get('/api/health', (_request, response) => {
@@ -71,6 +76,7 @@ export function createApp({
       answer,
       authenticate,
       authorization: request.get('authorization'),
+      loadMaterials,
     })
     response.status(result.status).json(result.body)
   })

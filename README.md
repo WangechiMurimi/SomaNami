@@ -46,6 +46,21 @@ npm run db:reset    # rebuild the database from the migrations
 npm run db:stop
 ```
 
+Learners' materials and chats live in `workspaces`, `documents`, `chunks`,
+`conversations`, `conversation_materials` and `messages`: each row belongs to
+one account (`user_id`), and deleting a parent deletes everything under it.
+
+Devices sync with these tables (`src/lib/sync/`): each device keeps working
+offline and pushes its outbox and pulls other devices' changes when online.
+The newer edit wins, and a deleted record never comes back (`deletions` holds
+their ids). The sync engine's test against the real local stack is skipped
+unless you pass the stack's URL and keys:
+
+```bash
+eval "$(supabase status -o env | sed 's/^/export SYNC_IT_/')"
+npx vitest run src/lib/sync/supabase-cloud.integration.test.ts
+```
+
 Add a migration with `supabase migration new <name>`. The hosted database is
 not updated by CI: after a migration is merged, apply it with
 `supabase db push` (once, after `supabase link`).

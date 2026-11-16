@@ -8,7 +8,9 @@ import {
   DEFAULT_WORKSPACE,
   DOCUMENTS,
   MESSAGES,
+  OUTBOX,
   STORES,
+  SYNC_META,
   WORKSPACES,
 } from './schema.ts'
 
@@ -147,6 +149,8 @@ describe('createIndexedDbAdapter', () => {
         id: 'd1',
         name: 'Cells.pdf',
         workspaceId: DEFAULT_WORKSPACE.id,
+        createdAt: expect.any(Number),
+        updatedAt: expect.any(Number),
       })
       expect(await adapter.get(CONVERSATIONS, 'c1')).toEqual({
         id: 'c1',
@@ -157,6 +161,17 @@ describe('createIndexedDbAdapter', () => {
       expect(
         await adapter.getAllByIndex(CONVERSATIONS, 'materialIds', 'd1'),
       ).toHaveLength(1)
+    })
+
+    it('queues the moved records and the new default workspace', async () => {
+      await seedVersionOne(factory)
+      const outbox = await createIndexedDbAdapter(factory).getAll(OUTBOX)
+
+      expect(outbox.map(({ id }) => id)).toEqual([
+        'conversations:c1',
+        'documents:d1',
+        'workspaces:default',
+      ])
     })
 
     it('drops the v1 documentId index', async () => {
@@ -174,6 +189,131 @@ describe('createIndexedDbAdapter', () => {
     it('creates no workspace in a brand-new database', async () => {
       const adapter = createIndexedDbAdapter(factory)
       expect(await adapter.getAll(WORKSPACES)).toEqual([])
+    })
+  })
+
+  describe('upgrading a v2 database (#146)', () => {
+    // The database exactly as v2 shipped it: documents without timestamps,
+    // and no outbox or sync_meta store.
+    const seedVersionTwo = (v2: IDBFactory) =>
+      new Promise<void>((resolve, reject) => {
+        const request = v2.open(DB_NAME, 2)
+        request.onupgradeneeded = () => {
+          const db = request.result
+          db.createObjectStore(WORKSPACES, { keyPath: 'id' }).put({
+            ...DEFAULT_WORKSPACE,
+            createdAt: 1,
+            updatedAt: 2,
+          })
+          const documents = db.createObjectStore(DOCUMENTS, { keyPath: 'id' })
+          documents.createIndex('workspaceId', 'workspaceId')
+          documents.put({
+            id: 'd1',
+            name: 'Cells.pdf',
+            workspaceId: DEFAULT_WORKSPACE.id,
+            chunks: [],
+          })
+          const conversations = db.createObjectStore(CONVERSATIONS, {
+            keyPath: 'id',
+          })
+          conversations.createIndex('workspaceId', 'workspaceId')
+          conversations.createIndex('materialIds', 'materialIds', {
+            multiEntry: true,
+          })
+          conversations.put({
+            id: 'c1',
+            workspaceId: DEFAULT_WORKSPACE.id,
+            materialIds: ['d1'],
+            title: 'Why?',
+            createdAt: 3,
+            updatedAt: 4,
+          })
+          const messages = db.createObjectStore(MESSAGES, { keyPath: 'id' })
+          messages.createIndex('conversationId', 'conversationId')
+          messages.put({
+            id: 'm1',
+            conversationId: 'c1',
+            role: 'user',
+            content: 'Why?',
+            createdAt: 5,
+          })
+        }
+        request.onsuccess = () => {
+          request.result.close()
+          resolve()
+        }
+        request.onerror = () => reject(request.error)
+      })
+
+    it('stamps existing documents with the upgrade time', async () => {
+      await seedVersionTwo(factory)
+      const before = Date.now()
+      const document = await createIndexedDbAdapter(factory).get<{
+        id: string
+        createdAt: number
+        updatedAt: number
+      }>(DOCUMENTS, 'd1')
+
+      expect(document).toMatchObject({ name: 'Cells.pdf', chunks: [] })
+      expect(document!.createdAt).toBeGreaterThanOrEqual(before)
+      expect(document!.updatedAt).toBe(document!.createdAt)
+    })
+
+    it('leaves every other record as it was', async () => {
+      await seedVersionTwo(factory)
+      const adapter = createIndexedDbAdapter(factory)
+
+      expect(await adapter.get(CONVERSATIONS, 'c1')).toEqual({
+        id: 'c1',
+        workspaceId: DEFAULT_WORKSPACE.id,
+        materialIds: ['d1'],
+        title: 'Why?',
+        createdAt: 3,
+        updatedAt: 4,
+      })
+      expect(await adapter.get(MESSAGES, 'm1')).toMatchObject({ createdAt: 5 })
+      expect(
+        await adapter.getAllByIndex(CONVERSATIONS, 'materialIds', 'd1'),
+      ).toHaveLength(1)
+    })
+
+    it('queues every existing record for its first upload', async () => {
+      await seedVersionTwo(factory)
+      const adapter = createIndexedDbAdapter(factory)
+      const document = await adapter.get<{ id: string; updatedAt: number }>(
+        DOCUMENTS,
+        'd1',
+      )
+      const outbox = await adapter.getAll<{
+        id: string
+        op: string
+        updatedAt: number
+      }>(OUTBOX)
+
+      expect(
+        outbox.map(({ id, op, updatedAt }) => ({ id, op, updatedAt })),
+      ).toEqual([
+        { id: 'conversations:c1', op: 'upsert', updatedAt: 4 },
+        { id: 'documents:d1', op: 'upsert', updatedAt: document!.updatedAt },
+        { id: 'messages:m1', op: 'upsert', updatedAt: 5 },
+        { id: 'workspaces:default', op: 'upsert', updatedAt: 2 },
+      ])
+    })
+
+    it('adds an empty sync_meta store and the outbox seq index', async () => {
+      await seedVersionTwo(factory)
+      const adapter = createIndexedDbAdapter(factory)
+      expect(await adapter.getAll(SYNC_META)).toEqual([])
+      await adapter.close()
+
+      const db = await openRaw(factory)
+      const outbox = db.transaction(OUTBOX, 'readonly').objectStore(OUTBOX)
+      expect([...outbox.indexNames]).toEqual(['seq'])
+      db.close()
+    })
+
+    it('queues nothing in a brand-new database', async () => {
+      expect(await createIndexedDbAdapter(factory).getAll(OUTBOX)).toEqual([])
     })
   })
 

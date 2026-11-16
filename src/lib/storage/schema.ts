@@ -16,15 +16,30 @@ export const DB_NAME = 'somanami'
 export const userDbName = (userId: string): string => `somanami-user-${userId}`
 
 /** Bump whenever `STORES` changes so the upgrade path runs. */
-export const DB_VERSION = 2
+export const DB_VERSION = 3
 
 export const WORKSPACES = 'workspaces' as const
 export const DOCUMENTS = 'documents' as const
 export const CONVERSATIONS = 'conversations' as const
 export const MESSAGES = 'messages' as const
+/** Local changes waiting to be pushed to the cloud (see `outbox.ts`). */
+export const OUTBOX = 'outbox' as const
+/** Sync bookkeeping, such as pull cursors, as `{ id, value }` records. */
+export const SYNC_META = 'sync_meta' as const
 
-export type StoreName =
+/** The stores whose records sync, each named like its cloud table. */
+export type SyncedStoreName =
   typeof WORKSPACES | typeof DOCUMENTS | typeof CONVERSATIONS | typeof MESSAGES
+
+export type StoreName = SyncedStoreName | typeof OUTBOX | typeof SYNC_META
+
+/** Synced stores, parent first: the order a pusher sends upserts in. */
+export const SYNCED_STORES: readonly SyncedStoreName[] = [
+  WORKSPACES,
+  DOCUMENTS,
+  CONVERSATIONS,
+  MESSAGES,
+]
 
 /**
  * The workspace that materials and chats saved before workspaces existed are
@@ -74,4 +89,10 @@ export const STORES: readonly StoreDefinition[] = [
     keyPath: 'id',
     indexes: [{ name: 'conversationId', keyPath: 'conversationId' }],
   },
+  {
+    name: OUTBOX,
+    keyPath: 'id',
+    indexes: [{ name: 'seq', keyPath: 'seq' }],
+  },
+  { name: SYNC_META, keyPath: 'id', indexes: [] },
 ]

@@ -58,19 +58,20 @@ function sign(
 }
 
 describe('createAuthenticator', () => {
-  it('accepts a valid token and returns the user id and aal', async () => {
+  it('accepts a valid token and returns the user id, aal and the token itself', async () => {
     const token = await sign()
 
     await expect(authenticate(`Bearer ${token}`)).resolves.toEqual({
       ok: true,
       user: { id: 'user-123', aal: 'aal1' },
+      accessToken: token,
     })
   })
 
   it('reports aal2 once the user completed a second factor', async () => {
     const token = await sign({ aal: 'aal2' })
 
-    await expect(authenticate(`Bearer ${token}`)).resolves.toEqual({
+    await expect(authenticate(`Bearer ${token}`)).resolves.toMatchObject({
       ok: true,
       user: { id: 'user-123', aal: 'aal2' },
     })
@@ -88,8 +89,10 @@ describe('createAuthenticator', () => {
   it('accepts the scheme in any case', async () => {
     const token = await sign()
 
+    // The token is returned without its scheme, ready to forward as-is.
     await expect(authenticate(`bearer ${token}`)).resolves.toMatchObject({
       ok: true,
+      accessToken: token,
     })
   })
 

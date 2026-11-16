@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { IDBFactory } from 'fake-indexeddb'
 import { Route } from 'react-router'
@@ -56,17 +56,10 @@ async function renderWithMaterial() {
   )
 }
 
+// Signing out clears this device's copy (#147); with no cloud configured
+// there is nothing to save first.
 async function confirmRemoval() {
-  await userEvent.click(
-    screen.getByRole('button', {
-      name: 'Sign out and remove my materials from this device',
-    }),
-  )
-  await userEvent.click(
-    within(screen.getByRole('alertdialog')).getByRole('button', {
-      name: 'Remove and sign out',
-    }),
-  )
+  await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
 }
 
 describe('SessionsSection with real storage', () => {

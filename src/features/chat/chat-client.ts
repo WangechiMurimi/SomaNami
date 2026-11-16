@@ -1,5 +1,9 @@
 import { getAccessToken } from '../../lib/auth/access-token.ts'
-import type { ChatReply, ChatRequest } from '../../types/contracts.ts'
+import type {
+  ChatReply,
+  ChatRequest,
+  CitedPassage,
+} from '../../types/contracts.ts'
 
 const ENDPOINT = '/api/chat'
 
@@ -33,14 +37,33 @@ export class ChatError extends Error {
   }
 }
 
+/** True for a cited passage the UI can label and quote. */
+function isCitedPassage(value: unknown): value is CitedPassage {
+  if (value === null || typeof value !== 'object') return false
+  const passage = value as CitedPassage
+  return (
+    typeof passage.documentId === 'string' &&
+    typeof passage.chunkId === 'string' &&
+    typeof passage.documentName === 'string' &&
+    typeof passage.text === 'string' &&
+    passage.source !== null &&
+    typeof passage.source === 'object'
+  )
+}
+
 /** Rejects replies that break the `ChatReply` contract so the UI never renders half an answer. */
 function assertReply(payload: unknown): ChatReply {
+  const reply = payload as ChatReply
   const valid =
     payload !== null &&
     typeof payload === 'object' &&
-    typeof (payload as ChatReply).answer === 'string' &&
-    typeof (payload as ChatReply).answerable === 'boolean' &&
-    Array.isArray((payload as ChatReply).citations)
+    typeof reply.answer === 'string' &&
+    typeof reply.answerable === 'boolean' &&
+    Array.isArray(reply.citations) &&
+    // The server sends the cited passages so sources show even for materials
+    // this device doesn't hold.
+    Array.isArray(reply.passages) &&
+    reply.passages.every(isCitedPassage)
   if (!valid) {
     throw new ChatError(MALFORMED_MESSAGE, {
       code: 'malformed',
@@ -51,15 +74,16 @@ function assertReply(payload: unknown): ChatReply {
 }
 
 /**
- * Asks `POST /api/chat` one grounded question and returns
- * `{ answer, citations, answerable }` (see `ChatReply`).
+ * Asks `POST /api/chat` one grounded question about the named materials and
+ * returns `{ answer, citations, answerable, passages }` (see `ChatReply`). The
+ * server loads and ranks the materials itself; no document text is sent.
  */
 export async function askQuestion({
   question,
-  passages = [],
+  materialIds = [],
   history = [],
 }: Pick<ChatRequest, 'question'> & Partial<ChatRequest>): Promise<ChatReply> {
-  const body = JSON.stringify({ question, passages, history })
+  const body = JSON.stringify({ question, materialIds, history })
 
   // Without a session the server can only refuse, so don't spend a request
   // (or a slot of the per-IP rate limit) finding that out.

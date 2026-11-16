@@ -19,9 +19,9 @@ export default function UploadSection({
 
   const [saved, setSaved] = useState<StoredDocument | null>(null)
   const keepDocument = useCallback(
-    async (document: NewDocument) => {
+    async (document: NewDocument, file: File) => {
       try {
-        setSaved(await add(document, workspaceId))
+        setSaved(await add(document, workspaceId, file))
       } catch (cause) {
         // Parsing worked, so tell the user it's the saving that failed.
         throw new UploadError(

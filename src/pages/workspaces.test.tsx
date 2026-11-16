@@ -1,7 +1,8 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderSignedInApp } from '../features/auth/testing/render-app.tsx'
+import { uploadOriginal } from '../lib/storage-cloud/originals.ts'
 import {
   createConversation,
   createMemoryAdapter,
@@ -12,7 +13,15 @@ import {
   setStorageAdapter,
 } from '../lib/storage/index.ts'
 
+// The app tests' fake Supabase has no Storage; uploads are covered by
+// use-library and originals tests, so here only check what gets handed over.
+vi.mock('../lib/storage-cloud/originals.ts', async (importOriginal) => ({
+  ...(await importOriginal()),
+  uploadOriginal: vi.fn(async () => null),
+}))
+
 beforeEach(() => {
+  vi.mocked(uploadOriginal).mockClear()
   setStorageAdapter(createMemoryAdapter())
   window.history.pushState({}, '', '/')
 })
@@ -162,6 +171,11 @@ describe('New workspace', () => {
     expect(
       (await listWorkspaceDocuments(workspace!.id)).map(({ name }) => name),
     ).toEqual(['cells.txt', 'Seminar notes.txt'])
+    // Each buffered original goes up with the material it was parsed into.
+    const documents = await listWorkspaceDocuments(workspace!.id)
+    expect(
+      vi.mocked(uploadOriginal).mock.calls.map(([id, file]) => [id, file.name]),
+    ).toEqual(documents.map(({ id, name }) => [id, name]))
   })
 
   it('leaves out a material removed before creating', async () => {

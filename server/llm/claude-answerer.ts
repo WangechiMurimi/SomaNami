@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod'
 import { z } from 'zod'
-import type { ChatRequest } from '../../src/types/contracts.ts'
+import type { HistoryTurn, Passage } from '../../src/types/contracts.ts'
 import { buildMessages, SYSTEM_PROMPT } from './prompt.ts'
 
 export const DEFAULT_MODEL = 'claude-opus-5-5'
@@ -26,8 +26,18 @@ export type AnswerOutcome =
   // The model declined on safety grounds; there is no answer to show.
   | { kind: 'refusal' }
 
+/**
+ * What the model is asked: the question, the passages the server retrieved
+ * for it from the user's own materials, and the recent conversation.
+ */
+export interface AnswerRequest {
+  question: string
+  passages: Passage[]
+  history: HistoryTurn[]
+}
+
 /** Answers one grounded question; the chat route depends only on this. */
-export type Answerer = (request: ChatRequest) => Promise<AnswerOutcome>
+export type Answerer = (request: AnswerRequest) => Promise<AnswerOutcome>
 
 export interface ClaudeAnswererOptions {
   client?: Pick<Anthropic, 'beta'>

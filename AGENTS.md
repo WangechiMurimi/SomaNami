@@ -93,6 +93,6 @@ The project lives at the repository root. Folders marked *(planned)* don't exist
 	- Clearly disclose any tests that could not be executed or did not pass.
 5. **Security and Scope:**
 	- Don't commit secrets, `.env` files, or user documents.
-	- Don't call external services from the client for anything that handles user documents unless the PRD allows it.
+	- Learners' documents go only to SomaNami's own Supabase project (original files in the private `materials` bucket, under the learner's own folder and RLS) and to the chat model through our server. Don't send them to any other service, from the client or the server (#143 privacy model).
 
 

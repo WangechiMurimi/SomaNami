@@ -4,6 +4,7 @@ import AuthProvider from './features/auth/AuthProvider.tsx'
 import RequireAuth from './features/auth/RequireAuth.tsx'
 import RequireProfile from './features/auth/RequireProfile.tsx'
 import UserStoreGate from './features/auth/UserStoreGate.tsx'
+import SyncProvider from './features/sync/SyncProvider.tsx'
 import LibraryProvider from './features/library/LibraryProvider.tsx'
 import AccountPage from './pages/AccountPage.tsx'
 import AuthCallbackPage from './pages/AuthCallbackPage.tsx'
@@ -38,13 +39,16 @@ function NotFoundPage() {
   )
 }
 
-// Storage is per user, so the library loads only once that user's store is open.
+// Storage is per user, so sync and the library start only once that user's
+// store is open.
 function SignedInLayout() {
   return (
     <UserStoreGate>
-      <LibraryProvider>
-        <AppShell />
-      </LibraryProvider>
+      <SyncProvider>
+        <LibraryProvider>
+          <AppShell />
+        </LibraryProvider>
+      </SyncProvider>
     </UserStoreGate>
   )
 }

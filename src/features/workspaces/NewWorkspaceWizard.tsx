@@ -69,6 +69,11 @@ function StepIndicator({ current }: { current: number }) {
   )
 }
 
+interface PendingMaterial {
+  document: NewDocument
+  file: File
+}
+
 /**
  * Creates a workspace in two steps (US-08 AC1). Materials added in step two
  * are parsed straight away but only saved when the workspace is created, so
@@ -82,7 +87,8 @@ export default function NewWorkspaceWizard() {
   const [name, setName] = useState('')
   const [topic, setTopic] = useState('')
   const [nameError, setNameError] = useState<string | null>(null)
-  const [pending, setPending] = useState<NewDocument[]>([])
+  // Each parsed material with its original file, uploaded once created.
+  const [pending, setPending] = useState<PendingMaterial[]>([])
   const [pasting, setPasting] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -90,10 +96,10 @@ export default function NewWorkspaceWizard() {
   const nameInput = useRef<HTMLInputElement>(null)
   const moved = useRef(false)
 
-  const keep = useCallback((document: NewDocument) => {
+  const keep = useCallback((document: NewDocument, file: File) => {
     setPending((current) => [
-      ...current.filter(({ id }) => id !== document.id),
-      document,
+      ...current.filter((item) => item.document.id !== document.id),
+      { document, file },
     ])
   }, [])
   const { upload, retry, reset, ...uploadState } = useDocumentUpload({
@@ -127,7 +133,9 @@ export default function NewWorkspaceWizard() {
     setSaveError(null)
     try {
       const workspace = await createWorkspace({ name, topic })
-      for (const document of pending) await add(document, workspace.id)
+      for (const { document, file } of pending) {
+        await add(document, workspace.id, file)
+      }
       navigate(`/workspaces/${workspace.id}`)
     } catch (error) {
       console.error('Could not create the workspace', error)
@@ -271,7 +279,7 @@ export default function NewWorkspaceWizard() {
                   Added so far
                 </h3>
                 <ul className="mt-3 divide-y divide-line rounded-xl border border-line">
-                  {pending.map((document) => (
+                  {pending.map(({ document }) => (
                     <li
                       key={document.id}
                       className="flex items-center justify-between gap-3 px-4 py-3"
@@ -283,7 +291,9 @@ export default function NewWorkspaceWizard() {
                         type="button"
                         onClick={() =>
                           setPending((current) =>
-                            current.filter(({ id }) => id !== document.id),
+                            current.filter(
+                              (item) => item.document.id !== document.id,
+                            ),
                           )
                         }
                         className="inline-flex size-11 flex-none items-center justify-center rounded-[10px] text-muted hover:bg-tint hover:text-warn"

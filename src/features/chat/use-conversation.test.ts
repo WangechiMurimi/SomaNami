@@ -23,6 +23,8 @@ import { useConversation } from './use-conversation.ts'
 const document: StoredDocument = {
   id: 'doc-1',
   workspaceId: DEFAULT_WORKSPACE.id,
+  createdAt: 1,
+  updatedAt: 1,
   name: 'biology.pdf',
   size: 10,
   kind: 'pdf',
@@ -40,6 +42,7 @@ const reply = {
   answer: 'They produce ATP.',
   answerable: true,
   citations: [{ documentId: 'doc-1', chunkId: 'doc-1:0' }],
+  passages: [],
 }
 
 // The document is stored first: a conversation may only use stored materials.

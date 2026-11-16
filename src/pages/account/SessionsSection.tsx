@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { useNavigate } from 'react-router'
 import ConfirmDialog from '../../components/ConfirmDialog.tsx'
-import { useAuth } from '../../features/auth/auth-context.ts'
+import {
+  LEAVE_MESSAGES,
+  OTHER_TABS_MESSAGE,
+  useLeaveDevice,
+} from '../../features/sync/use-leave-device.ts'
 import { useOnline } from '../../lib/connectivity/use-online.ts'
-import { openUserStore, removeUserStore } from '../../lib/storage/index.ts'
 import { H2 } from '../page-heading.ts'
 
 const BUTTON =
@@ -33,49 +35,21 @@ function Row({
 }
 
 /**
- * "Sign out" section of the Account page: this device, every device, and
- * sign out after removing this user's materials from this device.
+ * "Sign out" section of the Account page (#147): sign out of this device or
+ * every device, each saving changes first and then clearing this device; or
+ * erase everything stored in SomaNami.
  */
 export default function SessionsSection() {
-  const { user, signOut } = useAuth()
-  const navigate = useNavigate()
   const online = useOnline()
-  const [busy, setBusy] = useState(false)
-  const [confirming, setConfirming] = useState(false)
-  const [removeFailed, setRemoveFailed] = useState(false)
-  const [blocked, setBlocked] = useState(false)
-
-  async function finish(scope: 'local' | 'global') {
-    setBusy(true)
-    await signOut({ scope })
-    navigate('/sign-in', { replace: true })
-  }
-
-  async function removeAndSignOut() {
-    if (!user) return
-    setBusy(true)
-    setRemoveFailed(false)
-    setBlocked(false)
-    try {
-      // The delete waits for every other tab to let go of the store.
-      await removeUserStore(user.id, { onBlocked: () => setBlocked(true) })
-    } catch {
-      // Signing out now would leave the materials behind while the person
-      // believes they're gone, so stay here and let them try again. The
-      // removal closed the store first; reopen it so the app keeps working.
-      await openUserStore(user.id).catch(() => {})
-      setRemoveFailed(true)
-      setBlocked(false)
-      setBusy(false)
-      return
-    }
-    await finish('local')
-  }
+  const { leave, erase, busy, problem, waitingForTabs, reset } =
+    useLeaveDevice()
+  const [confirmingErase, setConfirmingErase] = useState(false)
+  const erasing = problem === 'erase-failed' || problem === 'erase-offline'
 
   function closeDialog() {
     if (busy) return
-    setConfirming(false)
-    setRemoveFailed(false)
+    setConfirmingErase(false)
+    reset()
   }
 
   return (
@@ -90,15 +64,15 @@ export default function SessionsSection() {
             <button
               type="button"
               disabled={busy}
-              onClick={() => void finish('local')}
+              onClick={() => void leave('local')}
               className={SECONDARY}
             >
               Sign out
             </button>
           }
         >
-          Your materials stay saved to your account on this device for the next
-          time you sign in.
+          Saves your changes to your account, then removes your materials from
+          this device. They come back the next time you sign in.
         </Row>
         <Row
           title="Every device"
@@ -108,7 +82,7 @@ export default function SessionsSection() {
               // Offline, the other devices can't be reached, and Supabase would
               // quietly sign out only this one.
               disabled={busy || !online}
-              onClick={() => void finish('global')}
+              onClick={() => void leave('global')}
               className={SECONDARY}
             >
               Sign out of all devices
@@ -120,43 +94,56 @@ export default function SessionsSection() {
           {!online && ' Connect to the internet to use this.'}
         </Row>
         <Row
-          title="A shared computer"
+          title="Your materials"
           action={
             <button
               type="button"
-              disabled={busy}
-              onClick={() => setConfirming(true)}
+              disabled={busy || !online}
+              onClick={() => setConfirmingErase(true)}
               className={DESTRUCTIVE}
             >
-              Sign out and remove my materials from this device
+              Erase my materials
             </button>
           }
         >
-          Deletes your materials and chats from this device before signing out,
-          so the next person can’t open them.
+          Deletes every material, chat and uploaded file from your SomaNami
+          account and from all your devices, then signs you out.
+          {!online && ' Connect to the internet to use this.'}
         </Row>
       </ul>
 
-      {confirming && (
+      {!confirmingErase && problem && !erasing && (
+        <p role="alert" className="mt-3 text-sm text-warn">
+          {LEAVE_MESSAGES[problem]}
+        </p>
+      )}
+      {!confirmingErase && waitingForTabs && (
+        <p role="status" className="mt-3 text-sm text-muted">
+          {OTHER_TABS_MESSAGE}
+        </p>
+      )}
+
+      {confirmingErase && (
         <ConfirmDialog
-          title="Remove your materials from this device?"
-          confirmLabel="Remove and sign out"
+          title="Erase all your materials?"
+          confirmLabel="Erase everything"
           busy={busy}
-          onConfirm={() => void removeAndSignOut()}
+          onConfirm={() => void erase()}
           onCancel={closeDialog}
         >
           <p>
-            Your materials and chats will be deleted from this device. They
-            aren’t saved anywhere else yet, so this can’t be undone.
+            Every material, chat and uploaded file in your SomaNami account will
+            be deleted, on every device. This can’t be undone. You’ll be signed
+            out afterwards.
           </p>
-          {blocked && (
-            <p role="status" className="mt-2 font-medium text-fg">
-              Close SomaNami in your other tabs to finish.
+          {problem && (
+            <p role="alert" className="mt-2 text-warn">
+              {LEAVE_MESSAGES[problem]}
             </p>
           )}
-          {removeFailed && (
-            <p role="alert" className="mt-2 text-warn">
-              We couldn’t remove them, so you’re still signed in. Try again.
+          {waitingForTabs && (
+            <p role="status" className="mt-2 text-muted">
+              {OTHER_TABS_MESSAGE}
             </p>
           )}
         </ConfirmDialog>
