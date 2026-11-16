@@ -1,0 +1,553 @@
+openapi: 3.1.0
+info:
+  title: SomaNami API
+  version: 0.1.0
+  summary: The server routes behind the SomaNami web app.
+  description: |
+    The API the SomaNami browser app calls. In production each route is a
+    Netlify Function (`netlify/functions/`); locally the same handlers run in
+    Express (`server/app.ts`). Both transports share the handlers in
+    `server/chat/` and `server/link/`, so they answer alike except where a
+    response below says "Express only" or "Netlify only".
+
+    **Auth.** `POST /api/chat` and `POST /api/fetch-link` need a Supabase
+    access token (the signed-in user's session JWT) as
+    `Authorization: Bearer <token>`. The server verifies it locally against the
+    Supabase project's published signing keys (ES256 or RS256, audience
+    `authenticated`, issuer `<SUPABASE_URL>/auth/v1`, `exp` and `sub`
+    required). The session is checked before the body is validated.
+
+    **Errors.** Every failure is JSON `{ "error": "<code>" }`; `POST /api/chat`
+    adds `issues` to a validation failure. Clients should branch on `error`.
+
+    **Headers.** Every `/api/*` response carries `Cache-Control: no-store` and
+    `X-Content-Type-Options: nosniff`.
+
+    **Rate limits.** Per client IP. Production uses Netlify's function rate
+    limit (aggregated by IP and domain); Express uses an in-memory limiter with
+    the same numbers (`server/chat/limits.ts`, `server/link/limits.ts`) and
+    sends `RateLimit` and `RateLimit-Policy` headers (IETF draft 8).
+
+    **Unknown routes.** Express answers any other `/api/*` path, or a route
+    with the wrong method, with `404 { "error": "not-found" }`. On Netlify
+    `/api/chat` and `/api/fetch-link` answer a wrong method with `405`.
+
+    This file is checked against the registered routes and the zod request
+    schemas by `server/openapi-spec.test.ts`.
+  license:
+    name: Proprietary
+servers:
+  - url: /
+    description: Same origin as the web app (Netlify in production).
+  - url: http://localhost:3001
+    description: Local Express server (`npm run server:dev`).
+tags:
+  - name: health
+  - name: chat
+  - name: links
+
+paths:
+  /api/health:
+    get:
+      tags: [health]
+      operationId: getHealth
+      summary: Liveness check.
+      description: Needs no session. Does not check Claude or Supabase.
+      security: []
+      responses:
+        '200':
+          description: The API is running.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+
+  /api/chat:
+    post:
+      tags: [chat]
+      operationId: postChat
+      summary: Answer a question from the learner's own materials.
+      description: |
+        The server loads the named materials as the signed-in user (row-level
+        security returns only their own rows; unknown or foreign ids are
+        silently skipped), ranks their chunks, and asks the model to answer
+        only from the best passages. Citations are checked against the
+        passages actually given to the model.
+
+        A `200` with `answerable: false` is a normal outcome: no materials were
+        named, retrieval found nothing relevant, the model declined, or none of
+        its citations survived the check. Show `answer` as a "not covered"
+        message, not as an error.
+
+        Limits: body at most 1 MiB (1,048,576 bytes); 20 requests per IP per
+        60 seconds.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: An answer, or a "not covered" reply (`answerable` false).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatReply'
+        '400':
+          description: |
+            `invalid-json`: the body is not JSON.
+            `invalid-request`: the body failed validation; `issues` lists
+            `<path>: <message>` strings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatError'
+        '401':
+          description: |
+            `unauthenticated`: the `Authorization` header is missing, or the
+            token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatError'
+        '404':
+          description: |
+            Express only: `not-found` for any method other than POST.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatError'
+        '405':
+          description: |
+            Netlify only: `method-not-allowed` for any method other than POST,
+            with `Allow: POST`.
+          headers:
+            Allow:
+              schema:
+                type: string
+                const: POST
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatError'
+        '413':
+          description: '`too-large`: the body is over 1 MiB (1,048,576 bytes).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          description: 'Express only: `internal`, an unhandled error.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatError'
+        '502':
+          description: |
+            `materials-unavailable`: loading the materials from Supabase failed.
+            `upstream-unreachable`: the model API could not be reached.
+            `upstream-failed`: the model call failed for another reason.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatError'
+        '503':
+          description: |
+            `not-configured`: the server has no Supabase URL (or its signing
+            keys could not be fetched), no Supabase publishable key, or no
+            valid Anthropic key.
+            `rate-limited`: the model API is rate-limiting the server (not the
+            caller's per-IP limit, which is `429`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatError'
+
+  /api/fetch-link:
+    post:
+      tags: [links]
+      operationId: postFetchLink
+      summary: Fetch a web page or document by URL for the browser to parse.
+      description: |
+        The server only fetches; the browser parses the returned bytes like an
+        upload. Only public `http`/`https` URLs on the default port are
+        fetched: no credentials in the URL, no private, loopback or
+        link-local addresses (every resolved address and every redirect hop is
+        re-checked), and no video sites.
+
+        Limits: request body at most 4 KiB (4,096 bytes); URL at most 2,048
+        characters; fetched body at most 5 MiB (5,242,880 bytes); at most 3
+        redirects; 8 seconds for the whole fetch; 10 requests per IP per 60
+        seconds.
+
+        The URL and the fetched bytes are never logged.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FetchLinkRequest'
+      responses:
+        '200':
+          description: |
+            The fetched body, unchanged, with the upstream `Content-Type`
+            (parameters such as `charset` kept). Allowed media types:
+            `application/pdf`, `text/html`, `application/xhtml+xml`,
+            `application/vnd.openxmlformats-officedocument.wordprocessingml.document`,
+            `text/plain`, `text/markdown`, `application/octet-stream`.
+          headers:
+            X-Final-Url:
+              description: The URL the bytes came from, after redirects.
+              schema:
+                type: string
+                format: uri
+            Content-Disposition:
+              description: |
+                `attachment; filename*=UTF-8''<name>`, a suggested file name
+                (RFC 8187). `attachment` stops a browser that navigates here
+                from rendering fetched HTML on the app's origin.
+              schema:
+                type: string
+          content:
+            application/pdf:
+              schema: { type: string, contentMediaType: application/pdf }
+            text/html:
+              schema: { type: string }
+            application/xhtml+xml:
+              schema: { type: string }
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                contentMediaType: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+            text/plain:
+              schema: { type: string }
+            text/markdown:
+              schema: { type: string }
+            application/octet-stream:
+              schema: { type: string, contentMediaType: application/octet-stream }
+        '400':
+          description: |
+            `invalid-url`: the body is not JSON, `url` is missing, empty or
+            over 2,048 characters, or the URL is not a usable public
+            `http`/`https` URL.
+            `video-not-supported`: the URL is on a video site.
+            `blocked-address`: the host is, or resolves to, a non-public
+            address.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FetchLinkFailure'
+        '401':
+          description: |
+            `unauthorized`: the `Authorization` header is missing, or the token
+            is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FetchLinkFailure'
+        '404':
+          description: |
+            Express only: `not-found` for any method other than POST. (This
+            body is not a `FetchLinkErrorCode`.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '405':
+          description: |
+            Netlify only: `method-not-allowed` for any method other than POST,
+            with `Allow: POST`. (This body is not a `FetchLinkErrorCode`.)
+          headers:
+            Allow:
+              schema:
+                type: string
+                const: POST
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '413':
+          description: |
+            `too-large`: the fetched body is over 5 MiB.
+            `invalid-url`: the request body itself is over 4 KiB.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FetchLinkFailure'
+        '415':
+          description: |
+            `unsupported-type`: the upstream `Content-Type` or
+            `Content-Encoding` is not one the browser can parse.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FetchLinkFailure'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          description: |
+            Express only: `internal`, an unhandled error. (This body is not a
+            `FetchLinkErrorCode`.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '502':
+          description: |
+            `unreachable`: DNS, connection or upstream error (any non-2xx
+            status other than those below), or an unexpected failure.
+            `too-many-redirects`: more than 3 redirects.
+            `login-or-paywall`: upstream answered 401, 403, 407 or 451.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FetchLinkFailure'
+        '503':
+          description: |
+            `not-configured`: the server has no Supabase URL, or its signing
+            keys could not be fetched.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FetchLinkFailure'
+        '504':
+          description: '`timeout`: the whole fetch took longer than 8 seconds.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FetchLinkFailure'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        A Supabase Auth access token for the signed-in user, verified against
+        the project's JWKS (`<SUPABASE_URL>/auth/v1/.well-known/jwks.json`).
+        The chat route also uses it to query Supabase as the user, so
+        row-level security scopes every row it reads.
+
+  responses:
+    RateLimited:
+      description: |
+        `rate-limited`: this IP passed the route's per-IP limit. Express sends
+        this JSON body with `RateLimit` and `RateLimit-Policy` headers;
+        Netlify's own limiter answers `429` before the function runs, and its
+        body may not be JSON, so clients should rely on the status.
+      headers:
+        RateLimit:
+          description: Express only (IETF draft 8).
+          schema: { type: string }
+        RateLimit-Policy:
+          description: Express only (IETF draft 8).
+          schema: { type: string }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          const: ok
+
+    ErrorBody:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    ChatError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          enum:
+            - invalid-json
+            - invalid-request
+            - unauthenticated
+            - not-found
+            - method-not-allowed
+            - too-large
+            - rate-limited
+            - internal
+            - materials-unavailable
+            - upstream-unreachable
+            - upstream-failed
+            - not-configured
+        issues:
+          description: Only with `invalid-request`.
+          type: array
+          items:
+            type: string
+
+    HistoryTurn:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          description: |
+            Any length is accepted; turns over 8,000 characters are cut to
+            8,000 and end with `…`.
+          type: string
+
+    ChatRequest:
+      description: |
+        Mirrors `chatRequest` in `server/chat/chat-request.ts`. Unknown
+        properties are ignored.
+      type: object
+      required: [question, materialIds]
+      properties:
+        question:
+          description: |
+            Trimmed before checking: 1 to 2,000 characters after trimming, so
+            a whitespace-only question is rejected.
+          type: string
+          minLength: 1
+          maxLength: 2000
+          pattern: '\S'
+        materialIds:
+          description: |
+            Ids of the learner's materials the answer may draw on. Duplicates
+            are dropped. An empty list returns a "not covered" reply without
+            touching the database.
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            minLength: 1
+            maxLength: 200
+        history:
+          description: |
+            The conversation so far, oldest first. Up to 500 turns are
+            accepted; only the most recent 20 are used.
+          type: array
+          maxItems: 500
+          default: []
+          items:
+            $ref: '#/components/schemas/HistoryTurn'
+      examples:
+        - question: What is photosynthesis?
+          materialIds: [doc-1]
+          history: []
+
+    Source:
+      description: Where a passage sits in its document.
+      oneOf:
+        - type: object
+          required: [type, page]
+          properties:
+            type: { const: page }
+            page: { type: integer }
+        - type: object
+          required: [type, paragraph]
+          properties:
+            type: { const: paragraph }
+            paragraph: { type: integer }
+        - type: object
+          required: [type, startLine, endLine]
+          properties:
+            type: { const: line }
+            startLine: { type: integer }
+            endLine: { type: integer }
+
+    ChunkRef:
+      type: object
+      required: [documentId, chunkId]
+      properties:
+        documentId:
+          type: string
+        chunkId:
+          description: '`<documentId>:<index>`.'
+          type: string
+
+    CitedPassage:
+      type: object
+      required: [documentId, chunkId, text, source, documentName]
+      properties:
+        documentId:
+          type: string
+        chunkId:
+          type: string
+        text:
+          type: string
+        source:
+          $ref: '#/components/schemas/Source'
+        documentName:
+          type: string
+
+    ChatReply:
+      description: |
+        `passages` holds exactly the cited passages, one per citation. When
+        `answerable` is false, `citations` and `passages` are empty.
+      type: object
+      required: [answer, citations, answerable, passages]
+      properties:
+        answer:
+          type: string
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChunkRef'
+        answerable:
+          type: boolean
+        passages:
+          type: array
+          items:
+            $ref: '#/components/schemas/CitedPassage'
+
+    FetchLinkRequest:
+      description: |
+        Mirrors `fetchLinkRequest` in `server/link/handle-fetch-link.ts`.
+        Unknown properties are ignored.
+      type: object
+      required: [url]
+      properties:
+        url:
+          description: |
+            Trimmed before checking: 1 to 2,048 characters after trimming.
+            The URL itself is then checked by `validateUrl`; a bad one is
+            `400 invalid-url`.
+          type: string
+          minLength: 1
+          maxLength: 2048
+          pattern: '\S'
+      examples:
+        - url: https://en.wikipedia.org/wiki/Photosynthesis
+
+    FetchLinkFailure:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          enum:
+            - invalid-url
+            - video-not-supported
+            - blocked-address
+            - unreachable
+            - timeout
+            - too-many-redirects
+            - login-or-paywall
+            - unsupported-type
+            - too-large
+            - rate-limited
+            - unauthorized
+            - not-configured
