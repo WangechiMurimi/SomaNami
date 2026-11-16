@@ -7,12 +7,11 @@ import {
   useLeaveDevice,
 } from '../../features/sync/use-leave-device.ts'
 import { useOnline } from '../../lib/connectivity/use-online.ts'
-import { H2 } from '../page-heading.ts'
+import { CARD, CARD_TITLE, DESTRUCTIVE, SECONDARY } from './account-ui.ts'
 
-const BUTTON =
-  'inline-flex min-h-11 flex-none items-center justify-center rounded-[10px] border px-[18px] py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60'
-const SECONDARY = `${BUTTON} border-edge text-fg hover:bg-tint`
-const DESTRUCTIVE = `${BUTTON} border-warn text-warn hover:bg-warn-soft`
+// Shown beside a disabled action, so the reason is never missing.
+const UNREACHABLE =
+  ' We can’t reach SomaNami right now, so this is unavailable.'
 
 function Row({
   title,
@@ -53,11 +52,11 @@ export default function SessionsSection() {
   }
 
   return (
-    <section aria-labelledby="account-sessions">
-      <h2 id="account-sessions" className={H2}>
+    <section aria-labelledby="account-sessions" className={CARD}>
+      <h2 id="account-sessions" className={CARD_TITLE}>
         Sign out
       </h2>
-      <ul className="mt-5 divide-y divide-line rounded-xl border border-line bg-surface p-5 md:p-6">
+      <ul className="divide-y divide-line">
         <Row
           title="This device"
           action={
@@ -71,16 +70,15 @@ export default function SessionsSection() {
             </button>
           }
         >
-          Saves your changes to your account, then removes your materials from
-          this device. They come back the next time you sign in.
+          Your materials and chats are kept for the next time you sign in.
         </Row>
         <Row
           title="Every device"
           action={
             <button
               type="button"
-              // Offline, the other devices can't be reached, and Supabase would
-              // quietly sign out only this one.
+              // Unreachable, the other devices can't be signed out, and
+              // Supabase would quietly sign out only this one.
               disabled={busy || !online}
               onClick={() => void leave('global')}
               className={SECONDARY}
@@ -89,9 +87,9 @@ export default function SessionsSection() {
             </button>
           }
         >
-          For a device you no longer use or have lost. Other devices sign out
-          the next time they’re online.
-          {!online && ' Connect to the internet to use this.'}
+          For a device you no longer use or have lost. Other devices are signed
+          out the next time they use SomaNami.
+          {!online && UNREACHABLE}
         </Row>
         <Row
           title="Your materials"
@@ -108,17 +106,17 @@ export default function SessionsSection() {
         >
           Deletes every material, chat and uploaded file from your SomaNami
           account and from all your devices, then signs you out.
-          {!online && ' Connect to the internet to use this.'}
+          {!online && UNREACHABLE}
         </Row>
       </ul>
 
       {!confirmingErase && problem && !erasing && (
-        <p role="alert" className="mt-3 text-sm text-warn">
+        <p role="alert" className="text-sm text-warn">
           {LEAVE_MESSAGES[problem]}
         </p>
       )}
       {!confirmingErase && waitingForTabs && (
-        <p role="status" className="mt-3 text-sm text-muted">
+        <p role="status" className="text-sm text-muted">
           {OTHER_TABS_MESSAGE}
         </p>
       )}

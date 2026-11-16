@@ -15,8 +15,10 @@ import { setSupabaseClient } from './lib/auth/supabase-client.ts'
 import {
   createConversation,
   createMemoryAdapter,
+  createWorkspace,
   DEFAULT_WORKSPACE,
   saveDocument,
+  setConversationSaved,
   setStorageAdapter,
 } from './lib/storage/index.ts'
 import type { StorageAdapter } from './lib/storage/index.ts'
@@ -49,7 +51,11 @@ beforeEach(() => {
   window.history.pushState({}, '', '/')
 })
 
-afterEach(() => setSupabaseClient(undefined))
+afterEach(() => {
+  setSupabaseClient(undefined)
+  // The sidebar remembers its collapsed state in localStorage.
+  localStorage.clear()
+})
 
 /** Renders the app and waits for the saved session to be restored. */
 async function renderApp() {
@@ -78,17 +84,17 @@ describe('document upload', () => {
     expect(input()).toHaveAttribute('accept', '.pdf,.docx,.txt,.md,.html,.htm')
   })
 
-  it('shows a ready state with passage count after a valid upload', async () => {
+  it('shows an added state after a valid upload', async () => {
     await renderApp()
     const file = new File(['first\n\nsecond'], 'class-notes.txt', {
       type: 'text/plain',
     })
     await userEvent.upload(input(), file)
 
-    expect(await screen.findByText('✓ Ready to explore')).toBeInTheDocument()
+    expect(await screen.findByText('✓ Added')).toBeInTheDocument()
     // The library table lists it too; check the upload's own status.
     expect(uploadRegion().getByText('class-notes.txt')).toBeInTheDocument()
-    expect(screen.getByText(/2 passages indexed/)).toBeInTheDocument()
+    expect(uploadRegion().getByText(/^Text · /)).toBeInTheDocument()
   })
 
   it('shows the file name while it is being processed', async () => {
@@ -103,7 +109,7 @@ describe('document upload', () => {
     expect(input()).toBeDisabled()
 
     finish(parsedPdf)
-    expect(await screen.findByText('✓ Ready to explore')).toBeInTheDocument()
+    expect(await screen.findByText('✓ Added')).toBeInTheDocument()
     expect(screen.getByText(/PDF · 1 pages/)).toBeInTheDocument()
   })
 
@@ -141,7 +147,7 @@ describe('document upload', () => {
 
     // No refresh or dismiss needed: choosing another file replaces the error.
     await userEvent.upload(input(), new File(['notes'], 'notes.txt'))
-    expect(await screen.findByText('✓ Ready to explore')).toBeInTheDocument()
+    expect(await screen.findByText('✓ Added')).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
@@ -174,7 +180,7 @@ describe('document upload', () => {
     expect(alert).toHaveTextContent('Couldn’t process')
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
 
-    expect(await screen.findByText('✓ Ready to explore')).toBeInTheDocument()
+    expect(await screen.findByText('✓ Added')).toBeInTheDocument()
     expect(parsePdf).toHaveBeenCalledTimes(2)
   })
 
@@ -182,10 +188,8 @@ describe('document upload', () => {
     await renderApp()
     await userEvent.upload(input(), new File([DOCX_FIXTURE], 'ball.docx'))
 
-    expect(await screen.findByText('✓ Ready to explore')).toBeInTheDocument()
-    expect(
-      screen.getByText(/DOCX · 1 KB · 2 passages indexed/),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('✓ Added')).toBeInTheDocument()
+    expect(screen.getByText(/DOCX · 1 KB/)).toBeInTheDocument()
   })
 
   it('does not offer Try again for a damaged file', async () => {
@@ -215,7 +219,7 @@ describe('document upload', () => {
       await screen.findByRole('button', { name: 'Dismiss' }),
     )
 
-    expect(screen.queryByText('✓ Ready to explore')).not.toBeInTheDocument()
+    expect(screen.queryByText('✓ Added')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /My library/ })).toHaveTextContent(
       '1',
     )
@@ -248,11 +252,14 @@ describe('asking about a document', () => {
 
   afterEach(() => vi.restoreAllMocks())
 
-  /** Uploads a file, then follows "Ask about this" into its chat. */
+  /** Uploads a file, then clicks it in the library to start a chat. */
   const uploadAndOpen = async (file: File) => {
     await userEvent.upload(input(), file)
+    const table = await screen.findByRole('table', { name: 'Your materials' })
     await userEvent.click(
-      await screen.findByRole('link', { name: 'Ask about this' }),
+      await within(table).findByRole('button', {
+        name: new RegExp(`^${file.name.replace('.', '\\.')}`),
+      }),
     )
   }
 
@@ -343,25 +350,17 @@ describe('asking about a document', () => {
     await uploadAndOpen(
       new File(['Photosynthesis happens in chloroplasts.'], 'plants.txt'),
     )
-    // A new chat about the new material starts empty, with only it chosen.
-    const picker = within(
-      await screen.findByRole('group', { name: 'Materials for this chat' }),
-    )
-    expect(picker.getByRole('button', { name: 'plants.txt' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
-    expect(picker.getByRole('button', { name: 'biology.txt' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
+    // A new chat about the new material starts empty.
+    await screen.findByLabelText(
+      /^Ask (a question|a follow-up) about your materials$/,
     )
     expect(screen.queryByText('They produce ATP.')).not.toBeInTheDocument()
 
     // The earlier chat is still there to continue.
     await userEvent.click(
-      within(screen.getByRole('region', { name: 'Recent chats' })).getByRole(
+      within(screen.getByRole('region', { name: 'Recents' })).getByRole(
         'link',
-        { name: 'What do mitochondria produce?' },
+        { name: /biology\.txt|What do mitochondria produce\?/ },
       ),
     )
     expect(await screen.findByText('They produce ATP.')).toBeInTheDocument()
@@ -426,14 +425,14 @@ describe('app shell and navigation', () => {
     startInLibrary()
     await renderApp()
     await userEvent.upload(input(), new File(['one\n\ntwo'], 'notes.txt'))
-    await screen.findByText('✓ Ready to explore')
+    await screen.findByText('✓ Added')
 
     await userEvent.click(screen.getByRole('link', { name: /My library/ }))
 
     const table = await screen.findByRole('table', { name: 'Your materials' })
     const row = within(table).getByRole('row', { name: /notes\.txt/ })
     expect(row).toHaveTextContent('Text')
-    expect(row).toHaveTextContent('My materials')
+    expect(row).toHaveTextContent('Not in a workspace')
   })
 
   it('explains an empty library', async () => {
@@ -478,12 +477,54 @@ describe('app shell and navigation', () => {
     expect(open).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('shows whether the device is online', async () => {
+  it('shows no connection status anywhere', async () => {
     await renderApp()
 
+    expect(screen.queryByText(/offline|online/i)).toBeNull()
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('collapses the sidebar to an icon rail and back', async () => {
+    await renderApp()
+    const toggle = screen.getByRole('button', { name: 'Collapse sidebar' })
+
+    await userEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(toggle).toHaveAccessibleName('Expand sidebar')
+    expect(screen.getByRole('complementary', { name: 'Sidebar' })).toHaveClass(
+      'w-20',
+    )
+    // Icons only, but every destination keeps its name and a tooltip.
+    const nav = within(screen.getByRole('navigation', { name: 'Main' }))
+    expect(nav.getByRole('link', { name: 'Workspaces' })).toHaveAttribute(
+      'title',
+      'Workspaces',
+    )
     expect(
-      screen.getByRole('region', { name: 'On this device' }),
-    ).toHaveTextContent('Online')
+      nav.getByRole('link', { name: 'My library, 0 materials' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'New workspace' })).toHaveAttribute(
+      'title',
+      'New workspace',
+    )
+    expect(screen.queryByRole('region', { name: 'Recents' })).toBeNull()
+
+    await userEvent.click(toggle)
+    expect(toggle).toHaveAccessibleName('Collapse sidebar')
+    expect(screen.getByRole('region', { name: 'Recents' })).toBeInTheDocument()
+  })
+
+  it('remembers a collapsed sidebar the next time the app opens', async () => {
+    const first = await renderApp()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Collapse sidebar' }),
+    )
+    first.unmount()
+
+    await renderApp()
+    expect(
+      screen.getByRole('button', { name: 'Expand sidebar' }),
+    ).toBeInTheDocument()
   })
 
   it('links to every screen from the sidebar', async () => {
@@ -511,8 +552,39 @@ describe('app shell and navigation', () => {
     await renderApp()
 
     expect(
-      await screen.findByText('Chats you start will appear here.'),
+      await screen.findByText('Chats you start from Home will appear here.'),
     ).toBeInTheDocument()
+  })
+
+  it('lists only loose chats under Recents, never a workspace’s chats', async () => {
+    await saveCells()
+    await chatAbout('doc-1', 'Loose question?')
+    const workspace = await createWorkspace({ name: 'Biology' })
+    await saveDocument(
+      {
+        id: 'doc-2',
+        name: 'Genes.txt',
+        size: 10,
+        kind: 'text',
+        pageCount: null,
+        chunks: [],
+      },
+      workspace.id,
+    )
+    await createConversation({
+      workspaceId: workspace.id,
+      materialIds: ['doc-2'],
+      title: 'Workspace question?',
+    })
+    await renderApp()
+
+    const recents = within(screen.getByRole('region', { name: 'Recents' }))
+    expect(
+      await recents.findByRole('link', { name: 'Loose question?' }),
+    ).toBeInTheDocument()
+    expect(
+      recents.queryByRole('link', { name: 'Workspace question?' }),
+    ).toBeNull()
   })
 
   it('lists recent chats, newest first, and opens one', async () => {
@@ -525,7 +597,7 @@ describe('app shell and navigation', () => {
     now.mockRestore()
     await renderApp()
 
-    const recent = within(screen.getByRole('region', { name: 'Recent chats' }))
+    const recent = within(screen.getByRole('region', { name: 'Recents' }))
     const links = await recent.findAllByRole('link', { name: /\?$/ })
     expect(links.map((link) => link.textContent)).toEqual([
       'Why mitosis?',
@@ -538,16 +610,17 @@ describe('app shell and navigation', () => {
     ).toBeInTheDocument()
   })
 
-  it('lists saved conversations with their material', async () => {
+  it('lists saved conversations with where they live', async () => {
     await saveCells()
-    await chatAbout('doc-1', 'Old question')
+    const chat = await chatAbout('doc-1', 'Old question')
+    await setConversationSaved(chat.id, true)
     window.history.pushState({}, '', '/conversations')
     await renderApp()
 
     const item = await within(screen.getByRole('main')).findByRole('link', {
-      name: /Old question/,
+      name: 'Old question',
     })
-    expect(item).toHaveTextContent('Cells.txt')
+    expect(item.closest('li')).toHaveTextContent('Recents')
   })
 
   it('opens the help page from the top bar', async () => {

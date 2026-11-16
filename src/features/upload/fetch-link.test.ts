@@ -144,6 +144,16 @@ describe('fetchLink', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('offers a retry when the session can’t refresh for lack of network', async () => {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    fakeSupabase({ current: null })
+    const fetchMock = mockFetch()
+    const error = await rejection(fetchLink('https://example.org/a'))
+    expect(error).toMatchObject({ code: 'offline', retryable: true })
+    expect(error.message).toMatch(/Check your connection and try again/)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it.each([
     ['too-large', 413, 'validation', false, /over 5 MB.*upload it instead/],
     ['video-not-supported', 400, 'validation', false, /Video links/],

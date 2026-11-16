@@ -1,6 +1,5 @@
 import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useOnline } from '../../lib/connectivity/use-online.ts'
 import { normalizeLink } from './fetch-link.ts'
 
 const FIELD =
@@ -21,7 +20,6 @@ export default function AddLinkForm({
   disabled?: boolean
 }) {
   const id = useId()
-  const online = useOnline()
   const [value, setValue] = useState('')
   const [error, setError] = useState<string | null>(null)
 
@@ -41,12 +39,7 @@ export default function AddLinkForm({
     setError(null)
   }
 
-  // US-07 AC3: say up front that this needs a connection, rather than fail.
-  const describedBy = [
-    `${id}-hint`,
-    error && `${id}-error`,
-    !online && `${id}-offline`,
-  ]
+  const describedBy = [`${id}-hint`, error && `${id}-error`]
     .filter(Boolean)
     .join(' ')
 
@@ -85,16 +78,11 @@ export default function AddLinkForm({
             {error}
           </p>
         )}
-        {!online && (
-          <p id={`${id}-offline`} className="text-sm text-warn">
-            Adding a link needs an internet connection.
-          </p>
-        )}
       </div>
       <div className="flex flex-wrap gap-3">
         <button
           type="submit"
-          disabled={disabled || !online}
+          disabled={disabled}
           className="inline-flex h-11 items-center rounded-[10px] bg-accent px-[18px] text-sm font-medium text-on-accent disabled:opacity-50"
         >
           Add link

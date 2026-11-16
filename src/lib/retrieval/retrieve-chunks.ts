@@ -55,15 +55,26 @@ function inverseDocumentFrequency(
   )
 }
 
+export interface RetrieveOptions {
+  limit?: number
+  /**
+   * When false, the relevance floors are skipped and any chunk sharing a term
+   * with the query is ranked. For callers that hand the ranking to a model able
+   * to judge relevance itself, where a weak passage costs little and a missing
+   * one costs the answer.
+   */
+  strict?: boolean
+}
+
 /**
  * Ranks the chunks of `documents` against a natural-language `query` with BM25,
  * returning at most `limit` hits by descending score, or `[]` when none of them
- * clears the relevance floor.
+ * clears the relevance floor (or, when not `strict`, matches any term).
  */
 export function retrieveChunks(
   query: string,
   documents: readonly IndexableDocument[],
-  { limit = DEFAULT_LIMIT }: { limit?: number } = {},
+  { limit = DEFAULT_LIMIT, strict = true }: RetrieveOptions = {},
 ): RetrievedPassage[] {
   if (!Array.isArray(documents) || documents.length === 0) return []
   if (!Number.isFinite(limit) || limit < 1) return []
@@ -106,7 +117,12 @@ export function retrieveChunks(
     }
 
     const relevance = score / maxScore
-    if (matched < requiredMatches || relevance < MIN_RELEVANCE_RATIO) continue
+    if (matched === 0) continue
+    if (
+      strict &&
+      (matched < requiredMatches || relevance < MIN_RELEVANCE_RATIO)
+    )
+      continue
     hits.push({
       documentId: posting.documentId,
       chunkId: posting.chunkId,

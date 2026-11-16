@@ -1,4 +1,4 @@
-import { getAccessToken } from '../../lib/auth/access-token.ts'
+import { getAccessToken, isOffline } from '../../lib/auth/access-token.ts'
 import {
   FINAL_URL_HEADER,
   type FetchLinkErrorCode,
@@ -160,13 +160,16 @@ async function post(url: string, token: string): Promise<Response> {
       body: JSON.stringify({ url }),
     })
   } catch (cause) {
-    throw new UploadError(
-      'offline',
-      'We couldn’t reach SomaNami. Check your connection and try again.',
-      { retryable: true, cause },
-    )
+    throw unreachable(cause)
   }
 }
+
+const unreachable = (cause?: unknown) =>
+  new UploadError(
+    'offline',
+    'We couldn’t reach SomaNami. Check your connection and try again.',
+    { retryable: true, cause },
+  )
 
 async function failureFrom(response: Response): Promise<UploadError> {
   let code: unknown
@@ -202,7 +205,7 @@ export interface FetchedLink {
  */
 export async function fetchLink(url: string): Promise<FetchedLink> {
   const token = await getAccessToken()
-  if (!token) throw failure('unauthorized')
+  if (!token) throw isOffline() ? unreachable() : failure('unauthorized')
 
   let response = await post(url, token)
   if (response.status === 401) {

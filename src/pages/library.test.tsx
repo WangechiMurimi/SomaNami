@@ -6,6 +6,7 @@ import {
   createConversation,
   createMemoryAdapter,
   createWorkspace,
+  DEFAULT_WORKSPACE,
   getConversation,
   getDocument,
   listWorkspaceDocuments,
@@ -42,6 +43,27 @@ beforeEach(async () => {
 const table = () => screen.findByRole('table', { name: 'Your materials' })
 
 describe('Library', () => {
+  it('names the page in the top bar’s breadcrumb', async () => {
+    await renderSignedInApp()
+    const trail = await screen.findByRole('navigation', { name: 'Breadcrumb' })
+    await within(trail).findByText('My library')
+  })
+
+  it('offers the real file types as filters', async () => {
+    await renderSignedInApp()
+    await table()
+    const filters = within(
+      screen.getByRole('group', { name: 'Filter by type' }),
+    )
+    expect(filters.getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'All',
+      'PDF',
+      'Word',
+      'Text',
+      'Web',
+    ])
+  })
+
   it('shows each material’s type and workspace', async () => {
     await renderSignedInApp()
 
@@ -51,12 +73,85 @@ describe('Library', () => {
       'href',
       `/workspaces/${biology.id}`,
     )
-    expect(
-      within(row).getByRole('link', { name: 'Ask about this: cells.pdf' }),
-    ).toHaveAttribute(
-      'href',
-      `/workspaces/${biology.id}/chats/new?material=cells`,
+    expect(screen.queryByText(/Ask about this/)).not.toBeInTheDocument()
+  })
+
+  it('never names the default workspace', async () => {
+    await material('loose', 'text', DEFAULT_WORKSPACE.id)
+    await renderSignedInApp()
+
+    const row = within(await table()).getByRole('row', { name: /loose\.text/ })
+    expect(row).toHaveTextContent('Not in a workspace')
+    expect(row).not.toHaveTextContent(DEFAULT_WORKSPACE.name)
+    const options = within(screen.getByLabelText('Add to workspace'))
+      .getAllByRole('option')
+      .map((option) => option.textContent)
+    expect(options).toEqual(['No workspace', 'Biology'])
+  })
+
+  it('starts a chat with a file when it is clicked', async () => {
+    await renderSignedInApp()
+
+    await userEvent.click(
+      within(await table()).getByRole('button', { name: /^cells\.pdf/ }),
     )
+
+    await vi.waitFor(() =>
+      expect(window.location.pathname).toMatch(/^\/chats\/./),
+    )
+    const id = window.location.pathname.split('/').pop()!
+    expect(await getConversation(id)).toMatchObject({
+      workspaceId: DEFAULT_WORKSPACE.id,
+      materialIds: ['cells'],
+      title: 'cells.pdf',
+    })
+  })
+
+  it('starts a chat when the row itself is clicked', async () => {
+    await renderSignedInApp()
+
+    const row = within(await table()).getByRole('row', { name: /notes\.text/ })
+    await userEvent.click(within(row).getByText('Text'))
+
+    await vi.waitFor(() =>
+      expect(window.location.pathname).toMatch(/^\/chats\/./),
+    )
+  })
+
+  it('searches conversations and file names, grouped', async () => {
+    await createConversation({
+      workspaceId: biology.id,
+      materialIds: ['cells'],
+      title: 'How do cells divide?',
+    })
+    await createConversation({
+      workspaceId: biology.id,
+      materialIds: ['notes'],
+      title: 'Photosynthesis',
+    })
+    await renderSignedInApp()
+    await table()
+
+    const search = screen.getByRole('searchbox', {
+      name: 'Search your library',
+    })
+    await userEvent.type(search, 'cell')
+
+    const conversations = within(
+      screen.getByRole('region', { name: 'Conversations' }),
+    )
+    expect(
+      conversations.getByRole('link', { name: /How do cells divide\?/ }),
+    ).toHaveTextContent('Biology')
+    expect(conversations.queryByText('Photosynthesis')).not.toBeInTheDocument()
+    const files = within(screen.getByRole('region', { name: 'Files' }))
+    expect(files.getAllByRole('row')).toHaveLength(2) // header + cells
+    expect(files.getByRole('row', { name: /cells\.pdf/ })).toBeInTheDocument()
+
+    await userEvent.clear(search)
+    await userEvent.type(search, 'zzz')
+    expect(screen.getByText('No conversations match.')).toBeInTheDocument()
+    expect(screen.getByText('No files match.')).toBeInTheDocument()
   })
 
   it('filters by type and says how many are shown', async () => {
@@ -89,7 +184,7 @@ describe('Library', () => {
       screen.getByLabelText('Upload a document'),
       new File(['Ribosomes make proteins.'], 'ribosomes.txt'),
     )
-    await screen.findByText('✓ Ready to explore')
+    await screen.findByText('✓ Added')
 
     expect(
       (await listWorkspaceDocuments(biology.id)).map(({ name }) => name),
@@ -204,9 +299,11 @@ describe('Removing a material (US-08 AC5)', () => {
 
     expect(
       await screen.findByText(
-        '‘cells.pdf’ was deleted from this device. It will be erased from your account the next time you’re online.',
+        '‘cells.pdf’ is removed from your library. We couldn’t reach SomaNami to erase it from your account yet; we’ll finish as soon as we can.',
       ),
     ).toBeInTheDocument()
+    expect(screen.queryByText('‘cells.pdf’ deleted')).toBeNull()
+    expect(screen.queryByText(/this device|online/)).toBeNull()
     expect(await getDocument('cells')).toBeUndefined()
   })
 })

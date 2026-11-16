@@ -14,6 +14,10 @@ export default defineConfig([
     '.netlify',
     '.claude/worktrees',
     '**/.venv',
+    // Playwright output.
+    'test-results',
+    'playwright-report',
+    'blob-report',
   ]),
   {
     files: ['**/*.{ts,tsx}'],
@@ -25,7 +29,12 @@ export default defineConfig([
     languageOptions: { globals: globals.browser },
   },
   {
-    files: ['server/**/*.ts', 'netlify/**/*.ts', '*.config.{js,ts}'],
+    files: [
+      'server/**/*.ts',
+      'netlify/**/*.ts',
+      'tests/e2e/**/*.ts',
+      '*.config.{js,ts}',
+    ],
     languageOptions: { globals: globals.node },
   },
   {

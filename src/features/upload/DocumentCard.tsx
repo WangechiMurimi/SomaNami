@@ -5,7 +5,7 @@ import type { UploadState } from './use-document-upload.ts'
 const BADGE = {
   processing: { text: 'Reading your document…', style: 'bg-tint text-accent' },
   fetching: { text: 'Fetching the link…', style: 'bg-tint text-accent' },
-  ready: { text: '✓ Ready to explore', style: 'bg-success-soft text-success' },
+  ready: { text: '✓ Added', style: 'bg-success-soft text-success' },
   // Rejected before parsing: the file itself is the problem.
   invalid: { text: 'Can’t use this file', style: 'bg-warn-soft text-warn' },
   // Accepted, but reading it failed.
@@ -26,11 +26,10 @@ function describe(state: UploadState): string | null {
   const { document } = state
   const kind = KIND_LABEL[document.kind]
   const pages = document.pageCount ? ` · ${document.pageCount} pages` : ''
-  const passages = document.chunks.length
   const from = document.sourceUrl
     ? ` · from ${new URL(document.sourceUrl).hostname}`
     : ''
-  return `${kind}${pages} · ${formatSize(document.size)} · ${passages} ${passages === 1 ? 'passage' : 'passages'} indexed${from}`
+  return `${kind}${pages} · ${formatSize(document.size)}${from}`
 }
 
 type DocumentCardProps = UploadState & {

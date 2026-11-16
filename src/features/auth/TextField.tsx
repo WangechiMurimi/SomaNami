@@ -18,6 +18,8 @@ interface TextFieldProps extends Omit<
   error?: string
   /** Extra control drawn inside the input's row, e.g. show/hide. */
   trailing?: ReactNode
+  /** Content under the input, aligned left, e.g. "Forgot your password?". */
+  below?: ReactNode
 }
 
 /** A labelled input whose hint and error are announced with it. */
@@ -27,6 +29,7 @@ export default function TextField({
   hint,
   error,
   trailing,
+  below,
   ...input
 }: TextFieldProps) {
   const describedBy =
@@ -42,11 +45,11 @@ export default function TextField({
           id={id}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
-          className={`${INPUT} ${error ? INPUT_ERROR : INPUT_OK} ${trailing ? 'pr-20' : ''}`}
+          className={`${INPUT} ${error ? INPUT_ERROR : INPUT_OK} ${trailing ? 'pr-14' : ''}`}
           {...input}
         />
         {trailing && (
-          <div className="absolute inset-y-0 right-1 mt-1.5 flex items-center">
+          <div className="absolute inset-y-0 right-1 mt-2 flex items-center">
             {trailing}
           </div>
         )}
@@ -61,6 +64,7 @@ export default function TextField({
           {error}
         </p>
       )}
+      {below}
     </div>
   )
 }

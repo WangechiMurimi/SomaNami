@@ -22,6 +22,10 @@ import {
   saveDocument,
   setStorageAdapter,
   subscribeToConversations,
+  listSavedConversations,
+  moveDocument,
+  setConversationSaved,
+  setWorkspacePinned,
   DEFAULT_WORKSPACE,
 } from './index.ts'
 import { ADAPTERS } from './test-adapters.ts'
@@ -190,6 +194,113 @@ describe.each(ADAPTERS)(
           }),
         ).rejects.toThrow(/not in workspace/)
         expect(await listWorkspaceConversations(biology.id)).toEqual([])
+      })
+
+      it('lets a loose chat use stored materials from any workspace', async () => {
+        const biology = await createWorkspace({ name: 'Biology' })
+        await saveDocument(makeDocument({ id: 'cell' }), biology.id)
+        await saveDocument(makeDocument({ id: 'loose' }))
+
+        const conversation = await createConversation({
+          workspaceId: DEFAULT_WORKSPACE.id,
+          materialIds: ['cell', 'loose'],
+        })
+
+        expect(conversation.materialIds).toEqual(['cell', 'loose'])
+        await expect(
+          createConversation({
+            workspaceId: DEFAULT_WORKSPACE.id,
+            materialIds: ['missing'],
+          }),
+        ).rejects.toThrow(/not in workspace/)
+      })
+
+      it('pins a workspace without changing its recency', async () => {
+        const workspace = await createWorkspace({ name: 'Biology' })
+
+        const pinned = await setWorkspacePinned(workspace.id, true)
+
+        expect(pinned).toEqual({ ...workspace, pinned: true })
+        expect(await getWorkspace(workspace.id)).toEqual(pinned)
+        await expect(setWorkspacePinned('missing', true)).rejects.toThrow()
+      })
+
+      it('moves a material, and chats in the workspace it leaves stop using it', async () => {
+        const biology = await createWorkspace({ name: 'Biology' })
+        const history = await createWorkspace({ name: 'History' })
+        await saveDocument(makeDocument({ id: 'cell' }), biology.id)
+        await saveDocument(makeDocument({ id: 'atom' }), biology.id)
+        const workspaceChat = await createConversation({
+          workspaceId: biology.id,
+          materialIds: ['cell', 'atom'],
+        })
+        const looseChat = await createConversation({
+          workspaceId: DEFAULT_WORKSPACE.id,
+          materialIds: ['cell'],
+        })
+
+        const moved = await moveDocument('cell', history.id)
+
+        expect(moved.workspaceId).toBe(history.id)
+        expect(
+          (await listWorkspaceDocuments(history.id)).map(({ id }) => id),
+        ).toEqual(['cell'])
+        expect((await getConversation(workspaceChat.id))?.materialIds).toEqual([
+          'atom',
+        ])
+        expect((await getConversation(looseChat.id))?.materialIds).toEqual([
+          'cell',
+        ])
+      })
+
+      it('removes a material from a workspace into the default one', async () => {
+        const biology = await createWorkspace({ name: 'Biology' })
+        await saveDocument(makeDocument({ id: 'cell' }), biology.id)
+
+        await moveDocument('cell', DEFAULT_WORKSPACE.id)
+
+        expect((await getDocument('cell'))?.workspaceId).toBe(
+          DEFAULT_WORKSPACE.id,
+        )
+        await expect(moveDocument('missing', biology.id)).rejects.toThrow()
+        await expect(moveDocument('cell', 'nowhere')).rejects.toThrow()
+      })
+
+      it('saves conversations from any workspace without reordering Recents', async () => {
+        const biology = await createWorkspace({ name: 'Biology' })
+        await saveDocument(makeDocument({ id: 'cell' }), biology.id)
+        await saveDocument(makeDocument({ id: 'loose' }))
+        const now = vi.spyOn(Date, 'now')
+        now.mockReturnValue(1000)
+        const workspaceChat = await createConversation({
+          workspaceId: biology.id,
+          materialIds: ['cell'],
+        })
+        now.mockReturnValue(2000)
+        const looseChat = await chat('loose')
+        now.mockReturnValue(3000)
+        await createConversation({
+          workspaceId: DEFAULT_WORKSPACE.id,
+          materialIds: ['loose'],
+        })
+        now.mockRestore()
+
+        await setConversationSaved(workspaceChat.id, true)
+        await setConversationSaved(looseChat.id, true)
+
+        expect((await listSavedConversations()).map(({ id }) => id)).toEqual([
+          looseChat.id,
+          workspaceChat.id,
+        ])
+        expect((await listRecentConversations()).at(-1)?.id).toBe(
+          workspaceChat.id,
+        )
+
+        await setConversationSaved(looseChat.id, false)
+        expect((await listSavedConversations()).map(({ id }) => id)).toEqual([
+          workspaceChat.id,
+        ])
+        await expect(setConversationSaved('missing', true)).rejects.toThrow()
       })
 
       it('deletes a workspace with its materials, conversations and messages', async () => {

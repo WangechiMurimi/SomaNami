@@ -7,8 +7,10 @@ update whichever is wrong in the same pull request.
 
 ## Principles
 
-- **Your materials, nothing else.** Every surface repeats that answers come only
-  from what the learner added ("Locked to your content").
+- **Your materials, nothing else.** Answers come only from the sources the
+  learner provided (uploads, pasted text, links). Say it lightly, at most once
+  per screen; never in titles or on every message. Make no privacy claims about
+  uploads and show no online/offline status: learners are treated as online.
 - **Calm and readable.** One accent on a warm neutral ground, generous spacing,
   Inter throughout.
 - **Accessible as drawn.** Text ≥ 4.5:1, interactive borders and focus rings
@@ -34,15 +36,16 @@ Defined in `src/index.css` as CSS variables and exposed to Tailwind as
 | `tag`        | `#ECE9F8` | `#2F2D48` | Topic tag background                       |
 | `tile`       | `#F3F1EA` | `#25242E` | "Ways of understanding" tiles              |
 | `success`    | `#2B7350` | `#7AD6A8` | Success text (on `success-soft` ≥ 4.9:1)   |
-| `online`     | `#2F8F5B` | `#5FC98C` | Online status dot (not for text)           |
 | `warn`       | `#9A3B26` | `#F2A58E` | Warnings, unanswerable replies (≥ 6:1)     |
 
 Soft backgrounds: `success-soft` `#E4F1E9` / `#1E3328`, `warn-soft` `#FBEDE8` /
-`#3A2420`.
+`#3A2420`. (The `online` status-dot token was removed with the connection
+status UI.)
 
-**Theme.** Follows the system until the learner picks one with the theme
-toggle; the choice is stored on the device (`somanami-theme`) and applied as
-`data-theme` on `<html>` before first paint.
+**Theme.** Light, Dark or System, chosen in Account settings (System is the
+default). A fixed choice is kept in the browser (`somanami-theme`) and applied
+as `data-theme` on `<html>` before first paint; System removes the attribute so
+the CSS media query follows the OS live.
 
 ## Type
 
@@ -50,7 +53,8 @@ Inter 400/500/600 for everything; Manjari 700 for the "SomaNami" wordmark only.
 
 | Role               | Size  | Weight | Line height | Notes          |
 | ------------------ | ----- | ------ | ----------- | -------------- |
-| Page title (H1)    | 45 px | 400    | 1.25        | −0.01em        |
+| Page title (H1)    | 40 px | 400    | 1.25        | −0.01em        |
+| Auth form title    | 32 px | 400    | 1.25        | −0.01em        |
 | Section title (H2) | 22 px | 400    | 1.4         |                |
 | Card title (H3)    | 20 px | 500    | 1.3         |                |
 | Body / lede        | 15 px | 400    | 1.6         | `muted`        |
@@ -69,24 +73,98 @@ The only shadow is the composer's soft glow.
 ## Screens
 
 Home · Workspaces · New workspace (2 steps: name and topic, add materials) ·
-Workspace · New chat (pick the materials the chat may use; Send disabled until
-one is picked) · Chat (answers with "From your materials" citations; replies
-the materials can't support are labelled "Not answered from your materials") ·
-Library (a real table with type filters).
+Workspace · New chat (pick the materials the chat may use) · Chat (answers with
+"From your materials" citations; replies the materials can't support are
+labelled "Not answered from your materials") · Library · Saved conversations ·
+Account settings · Help.
 
-**Auth screens (wireframes, ADR 0001).** Sign in · Create account · A few
-details (display name, "I'm 13 or older") · Forgot and new password · Signing
-you in (`/auth/callback`) · How your data is handled. "Continue with Google"
-comes first, then an "or use your email" rule and the email form. These
-screens are deliberately plain until the auth design is final: monochrome,
-square corners, the only fill on the primary action, through the tokens in
-`src/features/auth/auth-ui.ts`. They keep 48 px inputs, 44 px buttons, ≥ 3:1
-borders, visible focus and errors that don't rely on colour alone. Account
-shows the display name and email above the sign-out options.
+Chats are either **loose** (started from Home or the Library; they live in the
+hidden default workspace, appear under Recents and may use any material) or
+**workspace chats** (user-organised; they may use only that workspace's
+materials, US-08 AC3). Either kind can be saved.
 
-The persistent sidebar holds: New workspace, Home, Workspaces, My library,
-Saved conversations, Recent chats, an "On this device" status card, and the
-profile row.
+Screen details the code depends on:
+
+- **Home:** one composer. Files attach inside the input box: a ghost chip
+  while a file is read and saved, then a chip with its type icon and a remove
+  button (removing deletes the file it added). The question is typed in the
+  same box. On focus the gradient frame itself is the indicator: it shifts
+  to stronger colours (≥ 4.5:1 in both themes) and glows
+  (`.composer:focus-within`, the only shadow); the textarea draws no outline
+  of its own. Send needs a question and at least one ready file, and opens the
+  new loose chat directly, asking the question there.
+- **Workspaces:** the default workspace is never listed (`userWorkspaces()`);
+  pinned workspaces come first. The whole card opens the workspace; a
+  vertical-dots menu (visible on hover and keyboard focus, always on touch)
+  offers Open, Add sources, Remove sources, Rename, Pin/Unpin and Delete. Delete
+  confirms and says the workspace's chats and materials go with it. Removing a
+  source moves it out of the workspace; it stays in My library.
+- **Workspace:** content starts directly under a compact header (name, Add
+  sources, Remove sources). Chats (each with an "N sources" disclosure, Save
+  toggle and Continue) sit beside "Your materials"; a question asked from the
+  workspace uses only the ticked materials.
+- **Chat:** the header lists the chat's sources with type icons and has a
+  Save / Saved toggle (`aria-pressed`). Cited passages open in place from their
+  chip. Under the latest grounded answer, "Show another format" (Example,
+  Summary) asks a follow-up in the same chat; level and format settings need
+  server work (TODO #28, #40). A failed request shows "Couldn't get an answer.
+  Try again."; there is no offline state.
+- **Library:** a search field filters conversations and file names, grouped
+  under Conversations and Files. Type filters use the file types the app
+  records (All · PDF · Word · Text). Clicking a file starts a loose chat with
+  it.
+- **Saved conversations** (`/conversations`): saved chats from Recents and from
+  workspaces, each labelled with its workspace or "Recents", with Unsave, a
+  title search and a workspace filter.
+- **Account settings:** cards for Profile (display name from the profile,
+  with "Change your name", and the email) and Appearance (theme), then the
+  Sign out section: this device, every device, and Erase my materials. There
+  is no device or connection status.
+- **Help** (`/help`): six numbered topic cards (adding materials, asking and
+  following up, checking the source, workspaces, Recents, saving chats), a
+  panel explaining the "From your materials" and "Not answered from your
+  materials" labels. The lede carries the one grounding sentence.
+- **Terms of Use** (public `/terms`): a reading page. Anything the owner hasn't confirmed shows
+  as a visible `[CONFIRM: …]` placeholder. It does not name the development
+  model provider.
+
+The persistent sidebar (260 px, sticky to the viewport) holds: New workspace,
+Home, Workspaces, My library, Saved conversations, Recents, and the account
+menu. Recents lists loose chats only (conversations in the default workspace,
+`isLooseWorkspace`), newest first; chats in a workspace stay with it. The
+account row is a menu button (`aria-haspopup="menu"`) that opens Account
+settings and Log out; arrow keys move between items, and Escape, Tab or a click
+outside close it, with Escape returning focus to the button.
+
+On `md` and up the sidebar collapses to an 80 px icon rail: brand mark, New
+workspace, the four nav icons and the account avatar, each with an accessible
+name and a `title` tooltip; Recents is hidden. The choice persists in
+localStorage (`somanami-sidebar`, default expanded). Below `md` the sidebar is
+an overlay drawer and always shows in full. There is no offline notice or
+connection status anywhere.
+
+The top bar holds the sidebar toggle ("Collapse sidebar" / "Expand sidebar";
+a menu button below `md`), the page's breadcrumb trail (`useBreadcrumbs` in
+`src/app/breadcrumbs.ts`) and Help. The theme lives in Account settings; Log
+out is in the account menu and Account settings.
+
+**Auth screens.** Sign in ("Welcome back") · Create account · A few details
+(display name, "I'm 13 or older") · Forgot and new password · Signing you in
+(`/auth/callback`). They share one two-panel layout (`AuthLayout`): a brand
+panel on `side` with three feature rows, and a form column up to 420 px wide that comes first on
+phones and in the source order. An outlined "Continue with Google" button comes
+first, then an "or use your email" rule and the email form, with the taller
+`SUBMIT_BUTTON` as the strongest action. Classes live in
+`src/features/auth/auth-ui.ts`: 48 px inputs, 44 px buttons (48 px submit),
+≥ 3:1 borders, visible focus and errors that don't rely on colour alone. The
+restyle (#176) replaces the earlier plain wireframes (ADR 0001) as the auth
+design.
+
+Row 2 of the canvas holds the screens proposed after the first pass. Create
+account, Saved conversations, and Help are built from them, with
+copy rewritten so the one product claim is that answers come only from the
+sources the learner adds. Chat level/format controls and the remaining empty
+states are not built yet.
 
 ## Scope
 

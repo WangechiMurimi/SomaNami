@@ -13,6 +13,7 @@ import { SyncFlushError, useSync } from './sync-context.ts'
 export type LeaveProblem =
   | 'unsaved-offline'
   | 'unsaved-failed'
+  | 'global-offline'
   | 'erase-offline'
   | 'erase-failed'
   | 'clear-failed'
@@ -20,10 +21,13 @@ export type LeaveProblem =
 /** What each problem says; every one keeps the learner signed in. */
 export const LEAVE_MESSAGES: Record<LeaveProblem, string> = {
   'unsaved-offline':
-    'You have changes that haven’t saved yet. Connect to the internet to finish.',
+    'Some changes haven’t saved to your account yet, so you’re still signed in. Check your connection and try again.',
   'unsaved-failed':
     'We couldn’t save your latest changes, so you’re still signed in. Try again.',
-  'erase-offline': 'Connect to the internet to erase your materials.',
+  'global-offline':
+    'We couldn’t reach SomaNami, so you’re still signed in on every device. Check your connection and try again.',
+  'erase-offline':
+    'We couldn’t reach SomaNami, so nothing was erased and you’re still signed in. Check your connection and try again.',
   'erase-failed':
     'We couldn’t erase your materials, so nothing was removed and you’re still signed in. Try again.',
   'clear-failed':
@@ -85,6 +89,9 @@ export function useLeaveDevice() {
       } catch (error) {
         const offline =
           error instanceof SyncFlushError && error.reason === 'offline'
+        // Offline, Supabase can't reach the other devices and would quietly
+        // sign out only this one, so stop rather than claim it worked.
+        if (offline && scope === 'global') return stop('global-offline')
         // Offline with nothing waiting, there's nothing to lose.
         const unsaved = (await listOutbox().catch(() => [1])).length > 0
         if (unsaved) return stop(offline ? 'unsaved-offline' : 'unsaved-failed')

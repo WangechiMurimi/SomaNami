@@ -170,4 +170,22 @@ describe('retrieveChunks', () => {
       [],
     )
   })
+
+  describe('when not strict', () => {
+    it('keeps a passage the coverage floor would reject', () => {
+      const query = 'explain mitochondria using an everyday analogy please'
+      expect(retrieveChunks(query, [biology])).toEqual([])
+      expect(
+        retrieveChunks(query, [biology], { strict: false }).map(
+          (hit) => hit.chunkId,
+        ),
+      ).toEqual(['doc-biology:0'])
+    })
+
+    it('still returns nothing when no term matches', () => {
+      expect(
+        retrieveChunks('quantum chromodynamics', [biology], { strict: false }),
+      ).toEqual([])
+    })
+  })
 })

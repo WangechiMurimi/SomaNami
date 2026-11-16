@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import AuthLayout from '../features/auth/AuthLayout.tsx'
 import FormAlert from '../features/auth/FormAlert.tsx'
 import TextField from '../features/auth/TextField.tsx'
@@ -10,9 +10,11 @@ import {
   toAuthErrorCode,
 } from '../features/auth/auth-errors.ts'
 import {
+  AUTH_FOOTER,
   CHECKBOX,
+  CHECKBOX_ROW,
   FIELD_ERROR,
-  PRIMARY_BUTTON,
+  SUBMIT_BUTTON,
   TEXT_LINK,
 } from '../features/auth/auth-ui.ts'
 import { rememberCompletedProfile } from '../features/auth/completed-profile.ts'
@@ -123,7 +125,7 @@ export default function DetailsPage() {
         ref={formRef}
         noValidate
         onSubmit={handleSubmit}
-        className="flex flex-col gap-5"
+        className="flex flex-col gap-4"
       >
         {formError && <FormAlert>{formError}</FormAlert>}
         <TextField
@@ -137,7 +139,7 @@ export default function DetailsPage() {
           error={fieldErrors.displayName}
         />
         <div>
-          <div className="flex items-start gap-3">
+          <div className={CHECKBOX_ROW}>
             <input
               id="details-age"
               type="checkbox"
@@ -149,9 +151,7 @@ export default function DetailsPage() {
               }
               className={CHECKBOX}
             />
-            <label htmlFor="details-age" className="text-[15px] leading-[1.5]">
-              I’m 13 or older
-            </label>
+            <label htmlFor="details-age">I’m 13 or older</label>
           </div>
           {fieldErrors.age && (
             <p id="details-age-error" className={FIELD_ERROR}>
@@ -159,16 +159,15 @@ export default function DetailsPage() {
             </p>
           )}
         </div>
-        <button type="submit" disabled={submitting} className={PRIMARY_BUTTON}>
+        <button
+          type="submit"
+          disabled={submitting}
+          className={`${SUBMIT_BUTTON} mt-2`}
+        >
           {submitting ? 'Saving…' : 'Continue'}
         </button>
       </form>
-      <p className="mt-8 text-[15px] text-muted">
-        <Link to="/your-data" className={TEXT_LINK}>
-          How your data is handled
-        </Link>
-      </p>
-      <p className="mt-3 text-[15px] text-muted">
+      <p className={AUTH_FOOTER}>
         Not you?{' '}
         <button
           type="button"
