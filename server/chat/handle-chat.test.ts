@@ -1,11 +1,12 @@
 // @vitest-environment node
-import Anthropic from '@anthropic-ai/sdk'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ChatRequest } from '../../src/types/contracts.ts'
 import type { Authenticate, AuthFailure } from '../auth/types.ts'
-import type { Answerer, ModelAnswer } from '../llm/claude-answerer.ts'
+import { UpstreamError } from '../llm/answerer.ts'
+import type { Answerer, ModelAnswer } from '../llm/answerer.ts'
 import {
   handleChat,
+  MIN_ANSWER_SCORE,
   NO_PASSAGES_ANSWER,
   REFUSAL_ANSWER,
 } from './handle-chat.ts'
@@ -228,22 +229,25 @@ describe('handleChat', () => {
     })
   })
 
-  it('does not present an answer as grounded when none of its citations are real', async () => {
-    const answer = answering({
-      answer: 'Confident but unsupported.',
-      answerable: true,
-      citations: ['made-up'],
-    })
+  it.each([
+    ['none of its citations are real', ['made-up']],
+    ['it cites nothing', []],
+  ])(
+    'treats an answer claimed as grounded as unanswerable when %s, without showing its text',
+    async (_label, citations) => {
+      const answer = answering({
+        answer: 'Confident but unsupported.',
+        answerable: true,
+        citations,
+      })
 
-    const result = await handleChat(request(), { answer, ...signedIn() })
+      const result = await handleChat(request(), { answer, ...signedIn() })
 
-    expect(result.body).toEqual({
-      answer: 'Confident but unsupported.',
-      answerable: false,
-      citations: [],
-      passages: [],
-    })
-  })
+      // The model's own words are not shown: with no real passage behind
+      // them they may come from its general knowledge, not the materials.
+      expect(result).toEqual({ status: 200, body: notCovered })
+    },
+  )
 
   it('strips citations from an answer the model marked unanswerable', async () => {
     const answer = answering({
@@ -271,6 +275,43 @@ describe('handleChat', () => {
 
     expect(answer).not.toHaveBeenCalled()
     expect(result).toEqual({ status: 200, body: notCovered })
+  })
+
+  describe('retrieval-score gate', () => {
+    // Each chunk of doc-1 covers one of the three terms, so every passage
+    // clears retrieval's own floor (0.12) but none reaches MIN_ANSWER_SCORE.
+    const scattered = request({ question: 'Genome, energy, nucleus?' })
+
+    it('answers "not covered" without calling the model when even the best passage scores below the gate', async () => {
+      const answer = vi.fn<Answerer>()
+
+      const result = await handleChat(scattered, { answer, ...signedIn() })
+
+      expect(MIN_ANSWER_SCORE).toBeGreaterThan(0.15)
+      expect(answer).not.toHaveBeenCalled()
+      expect(result).toEqual({ status: 200, body: notCovered })
+    })
+
+    it('still sends weaker passages along once the best one clears the gate', async () => {
+      const answer = answering({
+        answer: 'The nucleus stores DNA.',
+        answerable: true,
+        citations: ['doc-1:2'],
+      })
+
+      await handleChat(
+        request({ question: 'Does the nucleus store energy?' }),
+        {
+          answer,
+          ...signedIn(),
+        },
+      )
+
+      expect(answer.mock.calls[0]?.[0].passages.map((p) => p.chunkId)).toEqual([
+        'doc-1:2',
+        'doc-1:0',
+      ])
+    })
   })
 
   it('treats a safety refusal as unanswerable rather than an error', async () => {
@@ -351,33 +392,24 @@ describe('handleChat', () => {
     })
   })
 
-  describe('when the Claude API fails', () => {
+  describe('when the LLM provider fails', () => {
     const failing = (error: unknown): Answerer =>
       vi.fn<Answerer>().mockRejectedValue(error)
-    const headers = new Headers()
 
     it('maps rate limiting to a retryable 503', async () => {
-      const error = new Anthropic.RateLimitError(429, {}, 'slow down', headers)
-
       const result = await handleChat(request(), {
-        answer: failing(error),
+        answer: failing(new UpstreamError('rate-limited', 'slow down')),
         ...signedIn(),
       })
 
       expect(result).toEqual({ status: 503, body: { error: 'rate-limited' } })
     })
 
-    it('maps a rejected API key to not-configured', async () => {
+    it('maps rejected credentials to not-configured', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {})
-      const error = new Anthropic.AuthenticationError(
-        401,
-        {},
-        'bad key',
-        headers,
-      )
 
       const result = await handleChat(request(), {
-        answer: failing(error),
+        answer: failing(new UpstreamError('not-configured', 'bad key')),
         ...signedIn(),
       })
 
@@ -385,10 +417,8 @@ describe('handleChat', () => {
     })
 
     it('maps a network failure to a retryable 502', async () => {
-      const error = new Anthropic.APIConnectionError({ message: 'offline' })
-
       const result = await handleChat(request(), {
-        answer: failing(error),
+        answer: failing(new UpstreamError('unreachable', 'offline')),
         ...signedIn(),
       })
 
@@ -398,11 +428,26 @@ describe('handleChat', () => {
       })
     })
 
-    it('maps anything else to a retryable 502 and logs it', async () => {
+    it('maps a timeout to a 504', async () => {
+      const result = await handleChat(request(), {
+        answer: failing(new UpstreamError('timeout', 'too slow')),
+        ...signedIn(),
+      })
+
+      expect(result).toEqual({
+        status: 504,
+        body: { error: 'upstream-timeout' },
+      })
+    })
+
+    it.each([
+      ['an unknown error', new Error('boom')],
+      ['a generic upstream failure', new UpstreamError('failed', 'bad JSON')],
+    ])('maps %s to a retryable 502 and logs it', async (_label, error) => {
       const log = vi.spyOn(console, 'error').mockImplementation(() => {})
 
       const result = await handleChat(request(), {
-        answer: failing(new Error('boom')),
+        answer: failing(error),
         ...signedIn(),
       })
 

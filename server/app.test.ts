@@ -7,7 +7,7 @@ import type { FetchedLink } from './link/fetch-link.ts'
 import type { FetchLinkDependencies } from './link/handle-fetch-link.ts'
 import { LINK_BODY_LIMIT_BYTES, LINK_RATE_LIMIT } from './link/limits.ts'
 import type { LoadMaterials } from './chat/load-materials.ts'
-import type { Answerer } from './llm/claude-answerer.ts'
+import type { Answerer } from './llm/answerer.ts'
 
 const question = { question: 'Why ATP?', materialIds: ['doc-1'] }
 
