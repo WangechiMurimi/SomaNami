@@ -7,13 +7,12 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  // Gitignored local copies (agent worktrees, Python venvs); see vite.config.ts.
+  // Gitignored agent worktrees (whole checkouts of the repo); see vite.config.ts.
   globalIgnores([
     'dist',
     'coverage',
     '.netlify',
     '.claude/worktrees',
-    '**/.venv',
     // Playwright output.
     'test-results',
     'playwright-report',
