@@ -8,6 +8,7 @@ import {
   getDocument,
   listDocuments,
   saveDocument,
+  subscribeToDocuments,
 } from '../../lib/storage/index.ts'
 import type { NewDocument, StoredDocument } from '../../types/contracts.ts'
 import { MAX_FILE_BYTES } from '../upload/constants.ts'
@@ -46,25 +47,31 @@ export function useLibrary() {
 
   useEffect(() => {
     let cancelled = false
-    listDocuments()
-      .then((stored) => {
-        if (cancelled) return
-        // Merge rather than replace: an upload may finish before this load.
-        setDocuments((current) => {
-          const ids = new Set(current.map(({ id }) => id))
-          return [...current, ...stored.filter(({ id }) => !ids.has(id))].sort(
-            byName,
-          )
+    let latest = 0
+    // Reloads on every document change, including ones made elsewhere (another
+    // screen, or a sync pull). Only the newest load applies, so an older one
+    // that resolves late can't bring back a removed document or drop a saved
+    // one; that also makes replacing the list safe when an upload finishes
+    // mid-load, because the save starts a newer load.
+    const load = () => {
+      const request = ++latest
+      listDocuments()
+        .then((stored) => {
+          if (cancelled || request !== latest) return
+          setDocuments(stored)
+          setStatus('ready')
         })
-        setStatus('ready')
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return
-        console.error('Could not load stored documents', error)
-        setStatus('error')
-      })
+        .catch((error: unknown) => {
+          if (cancelled || request !== latest) return
+          console.error('Could not load stored documents', error)
+          setStatus('error')
+        })
+    }
+    load()
+    const unsubscribe = subscribeToDocuments(load)
     return () => {
       cancelled = true
+      unsubscribe()
     }
   }, [])
 

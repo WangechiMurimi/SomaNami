@@ -48,6 +48,9 @@ export interface StoredDocument extends NewDocument {
   workspaceId: string
   /** Where the original file is in the `materials` bucket, once uploaded (#145). */
   storagePath?: string
+  /** Client clock, epoch ms; `updatedAt` decides last-write-wins in sync. */
+  createdAt: number
+  updatedAt: number
 }
 
 /** Identifies one chunk; `documentId` is carried so callers can join to the file. */

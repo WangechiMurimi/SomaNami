@@ -5,6 +5,7 @@ import { createFakeStorageClient } from '../../lib/storage-cloud/testing/fake-st
 import {
   createMemoryAdapter,
   getDocument,
+  deleteDocument,
   listDocuments,
   saveDocument,
   setStorageAdapter,
@@ -59,6 +60,29 @@ describe('useLibrary', () => {
     expect(result.current.documents.map((d) => d.name)).toEqual([
       'Alpha v2.txt',
     ])
+  })
+
+  it('refreshes when a document is saved or removed elsewhere (#146)', async () => {
+    const { result } = renderHook(() => useLibrary())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+
+    // Not through the hook: as another screen or a sync pull would.
+    await act(() => saveDocument(doc('a', 'Alpha.txt')))
+    await waitFor(() =>
+      expect(result.current.documents.map((d) => d.id)).toEqual(['a']),
+    )
+
+    await act(() => deleteDocument('a'))
+    await waitFor(() => expect(result.current.documents).toEqual([]))
+  })
+
+  it('stops listening once unmounted', async () => {
+    const { result, unmount } = renderHook(() => useLibrary())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    unmount()
+
+    await saveDocument(doc('a', 'Alpha.txt'))
+    expect(result.current.documents).toEqual([])
   })
 })
 
