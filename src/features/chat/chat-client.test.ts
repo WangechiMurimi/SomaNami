@@ -81,12 +81,13 @@ describe('askQuestion', () => {
     })
   })
 
-  it('reports an unreachable service as retryable', async () => {
+  it('reports an unreachable service as a plain, retryable failure', async () => {
     mockFetch(async () => {
       throw new TypeError('Failed to fetch')
     })
     await expect(askQuestion({ question: 'Why?' })).rejects.toMatchObject({
-      code: 'offline',
+      code: 'network',
+      message: 'Couldn’t get an answer. Try again.',
       retryable: true,
     })
   })
@@ -99,6 +100,7 @@ describe('askQuestion', () => {
 
     mockFetch(async () => ({ ok: false, status: 503 }))
     await expect(askQuestion({ question: 'Why?' })).rejects.toMatchObject({
+      message: 'Couldn’t get an answer. Try again.',
       retryable: true,
     })
   })
@@ -142,6 +144,23 @@ describe('askQuestion', () => {
         code: 'unauthenticated',
         retryable: false,
         message: SESSION_ENDED_MESSAGE,
+      })
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('offers a retry when the session can’t refresh for lack of network', async () => {
+      // Offline, supabase-js keeps the session but reports none.
+      vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+      const auth = fakeSupabase()
+      auth.getSession.mockResolvedValue(session(null))
+      const fetchMock = mockFetch(async () => ({
+        ok: true,
+        json: async () => reply,
+      }))
+
+      await expect(askQuestion({ question: 'Why?' })).rejects.toMatchObject({
+        code: 'network',
+        retryable: true,
       })
       expect(fetchMock).not.toHaveBeenCalled()
     })

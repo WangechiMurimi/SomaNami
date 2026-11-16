@@ -10,13 +10,14 @@ import type { ChatTurn } from './use-chat.ts'
  * materials (US-08 AC3).
  */
 export default function ConversationChat({
-  workspaceId,
+  addMaterialTo,
   materials,
   initialMessages,
   initialQuestion,
   onAnswered,
 }: {
-  workspaceId: string
+  /** Where to add material when a question goes unanswered. */
+  addMaterialTo: string
   materials: StoredDocument[]
   initialMessages: ChatTurn[]
   initialQuestion?: string
@@ -34,7 +35,7 @@ export default function ConversationChat({
       initialMessages={initialMessages}
       initialQuestion={initialQuestion}
       onAnswered={onAnswered}
-      addMaterialTo={`/workspaces/${workspaceId}`}
+      addMaterialTo={addMaterialTo}
     />
   )
 }

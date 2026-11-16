@@ -1,4 +1,5 @@
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { Route } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -15,6 +16,8 @@ const page = () =>
 afterEach(() => {
   vi.restoreAllMocks()
   setSupabaseClient(undefined)
+  delete document.documentElement.dataset.theme
+  localStorage.clear()
 })
 
 describe('AccountPage', () => {
@@ -40,15 +43,46 @@ describe('AccountPage', () => {
     ).toBeInTheDocument()
   })
 
-  it('explains that the name needs a connection', async () => {
+  it('says the name couldn’t load without a fresh session', async () => {
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
     installFakeSupabase({ session: fakeSession() })
     page()
     expect(
-      await screen.findByText('Connect to the internet to see your name.'),
+      await screen.findByText('We couldn’t load your name.'),
     ).toBeInTheDocument()
     expect(
       screen.queryByRole('link', { name: 'Change your name' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('lays out the canvas’s cards, then sign-out', async () => {
+    installFakeSupabase({ session: fakeSession() })
+    page()
+    await screen.findByRole('heading', { level: 1, name: 'Account settings' })
+    const titles = screen
+      .getAllByRole('heading', { level: 2 })
+      .map((heading) => heading.textContent)
+    expect(titles).toEqual(['Profile', 'Appearance', 'Sign out'])
+  })
+
+  it('switches the theme from Appearance', async () => {
+    installFakeSupabase({ session: fakeSession() })
+    page()
+    const appearance = await screen.findByRole('region', {
+      name: 'Appearance',
+    })
+    await userEvent.click(
+      within(appearance).getByRole('radio', { name: 'Dark' }),
+    )
+    expect(document.documentElement.dataset.theme).toBe('dark')
+  })
+
+  it('shows no connection status or privacy claims', async () => {
+    installFakeSupabase({ session: fakeSession() })
+    page()
+    await screen.findByRole('heading', { level: 1, name: 'Account settings' })
+    const text = document.body.textContent ?? ''
+    expect(text).not.toMatch(/offline|online|on this device|shared computer/i)
+    expect(text).not.toMatch(/private|never leaves/i)
   })
 })

@@ -50,8 +50,8 @@ describe('DocumentCard', () => {
 
     const card = screen.getByRole('status')
     expect(card).toHaveTextContent('class-notes.pdf')
-    expect(card).toHaveTextContent('✓ Ready to explore')
-    expect(card).toHaveTextContent('PDF · 3 pages · 2 KB · 2 passages indexed')
+    expect(card).toHaveTextContent('✓ Added')
+    expect(card).toHaveTextContent('PDF · 3 pages · 2 KB')
   })
 
   it('names the site a linked material came from', () => {
@@ -67,8 +67,9 @@ describe('DocumentCard', () => {
       />,
     )
     expect(screen.getByRole('status')).toHaveTextContent(
-      '2 passages indexed · from www.example.org',
+      /· from www\.example\.org/,
     )
+    expect(screen.getByRole('status')).not.toHaveTextContent(/passages/)
   })
 
   it('says a link is still being fetched', () => {

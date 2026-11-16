@@ -1,54 +1,211 @@
-import { useState } from 'react'
+import { useCallback, useId, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
+import { useBreadcrumbs } from '../app/breadcrumbs.ts'
 import Composer from '../components/Composer.tsx'
-import { ArrowRight, Lock, Plus } from '../components/icons.tsx'
+import { ArrowRight, Plus } from '../components/icons.tsx'
+import { Chats, FileIcon } from '../features/chat/chat-icons.tsx'
 import {
   chatPath,
-  newChatPath,
+  materialsFor,
   titleFrom,
 } from '../features/chat/conversation-materials.ts'
 import { useRecentConversations } from '../features/chat/use-recent-conversations.ts'
-import { WAYS_IN } from '../features/chat/ways-in.ts'
 import { KIND_LABEL } from '../features/library/kind-label.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
 import AddMaterialsPanel from '../features/workspaces/AddMaterialsPanel.tsx'
+import WorkspaceActionDialog from '../features/workspaces/WorkspaceActionDialog.tsx'
+import { Bookmark } from '../features/workspaces/workspace-icons.tsx'
 import { useWorkspace } from '../features/workspaces/use-workspace.ts'
 import { useWorkspaceUpload } from '../features/workspaces/use-workspace-upload.ts'
-import { createConversation } from '../lib/storage/index.ts'
-import type { Workspace } from '../types/contracts.ts'
-import { H1, LEDE } from './page-heading.ts'
+import {
+  createConversation,
+  isLooseWorkspace,
+  setConversationSaved,
+} from '../lib/storage/index.ts'
+import type {
+  Conversation,
+  StoredDocument,
+  Workspace,
+} from '../types/contracts.ts'
+import { H1, H2, LEDE } from './page-heading.ts'
 
-const SECTION =
-  'flex flex-col gap-4 rounded-2xl border border-line bg-surface p-6'
-const SECTION_TITLE = 'text-xl leading-[1.3] font-medium'
-const ACTION =
-  'flex flex-none items-center gap-[7px] text-[13px] font-semibold text-accent hover:underline'
+const HEADER_BUTTON =
+  'inline-flex h-11 items-center gap-2 rounded-[10px] border border-edge bg-surface px-4 text-sm font-medium text-fg hover:bg-tint'
+
+const BADGE: Record<StoredDocument['kind'], string> = {
+  pdf: 'PDF',
+  docx: 'DOCX',
+  text: 'TXT',
+  web: 'WEB',
+}
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
+
+/** The "N sources" chip on a chat row, opening the list of materials it uses. */
+function ChatSources({ sources }: { sources: StoredDocument[] }) {
+  const [open, setOpen] = useState(false)
+  const id = useId()
+  return (
+    <div
+      className="relative"
+      onKeyDown={(event) => event.key === 'Escape' && setOpen(false)}
+    >
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={() => setOpen((shown) => !shown)}
+        className="flex h-8 items-center gap-1.5 rounded-full border border-edge px-2.5 text-[13px] text-muted hover:text-fg"
+      >
+        <FileIcon size={14} strokeWidth={1.9} />
+        {plural(sources.length, 'source')}
+      </button>
+      {open && (
+        <div
+          id={id}
+          className="absolute top-[calc(100%+6px)] left-0 z-20 w-max max-w-[min(20rem,80vw)] rounded-[10px] bg-fg px-3.5 py-2.5 text-ground shadow-lg"
+        >
+          <p className="mb-1 text-xs leading-[1.5] font-semibold tracking-[0.06em] uppercase">
+            Sources in this chat
+          </p>
+          {sources.length === 0 ? (
+            <p className="text-[13px]">Its materials have been removed.</p>
+          ) : (
+            <ul className="list-disc pl-[18px] text-[13px] leading-[1.65]">
+              {sources.map(({ id: key, name }) => (
+                <li key={key} className="break-words">
+                  {name}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Saves a chat to Saved conversations, or takes it off again. */
+function SaveToggle({ chat }: { chat: Conversation }) {
+  const saved = Boolean(chat.saved)
+  const [failed, setFailed] = useState(false)
+  const toggle = () => {
+    setFailed(false)
+    setConversationSaved(chat.id, !saved).catch((cause: unknown) => {
+      console.error('Could not save the chat', cause)
+      setFailed(true)
+    })
+  }
+  return (
+    <button
+      type="button"
+      aria-pressed={saved}
+      aria-label={`Save ${chat.title}`}
+      title={failed ? 'That didn’t work. Try again.' : undefined}
+      onClick={toggle}
+      className={`flex h-11 flex-none items-center gap-1.5 rounded-[10px] px-2.5 text-sm font-medium hover:bg-tint ${
+        saved ? 'text-accent' : 'text-muted hover:text-fg'
+      }`}
+    >
+      <Bookmark size={16} fill={saved ? 'currentColor' : 'none'} />
+      {/* The label stays "Save"; aria-pressed and the filled icon carry the state. */}
+      Save
+    </button>
+  )
+}
+
+function ChatList({
+  chats,
+  documents,
+}: {
+  chats: Conversation[]
+  documents: StoredDocument[]
+}) {
+  if (chats.length === 0) {
+    return (
+      <p className="rounded-xl border border-line bg-surface px-5 py-6 text-muted">
+        No chats yet. Ask a question below to start one.
+      </p>
+    )
+  }
+  return (
+    <ul
+      aria-label="Chats in this workspace"
+      className="flex flex-col divide-y divide-line rounded-xl border border-line bg-surface"
+    >
+      {chats.map((chat) => (
+        <li
+          key={chat.id}
+          className="flex items-center gap-3.5 px-4 py-3.5 sm:px-5"
+        >
+          <span
+            aria-hidden="true"
+            className="hidden size-10 flex-none items-center justify-center rounded-[10px] bg-tint text-accent sm:flex"
+          >
+            <Chats size={18} strokeWidth={1.7} />
+          </span>
+          <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
+            <span className="max-w-full truncate text-[15px] leading-[1.5] font-medium">
+              {chat.title}
+            </span>
+            <ChatSources sources={materialsFor(chat, documents)} />
+          </div>
+          <SaveToggle chat={chat} />
+          <Link
+            to={chatPath(chat)}
+            className="flex h-11 flex-none items-center gap-[7px] text-sm font-semibold text-accent hover:underline"
+          >
+            Continue
+            <span className="sr-only">: {chat.title}</span>
+            <ArrowRight size={14} strokeWidth={2.2} />
+          </Link>
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 function WorkspaceView({ workspace }: { workspace: Workspace }) {
   const navigate = useNavigate()
   const { documents } = useLibraryContext()
   const { conversations } = useRecentConversations()
-  const materials = documents.filter(
-    ({ workspaceId }) => workspaceId === workspace.id,
+  const materials = useMemo(
+    () => documents.filter(({ workspaceId }) => workspaceId === workspace.id),
+    [documents, workspace.id],
   )
   const chats = conversations.filter(
     ({ workspaceId }) => workspaceId === workspace.id,
   )
-  const [adding, setAdding] = useState(false)
+  // Ids the learner unticked; everything else, including materials added
+  // later, is in, so a question asked here uses the whole workspace by default.
+  const [excluded, setExcluded] = useState<string[]>([])
+  const selected = materials.filter(({ id }) => !excluded.includes(id))
+  const allSelected = selected.length === materials.length
   const [pasting, setPasting] = useState(false)
   const [question, setQuestion] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const upload = useWorkspaceUpload(workspace.id)
+  const [dialog, setDialog] = useState<'add-sources' | 'remove-sources'>()
+  // A material added here joins the selection even if it was unticked before.
+  const include = useCallback(
+    (material: StoredDocument) =>
+      setExcluded((current) => current.filter((id) => id !== material.id)),
+    [],
+  )
+  const upload = useWorkspaceUpload(workspace.id, include)
 
-  // A question asked here uses every material in the workspace.
+  const toggle = (id: string) =>
+    setExcluded((current) =>
+      current.includes(id)
+        ? current.filter((other) => other !== id)
+        : [...current, id],
+    )
+
   const ask = async () => {
     setError(null)
     try {
       const conversation = await createConversation({
         workspaceId: workspace.id,
-        materialIds: materials.map(({ id }) => id),
+        materialIds: selected.map(({ id }) => id),
         title: titleFrom(question),
       })
       navigate(chatPath(conversation), { state: { question: question.trim() } })
@@ -58,157 +215,136 @@ function WorkspaceView({ workspace }: { workspace: Workspace }) {
     }
   }
 
-  return (
-    <div className="flex flex-col gap-8">
-      <nav aria-label="Breadcrumb">
-        <ol className="flex items-center gap-2 text-sm text-muted">
-          <li>
-            <Link to="/workspaces" className="hover:text-fg hover:underline">
-              Workspaces
-            </Link>
-          </li>
-          <li aria-hidden="true">/</li>
-          <li aria-current="page" className="min-w-0 truncate text-fg">
-            {workspace.name}
-          </li>
-        </ol>
-      </nav>
+  const sendDescription =
+    materials.length === 0
+      ? 'Add a material to start asking.'
+      : selected.length === 0
+        ? 'Tick at least one material to ask about.'
+        : 'Type a question to send.'
 
-      <div className="flex flex-wrap items-end justify-between gap-6">
-        <div className="min-w-0">
-          {workspace.topic && (
-            <span className="rounded-md bg-tag px-3 py-[5px] text-xs leading-[1.5] font-medium tracking-[0.06em] text-accent uppercase">
-              {workspace.topic}
-            </span>
-          )}
-          <h1 className={`${H1} mt-3 break-words`}>{workspace.name}</h1>
-          {workspace.description && (
-            <p className={LEDE}>{workspace.description}</p>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-3">
+  return (
+    <div className="flex flex-col gap-6">
+      {/* The workspace starts straight away: its name and what you can do. */}
+      <div className="flex min-h-[50px] flex-wrap items-center justify-between gap-3">
+        <h1 className="min-w-0 text-2xl leading-[1.3] font-semibold break-words">
+          {workspace.name}
+        </h1>
+        <div className="flex flex-wrap gap-2.5">
           <button
             type="button"
-            aria-expanded={adding}
-            onClick={() => setAdding((open) => !open)}
-            className="inline-flex h-11 items-center gap-[9px] rounded-[10px] border border-edge bg-surface px-[18px] text-sm font-medium text-fg hover:bg-tint"
+            onClick={() => setDialog('add-sources')}
+            className={HEADER_BUTTON}
           >
-            <Plus size={15} strokeWidth={2.4} />
-            Add materials
+            <Plus size={15} strokeWidth={2.2} />
+            Add sources
           </button>
-          <Link
-            to={newChatPath(workspace.id)}
-            className="inline-flex h-11 items-center gap-[9px] rounded-[10px] bg-accent px-[18px] text-sm font-medium text-on-accent transition-opacity hover:opacity-90"
+          <button
+            type="button"
+            onClick={() => setDialog('remove-sources')}
+            disabled={materials.length === 0}
+            className={`${HEADER_BUTTON} disabled:cursor-not-allowed disabled:opacity-50`}
           >
-            New chat
-          </Link>
+            Remove sources
+          </button>
         </div>
       </div>
 
-      {adding && (
-        <AddMaterialsPanel
-          upload={upload}
-          pasting={pasting}
-          onPastingChange={setPasting}
-        />
-      )}
+      <div className="flex flex-wrap items-start gap-x-11 gap-y-10">
+        <section
+          aria-labelledby="chats-title"
+          className="flex min-w-0 flex-[1.6_1_420px] flex-col gap-4"
+        >
+          <h2 id="chats-title" className={H2}>
+            Chats
+          </h2>
+          <ChatList chats={chats} documents={documents} />
+        </section>
 
-      <div className="grid items-start gap-5 lg:grid-cols-[3fr_2fr]">
-        <section aria-labelledby="materials-title" className={SECTION}>
-          <div className="flex items-center gap-2.5">
-            <h2 id="materials-title" className={SECTION_TITLE}>
-              Materials
-            </h2>
-            <span className="rounded-full bg-tag px-2.5 py-0.5 text-xs font-medium text-accent">
-              {materials.length}
-            </span>
-          </div>
+        <section
+          aria-labelledby="materials-title"
+          className="flex min-w-0 flex-[1_1_340px] flex-col gap-4"
+        >
+          <h2 id="materials-title" className={H2}>
+            Your materials
+          </h2>
+          <AddMaterialsPanel
+            upload={upload}
+            pasting={pasting}
+            onPastingChange={setPasting}
+          />
           {materials.length === 0 ? (
-            <p className="text-muted">
-              No materials yet. Add notes, readings or slides for this workspace
+            <p className="text-[13px] text-muted">
+              Nothing here yet. Add notes, readings or slides for this workspace
               to learn from.
             </p>
           ) : (
-            <ul className="flex flex-col divide-y divide-line">
-              {materials.map((material) => (
-                <li
-                  key={material.id}
-                  className="flex items-center justify-between gap-3 py-3"
+            <div
+              role="group"
+              aria-labelledby="selected-title"
+              className="flex flex-col gap-2.5"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <h3
+                  id="selected-title"
+                  className="text-xs leading-[1.5] font-semibold tracking-[0.08em] text-muted uppercase"
                 >
-                  <div className="flex min-w-0 flex-col">
-                    <span className="truncate font-medium">
-                      {material.name}
-                    </span>
-                    <span className="text-[13px] text-muted">
-                      {KIND_LABEL[material.kind]}
-                    </span>
-                  </div>
-                  <Link
-                    to={newChatPath(workspace.id, material.id)}
-                    className={ACTION}
-                  >
-                    Ask about this
-                    <span className="sr-only">: {material.name}</span>
-                    <ArrowRight size={14} strokeWidth={2.2} />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="flex items-center gap-2 text-[13px] text-muted">
-            <Lock size={14} strokeWidth={1.9} />
-            Chats in this workspace can only see{' '}
-            {materials.length === 1
-              ? 'this material'
-              : `these ${materials.length} materials`}
-            .
-          </p>
-        </section>
-
-        <section aria-labelledby="chats-title" className={SECTION}>
-          <h2 id="chats-title" className={SECTION_TITLE}>
-            Chats
-          </h2>
-          {chats.length === 0 ? (
-            <p className="text-muted">No chats yet.</p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {chats.map((chat) => (
-                <li key={chat.id}>
-                  <Link
-                    to={chatPath(chat)}
-                    className="flex items-center justify-between gap-3 rounded-[10px] border border-line px-4 py-3 hover:border-accent"
-                  >
-                    <span className="min-w-0 truncate font-medium">
-                      {chat.title}
-                    </span>
-                    <span className="flex-none text-[13px] font-semibold text-accent">
-                      Continue
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-          <h3 className="mt-2 text-[13px] font-medium tracking-[0.06em] text-muted uppercase">
-            Or start with a way of understanding
-          </h3>
-          <ul className="flex flex-col gap-2">
-            {WAYS_IN.map(({ title, prompt }, index) => (
-              <li key={title}>
-                <Link
-                  to={`${newChatPath(workspace.id)}?q=${encodeURIComponent(prompt)}`}
-                  className="flex items-center gap-3 rounded-[10px] border border-line px-4 py-3 hover:border-accent hover:text-accent"
+                  In this workspace
+                </h3>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExcluded(
+                      allSelected ? materials.map(({ id }) => id) : [],
+                    )
+                  }
+                  className="h-11 px-1 text-[13px] font-semibold text-accent hover:underline"
                 >
-                  <span aria-hidden="true" className="text-accent">
-                    {String(index + 1).padStart(2, '0')}
-                  </span>
-                  <span className="flex-1 font-medium">{title}</span>
-                  <ArrowRight size={14} strokeWidth={2.2} />
-                </Link>
-              </li>
-            ))}
-          </ul>
+                  {allSelected ? 'Select none' : 'Select all'}
+                </button>
+              </div>
+              <ul className="flex flex-col divide-y divide-line rounded-xl border border-line bg-surface">
+                {materials.map((material) => {
+                  const inputId = `material-${material.id}`
+                  return (
+                    <li key={material.id}>
+                      <label
+                        htmlFor={inputId}
+                        className="flex min-h-14 cursor-pointer items-center gap-2.5 px-3 py-2.5"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="flex h-9 w-8 flex-none flex-col items-center justify-center gap-px rounded-[7px] bg-tint text-accent"
+                        >
+                          <FileIcon size={14} strokeWidth={1.9} />
+                          <span className="text-[8px] font-bold tracking-[0.04em]">
+                            {BADGE[material.kind]}
+                          </span>
+                        </span>
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <span
+                            title={material.name}
+                            className="truncate text-sm leading-[1.45] font-semibold"
+                          >
+                            {material.name}
+                          </span>
+                          <span className="text-[13px] leading-[1.5] text-muted">
+                            {KIND_LABEL[material.kind]}
+                          </span>
+                        </span>
+                        <input
+                          id={inputId}
+                          type="checkbox"
+                          checked={!excluded.includes(material.id)}
+                          onChange={() => toggle(material.id)}
+                          className="size-[18px] flex-none cursor-pointer accent-accent"
+                        />
+                      </label>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
         </section>
       </div>
 
@@ -224,35 +360,38 @@ function WorkspaceView({ workspace }: { workspace: Workspace }) {
         value={question}
         onChange={setQuestion}
         onSubmit={() => void ask()}
-        canSend={materials.length > 0 && question.trim().length > 0}
-        sendDescription={
-          materials.length === 0
-            ? 'Add a material to start asking.'
-            : 'Type a question to send.'
-        }
-        onUpload={(file) => {
-          setAdding(true)
-          void upload.upload(file)
-        }}
-        onPaste={() => {
-          setAdding(true)
-          setPasting(true)
-        }}
-        extra={
-          <span className="ml-1 flex items-center gap-1.5 text-[13px] text-muted">
-            <Lock size={13} strokeWidth={1.9} />
-            {plural(materials.length, 'material')}
-          </span>
-        }
+        canSend={selected.length > 0 && question.trim().length > 0}
+        sendDescription={sendDescription}
+        onUpload={(file) => void upload.upload(file)}
+        onPaste={() => setPasting(true)}
       />
+
+      {dialog && (
+        <WorkspaceActionDialog
+          action={dialog}
+          workspace={workspace}
+          chats={chats.length}
+          onClose={() => setDialog(undefined)}
+        />
+      )}
     </div>
   )
 }
 
-/** One workspace: its materials, its chats and a place to ask (US-08 AC4). */
+/** One workspace: its chats, its materials and a place to ask (US-08 AC4). */
 export default function WorkspacePage() {
   const { workspaceId = '' } = useParams()
-  const state = useWorkspace(workspaceId)
+  const found = useWorkspace(workspaceId)
+  // The default workspace holds loose chats; it is never opened as a workspace.
+  const state: typeof found = isLooseWorkspace(workspaceId)
+    ? { status: 'missing' }
+    : found
+  const ready = state.status === 'ready' ? state.workspace : undefined
+  useBreadcrumbs([
+    { label: 'Workspaces', to: '/workspaces' },
+    ...(ready?.topic ? [{ label: ready.topic }] : []),
+    ...(ready ? [{ label: ready.name }] : []),
+  ])
 
   if (state.status === 'loading') {
     return (
@@ -266,8 +405,7 @@ export default function WorkspacePage() {
       <div>
         <h1 className={H1}>We can’t find that workspace</h1>
         <p className={LEDE}>
-          It may have been removed, or added on another device. For now, each
-          device keeps its own materials and chats.{' '}
+          It may have been removed.{' '}
           <Link
             to="/workspaces"
             className="font-semibold text-accent underline"

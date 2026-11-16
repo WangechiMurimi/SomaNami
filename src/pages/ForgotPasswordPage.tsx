@@ -7,7 +7,11 @@ import TextField from '../features/auth/TextField.tsx'
 import Turnstile from '../features/auth/Turnstile.tsx'
 import { useAuth } from '../features/auth/auth-context.ts'
 import { authErrorMessage } from '../features/auth/auth-errors.ts'
-import { PRIMARY_BUTTON, TEXT_LINK } from '../features/auth/auth-ui.ts'
+import {
+  AUTH_FOOTER,
+  FOOTER_LINK,
+  SUBMIT_BUTTON,
+} from '../features/auth/auth-ui.ts'
 import { useCaptcha } from '../features/auth/use-captcha.ts'
 import { useFocusFirstError } from '../features/auth/use-focus-first-error.ts'
 import { isAuthConfigured } from '../lib/auth/is-configured.ts'
@@ -63,7 +67,7 @@ export default function ForgotPasswordPage() {
           ref={formRef}
           noValidate
           onSubmit={handleSubmit}
-          className="flex flex-col gap-5"
+          className="flex flex-col gap-4"
         >
           {formError && <FormAlert>{formError}</FormAlert>}
           <TextField
@@ -81,15 +85,15 @@ export default function ForgotPasswordPage() {
           <button
             type="submit"
             disabled={submitting}
-            className={PRIMARY_BUTTON}
+            className={`${SUBMIT_BUTTON} mt-2`}
           >
             {submitting ? 'Sending…' : 'Email me a reset link'}
           </button>
         </form>
       )}
-      <p className="mt-8 text-[15px] text-muted">
+      <p className={AUTH_FOOTER}>
         Remembered it?{' '}
-        <Link to="/sign-in" className={TEXT_LINK}>
+        <Link to="/sign-in" className={FOOTER_LINK}>
           Back to sign in
         </Link>
       </p>
