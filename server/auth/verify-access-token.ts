@@ -2,6 +2,7 @@ import process from 'node:process'
 import { createRemoteJWKSet, errors, jwtVerify } from 'jose'
 import type { JWTVerifyGetKey } from 'jose'
 import type { Authenticate, AuthOutcome, VerifiedUser } from './types.ts'
+import { supabaseUrlFromEnv } from '../supabase/env.ts'
 
 export interface AuthenticatorOptions {
   /** The Supabase project URL, e.g. `https://<ref>.supabase.co`. */
@@ -93,6 +94,6 @@ const notConfigured: Authenticate = async () => fail('not-configured')
 export function createAuthenticatorFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): Authenticate {
-  const supabaseUrl = env.SUPABASE_URL?.trim() || env.VITE_SUPABASE_URL?.trim()
+  const supabaseUrl = supabaseUrlFromEnv(env)
   return supabaseUrl ? createAuthenticator({ supabaseUrl }) : notConfigured
 }

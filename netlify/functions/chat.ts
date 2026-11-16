@@ -7,7 +7,7 @@ import { createMaterialsLoaderFromEnv } from '../../server/chat/load-materials.t
 import type { LoadMaterials } from '../../server/chat/load-materials.ts'
 import { createAnswererFromEnv } from '../../server/llm/answerer-from-env.ts'
 import type { Answerer } from '../../server/llm/claude-answerer.ts'
-import { readCapped } from '../../server/read-capped.ts'
+import { readJsonBody } from '../../server/read-capped.ts'
 
 export interface ChatFunctionOptions {
   answer: Answerer | null
@@ -16,8 +16,6 @@ export interface ChatFunctionOptions {
   /** Defaults to loading as the user from the Supabase settings; tests inject a fake. */
   loadMaterials?: LoadMaterials | null
 }
-
-const tooLarge = () => Response.json({ error: 'too-large' }, { status: 413 })
 
 /** Builds the `POST /api/chat` handler around its dependencies. */
 export function createChatFunction({
@@ -36,22 +34,13 @@ export function createChatFunction({
       )
     }
 
-    // A declared length is free to check; the read below still enforces the
-    // cap for bodies that lie about it or stream without one.
-    const declared = Number(request.headers.get('content-length'))
-    if (declared > CHAT_BODY_LIMIT_BYTES) return tooLarge()
-
-    const text = await readCapped(request, CHAT_BODY_LIMIT_BYTES)
-    if (text === null) return tooLarge()
-
-    let body: unknown
-    try {
-      body = JSON.parse(text)
-    } catch {
-      return Response.json({ error: 'invalid-json' }, { status: 400 })
+    const read = await readJsonBody(request, CHAT_BODY_LIMIT_BYTES)
+    if (!read.ok) {
+      const status = read.problem === 'too-large' ? 413 : 400
+      return Response.json({ error: read.problem }, { status })
     }
 
-    const result = await handleChat(body, {
+    const result = await handleChat(read.body, {
       answer,
       authenticate,
       authorization: request.headers.get('authorization') ?? undefined,

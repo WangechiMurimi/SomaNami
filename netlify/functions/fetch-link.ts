@@ -8,7 +8,7 @@ import {
 } from '../../server/link/handle-fetch-link.ts'
 import { LINK_BODY_LIMIT_BYTES } from '../../server/link/limits.ts'
 import { linkResponseHeaders } from '../../server/link/link-headers.ts'
-import { readCapped } from '../../server/read-capped.ts'
+import { readJsonBody } from '../../server/read-capped.ts'
 import type { FetchLinkFailure } from '../../src/types/contracts.ts'
 
 export interface FetchLinkFunctionOptions {
@@ -42,22 +42,10 @@ export function createFetchLinkFunction({
       )
     }
 
-    // A declared length is free to check; the read below still enforces the
-    // cap for bodies that lie about it or stream without one.
-    const declared = Number(request.headers.get('content-length'))
-    if (declared > LINK_BODY_LIMIT_BYTES) return unreadable(413)
+    const read = await readJsonBody(request, LINK_BODY_LIMIT_BYTES)
+    if (!read.ok) return unreadable(read.problem === 'too-large' ? 413 : 400)
 
-    const text = await readCapped(request, LINK_BODY_LIMIT_BYTES)
-    if (text === null) return unreadable(413)
-
-    let body: unknown
-    try {
-      body = JSON.parse(text)
-    } catch {
-      return unreadable(400)
-    }
-
-    const result = await handleFetchLink(body, {
+    const result = await handleFetchLink(read.body, {
       authenticate,
       authorization: request.headers.get('authorization') ?? undefined,
       fetch,
