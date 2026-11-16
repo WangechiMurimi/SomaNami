@@ -41,7 +41,7 @@ const ollamaReplySchema = z.object({
 export interface OllamaAnswererOptions {
   /** Where the Ollama server listens, e.g. `http://localhost:11434`. */
   baseUrl: string
-  /** Sent as a bearer token when set, for an Ollama behind an auth proxy. */
+  /** Sent as a bearer token when set, for the Ollama gateway (#151). */
   apiKey?: string
   model?: string
   /** Deadline for the whole answer, retry included. */
@@ -168,7 +168,7 @@ function parseAnswer(content: string): ModelAnswer | null {
 
 function statusError(status: number, detail: string): UpstreamError {
   const message = `Ollama answered ${status}${detail ? `: ${detail}` : ''}`
-  // An auth proxy rejected our key: a server configuration problem.
+  // The gateway rejected our key: a server configuration problem.
   if (status === 401 || status === 403) {
     return new UpstreamError('not-configured', message)
   }
