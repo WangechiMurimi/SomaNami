@@ -28,7 +28,13 @@
   --glow-shadow: rgba(169, 166, 240, 0.22);
 }
 
+/*
+ * Active, the box itself glows instead of growing a separate outline around
+ * it. The accent ring keeps the focus visible; the soft halo is the glow.
+ */
 .composer:focus-within {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 28px 4px var(--glow-shadow);
 }

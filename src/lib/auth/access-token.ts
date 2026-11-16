@@ -14,3 +14,11 @@ export async function getAccessToken({
     : await supabase.auth.getSession()
   return data.session?.access_token ?? null
 }
+
+/**
+ * Whether the browser reports no network. Offline, supabase-js can't refresh
+ * a saved session and reports none, so a missing token means "no connection",
+ * not "signed out": callers then offer a retry instead of ending the session.
+ */
+export const isOffline = (): boolean =>
+  typeof navigator !== 'undefined' && navigator.onLine === false

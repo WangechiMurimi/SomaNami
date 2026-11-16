@@ -18,6 +18,8 @@ interface TextFieldProps extends Omit<
   error?: string
   /** Extra control drawn inside the input's row, e.g. show/hide. */
   trailing?: ReactNode
+  /** Link drawn at the end of the label row, e.g. "Forgot your password?". */
+  labelAside?: ReactNode
 }
 
 /** A labelled input whose hint and error are announced with it. */
@@ -27,6 +29,7 @@ export default function TextField({
   hint,
   error,
   trailing,
+  labelAside,
   ...input
 }: TextFieldProps) {
   const describedBy =
@@ -34,9 +37,18 @@ export default function TextField({
     undefined
   return (
     <div>
-      <label htmlFor={id} className={LABEL}>
-        {label}
-      </label>
+      {labelAside ? (
+        <div className="flex items-baseline justify-between gap-2">
+          <label htmlFor={id} className={LABEL}>
+            {label}
+          </label>
+          {labelAside}
+        </div>
+      ) : (
+        <label htmlFor={id} className={LABEL}>
+          {label}
+        </label>
+      )}
       <div className="relative">
         <input
           id={id}
@@ -46,7 +58,7 @@ export default function TextField({
           {...input}
         />
         {trailing && (
-          <div className="absolute inset-y-0 right-1 mt-1.5 flex items-center">
+          <div className="absolute inset-y-0 right-1 mt-2 flex items-center">
             {trailing}
           </div>
         )}

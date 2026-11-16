@@ -4,8 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ChatPanel from './ChatPanel.tsx'
 import { askQuestion, ChatError } from './chat-client.ts'
 import type { ChatTurn } from './use-chat.ts'
-import { AuthContext } from '../auth/auth-context.ts'
-import type { AuthContextValue, AuthStatus } from '../../types/auth.ts'
 import type { ChatReply } from '../../types/contracts.ts'
 
 vi.mock('./chat-client.ts', async (importOriginal) => ({
@@ -23,26 +21,18 @@ const PASSAGES = [
   },
 ]
 
-/** Only `status` matters to the panel; the account actions are never called. */
-const authAs = (status: AuthStatus) =>
-  ({
-    status,
-    user: { id: 'user-1', email: 'learner@example.test' },
-  }) as AuthContextValue
-
 function setup({
-  status = 'signed-in',
   initialMessages,
-}: { status?: AuthStatus; initialMessages?: ChatTurn[] } = {}) {
+  initialQuestion,
+}: { initialMessages?: ChatTurn[]; initialQuestion?: string } = {}) {
   const user = userEvent.setup()
   render(
-    <AuthContext.Provider value={authAs(status)}>
-      <ChatPanel
-        documents={[{ id: 'doc-1', name: 'biology.pdf' }]}
-        materialIds={['doc-1']}
-        initialMessages={initialMessages}
-      />
-    </AuthContext.Provider>,
+    <ChatPanel
+      documents={[{ id: 'doc-1', name: 'biology.pdf' }]}
+      materialIds={['doc-1']}
+      initialMessages={initialMessages}
+      initialQuestion={initialQuestion}
+    />,
   )
   return {
     user,
@@ -108,6 +98,81 @@ describe('ChatPanel', () => {
     expect(log).toHaveAttribute('aria-busy', 'false')
   })
 
+  it('opens a cited passage in place from its source chip', async () => {
+    vi.mocked(askQuestion).mockResolvedValue({
+      answer: 'Light drives photosynthesis.',
+      citations: [{ documentId: 'doc-1', chunkId: 'doc-1:2' }],
+      answerable: true,
+      passages: PASSAGES,
+    })
+    const { user, box } = setup()
+
+    await user.type(box, 'Why do leaves need light?{Enter}')
+    const reply = await screen.findByRole('article', {
+      name: 'Answer from your materials',
+    })
+    expect(within(reply).getByText('one passage')).toBeVisible()
+    const source = within(reply).getByRole('button', {
+      name: 'biology.pdf · Page 4',
+    })
+    expect(source).toHaveAttribute('aria-expanded', 'false')
+
+    await user.click(source)
+    expect(source).toHaveAttribute('aria-expanded', 'true')
+    const passage = within(reply).getByRole('blockquote')
+    expect(passage).toHaveTextContent('Light drives photosynthesis.')
+    expect(source).toHaveAttribute('aria-controls', passage.id)
+
+    await user.click(source)
+    expect(within(reply).queryByRole('blockquote')).not.toBeInTheDocument()
+  })
+
+  it('asks for the latest answer in another format (US-05)', async () => {
+    vi.mocked(askQuestion).mockResolvedValue({
+      answer: 'Light drives photosynthesis.',
+      citations: [{ documentId: 'doc-1', chunkId: 'doc-1:2' }],
+      answerable: true,
+      passages: PASSAGES,
+    })
+    const { user, box } = setup()
+    expect(
+      screen.queryByRole('group', { name: 'Show another format' }),
+    ).not.toBeInTheDocument()
+
+    await user.type(box, 'Why do leaves need light?{Enter}')
+    const formats = within(
+      await screen.findByRole('group', { name: 'Show another format' }),
+    )
+    await user.click(formats.getByRole('button', { name: 'Summary' }))
+
+    await waitFor(() => expect(askQuestion).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(askQuestion).mock.lastCall?.[0]).toMatchObject({
+      question: 'Summarise that as a few short bullet points.',
+      history: [
+        { role: 'user', content: 'Why do leaves need light?' },
+        { role: 'assistant', content: 'Light drives photosynthesis.' },
+      ],
+    })
+  })
+
+  it('offers no other format for an unanswered question', async () => {
+    vi.mocked(askQuestion).mockResolvedValue({
+      answer: 'The documents do not cover tax law.',
+      citations: [],
+      answerable: false,
+      passages: [],
+    })
+    const { user, box } = setup()
+
+    await user.type(box, 'What is the tax rate?{Enter}')
+    await screen.findByRole('article', {
+      name: 'Not answered from your materials',
+    })
+    expect(
+      screen.queryByRole('group', { name: 'Show another format' }),
+    ).not.toBeInTheDocument()
+  })
+
   it('submits on Enter and keeps Shift+Enter for a newline', async () => {
     vi.mocked(askQuestion).mockResolvedValue({
       answer: 'Yes.',
@@ -170,8 +235,8 @@ describe('ChatPanel', () => {
 
   it('shows a failed request as an alert with a working retry', async () => {
     vi.mocked(askQuestion).mockRejectedValueOnce(
-      new ChatError('We couldn’t reach the answer service.', {
-        code: 'offline',
+      new ChatError('Couldn’t get an answer. Try again.', {
+        code: 'network',
       }),
     )
     const { user, box, send } = setup()
@@ -180,7 +245,7 @@ describe('ChatPanel', () => {
     await user.click(send)
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('We couldn’t reach the answer service.')
+    expect(alert).toHaveTextContent('Couldn’t get an answer. Try again.')
 
     vi.mocked(askQuestion).mockResolvedValueOnce({
       answer: 'Light drives photosynthesis.',
@@ -200,71 +265,60 @@ describe('ChatPanel', () => {
     expect(screen.getAllByText('Why?')).toHaveLength(1)
   })
 
-  describe('while signed in offline', () => {
-    const saved: ChatTurn[] = [
-      { id: 'q', role: 'user', content: 'What is ATP?' },
-      {
-        id: 'a',
-        role: 'assistant',
-        content: 'The cell’s energy currency.',
-        answerable: true,
+  it('asks the question it was opened with, once', async () => {
+    vi.mocked(askQuestion).mockResolvedValue({
+      answer: 'Light drives photosynthesis.',
+      citations: [],
+      answerable: true,
+      passages: [],
+    })
+    setup({ initialQuestion: 'Why do leaves need light?' })
+
+    expect(
+      await screen.findByRole('article', {
+        name: 'Answer from your materials',
+      }),
+    ).toBeVisible()
+    expect(askQuestion).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(askQuestion).mock.calls[0]?.[0].question).toBe(
+      'Why do leaves need light?',
+    )
+  })
+
+  it('never shows an offline state', () => {
+    setup()
+
+    expect(screen.queryByText(/offline/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('keeps the opening question retryable when it can’t reach SomaNami', async () => {
+    vi.mocked(askQuestion)
+      .mockRejectedValueOnce(
+        new ChatError('Couldn’t get an answer. Try again.', {
+          code: 'network',
+        }),
+      )
+      .mockResolvedValueOnce({
+        answer: 'Light drives photosynthesis.',
         citations: [],
-      },
-    ]
+        answerable: true,
+        passages: [],
+      })
+    const user = userEvent.setup()
+    setup({ initialQuestion: 'Why do leaves need light?' })
 
-    it('keeps the saved conversation readable', () => {
-      setup({ status: 'signed-in-offline', initialMessages: saved })
+    const alert = await screen.findByRole('alert')
+    await user.click(within(alert).getByRole('button', { name: 'Try again' }))
 
-      const log = screen.getByRole('region', { name: 'Conversation' })
-      expect(within(log).getByText('What is ATP?')).toBeVisible()
-      expect(within(log).getByText('The cell’s energy currency.')).toBeVisible()
-    })
-
-    it('explains that asking needs a connection, and blocks sending', async () => {
-      const { user, box, send } = setup({ status: 'signed-in-offline' })
-
-      const offline = 'You’re offline. Reconnect to ask questions.'
-      expect(screen.getByRole('status')).toHaveTextContent(offline)
-      // Typing a draft stays possible; Send says why it's unavailable.
-      expect(send).toBeDisabled()
-      expect(send).toHaveAccessibleDescription(offline)
-
-      await user.type(box, 'Why?{Enter}')
-      expect(askQuestion).not.toHaveBeenCalled()
-    })
-
-    it('hides "Try again" once the connection drops', async () => {
-      vi.mocked(askQuestion).mockRejectedValue(
-        new ChatError('The answer service had a problem.', { retryable: true }),
-      )
-      const user = userEvent.setup()
-      const panel = (status: AuthStatus) => (
-        <AuthContext.Provider value={authAs(status)}>
-          <ChatPanel materialIds={['doc-1']} />
-        </AuthContext.Provider>
-      )
-      const { rerender } = render(panel('signed-in'))
-      await user.type(
-        screen.getByLabelText('Ask a follow-up about your materials'),
-        'Why?{Enter}',
-      )
-      const alert = await screen.findByRole('alert')
-      expect(
-        within(alert).getByRole('button', { name: 'Try again' }),
-      ).toBeVisible()
-
-      rerender(panel('signed-in-offline'))
-
-      expect(
-        within(alert).queryByRole('button', { name: 'Try again' }),
-      ).not.toBeInTheDocument()
-    })
-
-    it('says nothing about being offline when online', () => {
-      setup()
-
-      expect(screen.queryByText(/You’re offline/)).not.toBeInTheDocument()
-    })
+    expect(
+      await screen.findByRole('article', {
+        name: 'Answer from your materials',
+      }),
+    ).toBeVisible()
+    expect(
+      vi.mocked(askQuestion).mock.calls.map(([request]) => request.question),
+    ).toEqual(['Why do leaves need light?', 'Why do leaves need light?'])
   })
 
   it('words an ended session without offering a retry', async () => {

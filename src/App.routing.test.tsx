@@ -30,7 +30,7 @@ const renderAt = (path: string) =>
   )
 
 const signInHeading = () =>
-  screen.findByRole('heading', { level: 1, name: 'Sign in' })
+  screen.findByRole('heading', { level: 1, name: 'Welcome back' })
 
 beforeEach(() => {
   window.localStorage.clear()
@@ -116,33 +116,39 @@ describe('details step', () => {
 })
 
 describe('signed in', () => {
-  it('opens the account page in the shell, with an account menu', async () => {
+  it('opens Account settings from the sidebar account menu', async () => {
     installFakeSupabase({ session: fakeSession({ email: 'me@example.com' }) })
-    renderAt('/account')
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'Account' }),
-    ).toBeInTheDocument()
+    renderAt('/')
+    const menu = await screen.findByRole('button', {
+      name: 'me@example.com, account menu',
+    })
     expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: /Account menu/ }))
-    expect(screen.getByRole('link', { name: 'Account' })).toHaveAttribute(
-      'href',
-      '/account',
+    await userEvent.click(menu)
+    await userEvent.click(
+      screen.getByRole('menuitem', { name: 'Account settings' }),
     )
+    expect(
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Account settings',
+      }),
+    ).toBeInTheDocument()
   })
 
-  it('signs out from the account menu', async () => {
+  it('logs out from the account menu', async () => {
     const { auth } = installFakeSupabase({
       session: fakeSession({ email: 'me@example.com' }),
     })
     renderAt('/library')
-    const menu = await screen.findByRole('button', { name: /Account menu/ })
-    expect(menu).toHaveTextContent('me@example.com')
+    const menu = await screen.findByRole('button', {
+      name: 'me@example.com, account menu',
+    })
     expect(menu).toHaveAttribute('aria-expanded', 'false')
 
     await userEvent.click(menu)
     expect(menu).toHaveAttribute('aria-expanded', 'true')
-    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Log out' }))
 
     expect(auth.signOut).toHaveBeenCalledWith({ scope: 'local' })
     await signInHeading()
@@ -152,7 +158,7 @@ describe('signed in', () => {
   it('closes the account menu with Escape', async () => {
     installFakeSupabase({ session: fakeSession() })
     renderAt('/')
-    const menu = await screen.findByRole('button', { name: /Account menu/ })
+    const menu = await screen.findByRole('button', { name: /account menu/ })
     await userEvent.click(menu)
     await userEvent.keyboard('{Escape}')
     expect(menu).toHaveAttribute('aria-expanded', 'false')

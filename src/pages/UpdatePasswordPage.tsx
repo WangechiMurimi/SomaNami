@@ -8,7 +8,7 @@ import { useAuth } from '../features/auth/auth-context.ts'
 import { authErrorMessage } from '../features/auth/auth-errors.ts'
 import {
   MIN_PASSWORD,
-  PRIMARY_BUTTON,
+  SUBMIT_BUTTON,
   TEXT_LINK,
 } from '../features/auth/auth-ui.ts'
 import { useFocusFirstError } from '../features/auth/use-focus-first-error.ts'
@@ -88,7 +88,7 @@ export default function UpdatePasswordPage() {
           ref={formRef}
           noValidate
           onSubmit={handleSubmit}
-          className="flex flex-col gap-5"
+          className="flex flex-col gap-4"
         >
           {formError && <FormAlert>{formError}</FormAlert>}
           {/* Lets password managers update the right saved login. */}
@@ -114,7 +114,7 @@ export default function UpdatePasswordPage() {
           <button
             type="submit"
             disabled={submitting}
-            className={PRIMARY_BUTTON}
+            className={`${SUBMIT_BUTTON} mt-2`}
           >
             {submitting ? 'Saving…' : 'Save new password'}
           </button>

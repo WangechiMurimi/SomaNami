@@ -123,11 +123,13 @@ describe('details step', () => {
     expect(screen.getByLabelText('Display name')).toBeInTheDocument()
   })
 
-  it('needs a connection', async () => {
+  it('says when it can’t reach SomaNami', async () => {
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
     installFakeSupabase({ session: fakeSession(), profile: null })
     page()
-    expect(await screen.findByRole('alert')).toHaveTextContent(/offline/i)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'We couldn’t reach SomaNami. Check your connection and try again.',
+    )
     expect(screen.queryByLabelText('Display name')).not.toBeInTheDocument()
   })
 

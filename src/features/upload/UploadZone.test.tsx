@@ -50,11 +50,14 @@ describe('UploadZone', () => {
   it('highlights the zone while a file is dragged over it', () => {
     render(<UploadZone onFile={vi.fn()} />)
 
-    fireEvent.dragEnter(zone(), { dataTransfer: { types: ['Files'] } })
     expect(zone().className).toContain('bg-surface')
 
-    fireEvent.dragLeave(zone())
+    fireEvent.dragEnter(zone(), { dataTransfer: { types: ['Files'] } })
     expect(zone().className).toContain('bg-tint')
+    expect(zone().className).toContain('border-accent')
+
+    fireEvent.dragLeave(zone())
+    expect(zone().className).toContain('bg-surface')
   })
 
   it('is reachable and operable from the keyboard alone', async () => {
