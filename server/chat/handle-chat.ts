@@ -169,8 +169,13 @@ export async function handleChat(
   )
 
   // An answer presented as grounded must point at a real passage. If none of
-  // its citations survive, it is not document-supported, whatever it claims.
-  const answerable = outcome.answer.answerable && cited.length > 0
+  // its citations survive, it is not document-supported, whatever it claims,
+  // and its text is not shown either: it may come from the model's general
+  // knowledge rather than the learner's materials (#149).
+  if (outcome.answer.answerable && cited.length === 0) {
+    return { status: 200, body: notAnswerable(NO_PASSAGES_ANSWER) }
+  }
+  const { answerable } = outcome.answer
   return {
     status: 200,
     body: {
