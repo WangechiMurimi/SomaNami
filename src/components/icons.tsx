@@ -1,9 +1,15 @@
 import type { SVGProps } from 'react'
 
-type IconProps = SVGProps<SVGSVGElement> & { size?: number }
+/** Props every icon takes: any SVG attribute, plus a square `size` in px. */
+export type IconProps = SVGProps<SVGSVGElement> & { size?: number }
 
 /** Stroke icon frame shared by every icon: decorative, sized, currentColor. */
-function Icon({ size = 16, strokeWidth = 2, children, ...rest }: IconProps) {
+export function Icon({
+  size = 16,
+  strokeWidth = 2,
+  children,
+  ...rest
+}: IconProps) {
   return (
     <svg
       width={size}

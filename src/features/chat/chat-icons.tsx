@@ -1,28 +1,8 @@
-import type { SVGProps } from 'react'
+import { Icon as BaseIcon, type IconProps } from '../../components/icons.tsx'
 
-type IconProps = SVGProps<SVGSVGElement> & { size?: number }
-
-/*
- * Icons only the chat and workspace screens use. Kept beside them rather than
- * in components/icons.tsx so parallel redesign branches don't collide there.
- */
-function Icon({ size = 16, strokeWidth = 1.8, children, ...rest }: IconProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      {...rest}
-    >
-      {children}
-    </svg>
-  )
+// These icons draw a lighter line than the shared default.
+function Icon({ strokeWidth = 1.8, ...props }: IconProps) {
+  return <BaseIcon strokeWidth={strokeWidth} {...props} />
 }
 
 /** Two speech bubbles: a chat. */

@@ -1,28 +1,8 @@
-import type { SVGProps } from 'react'
+import { Icon as BaseIcon, type IconProps } from '../../components/icons.tsx'
 
-type IconProps = SVGProps<SVGSVGElement> & { size?: number }
-
-/*
- * Icons only the workspace and saved-chat screens use. Kept beside them rather
- * than in components/icons.tsx so parallel redesign branches don't collide.
- */
-function Icon({ size = 16, strokeWidth = 1.8, children, ...rest }: IconProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      {...rest}
-    >
-      {children}
-    </svg>
-  )
+// These icons draw a lighter line than the shared default.
+function Icon({ strokeWidth = 1.8, ...props }: IconProps) {
+  return <BaseIcon strokeWidth={strokeWidth} {...props} />
 }
 
 /** Three stacked dots: more actions. */
@@ -31,13 +11,6 @@ export const MoreVertical = (props: IconProps) => (
     <circle cx="12" cy="5" r="1" />
     <circle cx="12" cy="12" r="1" />
     <circle cx="12" cy="19" r="1" />
-  </Icon>
-)
-
-/** A bookmark: save a chat. Pass `fill="currentColor"` for the saved state. */
-export const Bookmark = (props: IconProps) => (
-  <Icon {...props}>
-    <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
   </Icon>
 )
 

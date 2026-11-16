@@ -5,7 +5,7 @@ import Composer from '../components/Composer.tsx'
 import { ArrowRight, Plus } from '../components/icons.tsx'
 import Loading from '../components/Loading.tsx'
 import NotFound from '../components/NotFound.tsx'
-import { Chats, FileIcon } from '../features/chat/chat-icons.tsx'
+import { Bookmark, Chats, FileIcon } from '../features/chat/chat-icons.tsx'
 import {
   chatPath,
   materialsFor,
@@ -16,7 +16,6 @@ import { KIND_LABEL } from '../features/library/kind-label.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
 import AddMaterialsPanel from '../features/workspaces/AddMaterialsPanel.tsx'
 import WorkspaceActionDialog from '../features/workspaces/WorkspaceActionDialog.tsx'
-import { Bookmark } from '../features/workspaces/workspace-icons.tsx'
 import { useWorkspace } from '../features/workspaces/use-workspace.ts'
 import { useWorkspaceUpload } from '../features/workspaces/use-workspace-upload.ts'
 import { isLooseWorkspace, setConversationSaved } from '../lib/storage/index.ts'
@@ -105,7 +104,7 @@ function SaveToggle({ chat }: { chat: Conversation }) {
         saved ? 'text-accent' : 'text-muted hover:text-fg'
       }`}
     >
-      <Bookmark size={16} fill={saved ? 'currentColor' : 'none'} />
+      <Bookmark size={16} filled={saved} />
       {/* The label stays "Save"; aria-pressed and the filled icon carry the state. */}
       Save
     </button>

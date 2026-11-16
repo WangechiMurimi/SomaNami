@@ -3,11 +3,11 @@ import { Link } from 'react-router'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
 import { ArrowRight } from '../components/icons.tsx'
 import Loading from '../components/Loading.tsx'
+import { Bookmark } from '../features/chat/chat-icons.tsx'
 import { chatPath } from '../features/chat/conversation-materials.ts'
 import { useRecentConversations } from '../features/chat/use-recent-conversations.ts'
 import { userWorkspaces } from '../features/workspaces/user-workspaces.ts'
 import { useWorkspaces } from '../features/workspaces/use-workspaces.ts'
-import { Bookmark } from '../features/workspaces/workspace-icons.tsx'
 import {
   DEFAULT_WORKSPACE,
   isLooseWorkspace,
@@ -185,7 +185,7 @@ export default function ConversationsPage() {
                         onClick={() => unsave(conversation)}
                         className="inline-flex h-11 items-center gap-1.5 rounded-[10px] px-3 text-sm font-medium text-muted hover:bg-tint hover:text-fg"
                       >
-                        <Bookmark size={16} fill="currentColor" />
+                        <Bookmark size={16} filled />
                         Unsave
                         <span className="sr-only">: {conversation.title}</span>
                       </button>
