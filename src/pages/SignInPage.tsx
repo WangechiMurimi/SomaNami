@@ -108,10 +108,12 @@ export default function SignInPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               error={fieldErrors.password}
-              labelAside={
-                <Link to="/forgot-password" className={SMALL_LINK}>
-                  Forgot your password?
-                </Link>
+              below={
+                <p className="mt-2">
+                  <Link to="/forgot-password" className={SMALL_LINK}>
+                    Forgot your password?
+                  </Link>
+                </p>
               }
             />
             <Turnstile onToken={captcha.onToken} resetKey={captcha.resetKey} />
