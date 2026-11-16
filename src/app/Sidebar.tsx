@@ -119,7 +119,8 @@ function DeviceStatus() {
       </h2>
       <p className="mt-2 text-xs leading-[18px] text-muted">
         Your materials and chats are saved to your account on this device and
-        work offline. Asking new questions needs a connection.
+        work offline. Original files are also kept privately in your account.
+        Asking new questions needs a connection.
       </p>
       <p
         className="mt-3 flex items-center gap-2 text-xs font-medium"

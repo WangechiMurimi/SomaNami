@@ -370,7 +370,8 @@ describe('asking about a document', () => {
   it('reports a document that was read but could not be saved', async () => {
     const failing: StorageAdapter = {
       ...createMemoryAdapter(),
-      put: () => Promise.reject(new Error('QuotaExceededError')),
+      // Every storage write lands through commit, with its outbox entry (#146).
+      commit: () => Promise.reject(new Error('QuotaExceededError')),
     }
     setStorageAdapter(failing)
     await renderApp()

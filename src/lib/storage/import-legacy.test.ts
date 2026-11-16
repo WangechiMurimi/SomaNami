@@ -14,14 +14,15 @@ import {
   DEFAULT_WORKSPACE,
   DOCUMENTS,
   MESSAGES,
+  OUTBOX,
   WORKSPACES,
 } from './schema.ts'
-import type { StoreName } from './schema.ts'
+import type { StoreName, SyncedStoreName } from './schema.ts'
 import { ADAPTERS } from './test-adapters.ts'
 
 // Loose records: the move copies whatever is stored, whatever its shape.
 const RECORDS: Record<
-  StoreName,
+  SyncedStoreName,
   Array<StorageRecord & Record<string, unknown>>
 > = {
   [WORKSPACES]: [],
@@ -122,6 +123,18 @@ describe.each(ADAPTERS)(
       }
       expect(await databaseNames(factory)).not.toContain(DB_NAME)
       expect(await hasLegacyMaterials(factory)).toBe(false)
+    })
+
+    it('queues every moved record for upload (#146)', async () => {
+      await moveLegacyMaterials({ factory, target })
+
+      expect((await target.getAll(OUTBOX)).map(({ id }) => id).sort()).toEqual([
+        'conversations:conv-1',
+        'documents:doc-1',
+        'documents:doc-2',
+        'messages:msg-1',
+        'messages:msg-2',
+      ])
     })
 
     it('finishes even while a tab from before accounts holds the old database', async () => {

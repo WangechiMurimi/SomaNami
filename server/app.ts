@@ -63,7 +63,8 @@ export function createApp({
   )
 
   // Chat bodies are small now (a question, material ids and recent history);
-  // the cap mainly bounds a long history.
+  // the cap mainly bounds a long history. Original files go from the browser
+  // straight to Supabase Storage (#145), never through this server.
   app.use(express.json({ limit: CHAT_BODY_LIMIT_BYTES }))
 
   app.get('/api/health', (_request, response) => {
