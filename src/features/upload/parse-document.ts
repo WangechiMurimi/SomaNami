@@ -1,4 +1,5 @@
 import { parseDocx } from './parse-docx.ts'
+import { parseHtml } from './parse-html.ts'
 import { parsePdf } from './parse-pdf.ts'
 import { parseText } from './parse-text.ts'
 import type { Parser, ParsedFile } from './parsed-file.ts'
@@ -14,6 +15,7 @@ export const PARSERS: Record<DocumentKind, Parser> = {
   pdf: parsePdf,
   docx: parseDocx,
   text: parseText,
+  web: parseHtml,
 }
 
 const rejectFile = ({ code, message }: FileProblem) =>
@@ -66,7 +68,9 @@ export async function parseDocument(
   const id = crypto.randomUUID()
   return {
     id,
-    name: file.name,
+    // A fetched page's file name is a placeholder; its <title> is what the
+    // learner recognises. Files picked from disk keep the name they chose.
+    name: parsed.title ?? file.name,
     size: file.size,
     kind: validation.kind,
     pageCount: parsed.pageCount,

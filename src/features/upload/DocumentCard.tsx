@@ -15,6 +15,7 @@ const KIND_LABEL: Record<DocumentKind, string> = {
   pdf: 'PDF',
   docx: 'DOCX',
   text: 'Text',
+  web: 'Web page',
 }
 
 const ACTION_STYLE = 'ml-3 text-sm text-muted underline hover:text-fg'

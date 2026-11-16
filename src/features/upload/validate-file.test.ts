@@ -28,6 +28,8 @@ describe('validateFile', () => {
     ['Essay.DOCX', 'docx'],
     ['notes.txt', 'text'],
     ['readme.md', 'text'],
+    ['article.html', 'web'],
+    ['Saved.HTM', 'web'],
   ])('accepts %s', (name, kind) => {
     expect(validateFile(fileOf(name))).toEqual({ ok: true, kind })
   })
@@ -47,7 +49,7 @@ describe('validateFile', () => {
       const error = problemOf(validateFile(fileOf(name)))
       expect(error.code).toBe('unsupported-type')
       expect(error.message).toBe(
-        'We can only read PDF, DOCX, TXT or Markdown files right now.',
+        'We can only read PDF, DOCX, TXT, Markdown or HTML files right now.',
       )
     },
   )
@@ -71,6 +73,8 @@ describe('ACCEPT_ATTRIBUTE', () => {
       '.docx',
       '.txt',
       '.md',
+      '.html',
+      '.htm',
     ])
   })
 })
@@ -131,5 +135,42 @@ describe('verifyContents', () => {
       await verifyContents(bytesFile(PNG, 'a.txt'), 'text'),
     )
     expect(error.code).toBe('content-mismatch')
+  })
+
+  it.each([
+    ['a doctype', '<!DOCTYPE html><html><body>Hi</body></html>'],
+    ['an html tag', '<html lang="en"><body>Hi</body></html>'],
+    ['a head tag', '<head><title>Hi</title></head>'],
+    ['a body tag', '<body>Hi</body>'],
+    ['a leading comment', '<!-- saved page --><html></html>'],
+    ['an XML declaration', '<?xml version="1.0"?><html></html>'],
+    ['a bare fragment', '<p>Just a paragraph</p>'],
+    ['leading whitespace', '\n\n   \t<!doctype html><p>Hi</p>'],
+  ])('accepts HTML that starts with %s', async (_, html) => {
+    expect(await verifyContents(new File([html], 'a.html'), 'web')).toEqual({
+      ok: true,
+    })
+  })
+
+  it('accepts HTML after a UTF-8 byte-order mark', async () => {
+    const withBom = [0xef, 0xbb, 0xbf, ...ascii('<!doctype html>')]
+    expect((await verifyContents(bytesFile(withBom, 'a.html'), 'web')).ok).toBe(
+      true,
+    )
+  })
+
+  it.each([
+    ['a PDF', ascii('%PDF-1.7\n<html>')],
+    ['a PNG', PNG],
+    ['a ZIP', ZIP],
+    ['plain text', ascii('Just some notes, no markup.')],
+    ['markup with NUL bytes', [...ascii('<html>'), 0x00, 0x01]],
+    ['a stray less-than sign', ascii('< 3 apples')],
+  ])('rejects %s named .html', async (_, bytes) => {
+    const error = problemOf(
+      await verifyContents(bytesFile(bytes, 'a.html'), 'web'),
+    )
+    expect(error.code).toBe('content-mismatch')
+    expect(error.message).toMatch(/named as a web page/)
   })
 })

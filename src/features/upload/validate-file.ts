@@ -21,6 +21,7 @@ const PDF_HEADER = [0x25, 0x50, 0x44, 0x46, 0x2d] // "%PDF-"
 const ZIP_HEADER = [0x50, 0x4b, 0x03, 0x04] // every .docx is a ZIP package
 // OLE compound file: legacy .doc, and also how Word stores an encrypted .docx.
 const OLE_HEADER = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]
+const UTF8_BOM = [0xef, 0xbb, 0xbf]
 // The PDF spec tolerates leading bytes before the header within the first 1 KB.
 const PDF_HEADER_WINDOW = 1024
 
@@ -41,6 +42,31 @@ const contains = (bytes: Uint8Array, needle: readonly number[]): boolean => {
     if (startsWith(bytes.subarray(i), needle)) return true
   }
   return false
+}
+
+const isWhitespace = (byte: number | undefined): boolean =>
+  byte === 0x20 ||
+  byte === 0x09 ||
+  byte === 0x0a ||
+  byte === 0x0d ||
+  byte === 0x0c
+
+const isAsciiLetter = (byte: number | undefined): boolean =>
+  byte !== undefined && (byte | 0x20) >= 0x61 && (byte | 0x20) <= 0x7a
+
+/**
+ * True when the bytes open like markup: an optional BOM and whitespace, then
+ * a tag, doctype, comment or XML declaration. Pages don't always start with
+ * `<!doctype html>` or `<html>`, so any tag-like start passes; what this
+ * must catch is a binary file (a PDF, an image) wearing a .html name.
+ */
+function looksLikeHtml(bytes: Uint8Array): boolean {
+  if (bytes.includes(0)) return false
+  let i = startsWith(bytes, UTF8_BOM) ? UTF8_BOM.length : 0
+  while (isWhitespace(bytes[i])) i++
+  if (bytes[i] !== 0x3c) return false // "<"
+  const next = bytes[i + 1]
+  return isAsciiLetter(next) || next === 0x21 || next === 0x3f // "!" or "?"
 }
 
 /** Checks name and size before any bytes are read; returns `{ ok, kind }` or `{ ok: false, error }`. */
@@ -96,6 +122,7 @@ const CONTENT_CHECKS: Record<
   },
   // NUL bytes never appear in UTF-8 text, so they reliably flag binary files.
   text: (bytes) => (bytes.includes(0) ? mismatch('a text file') : pass),
+  web: (bytes) => (looksLikeHtml(bytes) ? pass : mismatch('a web page')),
 }
 
 /**

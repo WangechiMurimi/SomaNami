@@ -77,8 +77,8 @@ describe('UploadZone', () => {
 
     expect(zone().querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
     expect(
-      screen.getByText('PDF, DOCX, TXT or Markdown, up to 20 MB'),
+      screen.getByText('PDF, DOCX, TXT, Markdown or HTML, up to 20 MB'),
     ).toBeInTheDocument()
-    expect(input()).toHaveAttribute('accept', '.pdf,.docx,.txt,.md')
+    expect(input()).toHaveAttribute('accept', '.pdf,.docx,.txt,.md,.html,.htm')
   })
 })

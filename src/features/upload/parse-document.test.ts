@@ -69,6 +69,61 @@ describe('parseDocument', () => {
     expect(doc.chunks[0]?.source).toEqual({ type: 'paragraph', paragraph: 1 })
   })
 
+  it('routes .html files to the HTML parser and names them by their title', async () => {
+    const page = new File(
+      [
+        '<!doctype html><html><head><title>The water cycle</title></head><body><article><p>Water evaporates, condenses into clouds and falls as rain.</p></article></body></html>',
+      ],
+      'article.html',
+      { type: 'text/html; charset=utf-8' },
+    )
+
+    const doc = await parseDocument(page, {
+      sourceUrl: 'https://example.org/water',
+      fetchedAt: 1_700_000_000_000,
+    })
+
+    expect(doc).toMatchObject({
+      kind: 'web',
+      name: 'The water cycle',
+      pageCount: null,
+      sourceUrl: 'https://example.org/water',
+    })
+    expect(doc.chunks[0]).toMatchObject({
+      id: `${doc.id}:0`,
+      source: { type: 'paragraph', paragraph: 1 },
+    })
+  })
+
+  it('keeps the file name for a page without a title', async () => {
+    const page = new File(['<p>Untitled notes</p>'], 'saved.htm')
+    expect(await parseDocument(page)).toMatchObject({
+      kind: 'web',
+      name: 'saved.htm',
+    })
+  })
+
+  it('reports no text for a page that only renders with JavaScript', async () => {
+    const shell = new File(
+      [
+        '<!doctype html><html><head><title>App</title></head><body><div id="root"></div><script src="/app.js"></script></body></html>',
+      ],
+      'app.html',
+    )
+    const error = await rejection(parseDocument(shell))
+    expect(error).toMatchObject({ code: 'no-text', stage: 'processing' })
+  })
+
+  it('rejects a PDF renamed to .html before parsing', async () => {
+    const error = await rejection(
+      parseDocument(new File(['%PDF-1.7\n'], 'paper.html')),
+    )
+    expect(error).toMatchObject({
+      code: 'content-mismatch',
+      stage: 'validation',
+    })
+  })
+
   it('surfaces name and size failures as validation errors', async () => {
     const error = await rejection(parseDocument(new File(['x'], 'a.png')))
     expect(error).toBeInstanceOf(UploadError)
