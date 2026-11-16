@@ -71,10 +71,12 @@ function BrandPanel() {
   return (
     <section
       aria-label="About SomaNami"
-      className="flex min-w-0 flex-col justify-between gap-12 border-t border-line bg-side px-4 py-12 sm:px-8 lg:flex-[1_1_520px] lg:border-t-0 lg:border-r lg:px-16"
+      className="flex min-w-0 flex-col gap-12 border-t border-line bg-side px-4 py-12 sm:px-8 lg:flex-[1_1_520px] lg:border-t-0 lg:border-r lg:px-16"
     >
       <BrandLink className="hidden lg:flex" />
-      <div className="flex max-w-[520px] flex-col gap-7">
+      {/* Centred in the space below the logo; with nothing pinned to the
+          bottom, justify-between would push it down to the panel's edge. */}
+      <div className="flex max-w-[520px] flex-col gap-7 lg:my-auto">
         <div className="flex flex-col gap-3">
           {/* Not a heading: each screen's own title is the page's h1. */}
           <p className="font-display text-[2rem] leading-[1.25] font-normal tracking-[-0.01em] text-fg lg:text-[2.5rem]">
