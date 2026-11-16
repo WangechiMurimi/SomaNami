@@ -54,6 +54,37 @@ describe('DocumentCard', () => {
     expect(card).toHaveTextContent('PDF · 3 pages · 2 KB · 2 passages indexed')
   })
 
+  it('names the site a linked material came from', () => {
+    render(
+      <DocumentCard
+        status="ready"
+        document={{
+          ...readyDocument,
+          sourceUrl: 'https://www.example.org/paper.pdf',
+        }}
+        error={null}
+        {...handlers}
+      />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      '2 passages indexed · from www.example.org',
+    )
+  })
+
+  it('says a link is still being fetched', () => {
+    render(
+      <DocumentCard
+        status="processing"
+        document={null}
+        error={null}
+        fileName="https://example.org/paper.pdf"
+        fetching
+        {...handlers}
+      />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent('Fetching the link…')
+  })
+
   it('announces progress politely but failures assertively', () => {
     const { rerender } = render(
       <DocumentCard
