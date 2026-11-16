@@ -18,6 +18,7 @@ import AddLinkForm from '../upload/AddLinkForm.tsx'
 import PasteTextForm from '../upload/PasteTextForm.tsx'
 import UploadZone from '../upload/UploadZone.tsx'
 import { useDocumentUpload } from '../upload/use-document-upload.ts'
+import { SECONDARY } from './button-styles.ts'
 
 const STEPS = ['Name and topic', 'Add materials'] as const
 
@@ -25,8 +26,6 @@ const LABEL = 'text-base leading-[1.5] font-semibold'
 const HINT = 'text-[15px] leading-[1.5] text-muted'
 const FIELD =
   'h-12 w-full rounded-[10px] border border-edge bg-surface px-3.5 text-base text-fg'
-const SECONDARY =
-  'inline-flex h-11 items-center gap-[9px] rounded-[10px] border border-edge bg-surface px-[18px] text-sm font-medium text-fg hover:bg-tint disabled:cursor-not-allowed disabled:opacity-50'
 const PRIMARY =
   'inline-flex h-11 items-center gap-[9px] rounded-[10px] bg-accent px-[18px] text-sm font-medium text-on-accent transition-opacity hover:opacity-90 disabled:opacity-50'
 

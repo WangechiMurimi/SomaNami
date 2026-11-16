@@ -5,11 +5,9 @@ import DocumentCard from '../upload/DocumentCard.tsx'
 import PasteTextForm from '../upload/PasteTextForm.tsx'
 import UploadZone from '../upload/UploadZone.tsx'
 import type { useDocumentUpload } from '../upload/use-document-upload.ts'
+import { SECONDARY } from './button-styles.ts'
 
 type Upload = ReturnType<typeof useDocumentUpload>
-
-const SECONDARY =
-  'inline-flex h-11 items-center gap-[9px] rounded-[10px] border border-edge bg-surface px-[18px] text-sm font-medium text-fg hover:bg-tint'
 
 /** Upload, link or paste materials into a workspace, with the upload's progress. */
 export default function AddMaterialsPanel({
