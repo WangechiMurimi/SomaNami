@@ -1,5 +1,5 @@
 import { useCallback, useId, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
 import Composer from '../components/Composer.tsx'
 import { ArrowRight, Plus } from '../components/icons.tsx'
@@ -7,8 +7,8 @@ import { Chats, FileIcon } from '../features/chat/chat-icons.tsx'
 import {
   chatPath,
   materialsFor,
-  titleFrom,
 } from '../features/chat/conversation-materials.ts'
+import { useStartChat } from '../features/chat/use-start-chat.ts'
 import { useRecentConversations } from '../features/chat/use-recent-conversations.ts'
 import { KIND_LABEL } from '../features/library/kind-label.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
@@ -17,11 +17,7 @@ import WorkspaceActionDialog from '../features/workspaces/WorkspaceActionDialog.
 import { Bookmark } from '../features/workspaces/workspace-icons.tsx'
 import { useWorkspace } from '../features/workspaces/use-workspace.ts'
 import { useWorkspaceUpload } from '../features/workspaces/use-workspace-upload.ts'
-import {
-  createConversation,
-  isLooseWorkspace,
-  setConversationSaved,
-} from '../lib/storage/index.ts'
+import { isLooseWorkspace, setConversationSaved } from '../lib/storage/index.ts'
 import type {
   Conversation,
   StoredDocument,
@@ -166,7 +162,6 @@ function ChatList({
 }
 
 function WorkspaceView({ workspace }: { workspace: Workspace }) {
-  const navigate = useNavigate()
   const { documents } = useLibraryContext()
   const { conversations } = useRecentConversations()
   const materials = useMemo(
@@ -183,7 +178,7 @@ function WorkspaceView({ workspace }: { workspace: Workspace }) {
   const allSelected = selected.length === materials.length
   const [pasting, setPasting] = useState(false)
   const [question, setQuestion] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const { start, starting, error } = useStartChat()
   const [dialog, setDialog] = useState<'add-sources' | 'remove-sources'>()
   // A material added here joins the selection even if it was unticked before.
   const include = useCallback(
@@ -200,20 +195,12 @@ function WorkspaceView({ workspace }: { workspace: Workspace }) {
         : [...current, id],
     )
 
-  const ask = async () => {
-    setError(null)
-    try {
-      const conversation = await createConversation({
-        workspaceId: workspace.id,
-        materialIds: selected.map(({ id }) => id),
-        title: titleFrom(question),
-      })
-      navigate(chatPath(conversation), { state: { question: question.trim() } })
-    } catch (cause) {
-      console.error('Could not start the chat', cause)
-      setError('We couldn’t start this chat. Try again.')
-    }
-  }
+  const ask = () =>
+    start({
+      workspaceId: workspace.id,
+      materialIds: selected.map(({ id }) => id),
+      question,
+    })
 
   const sendDescription =
     materials.length === 0
@@ -360,7 +347,7 @@ function WorkspaceView({ workspace }: { workspace: Workspace }) {
         value={question}
         onChange={setQuestion}
         onSubmit={() => void ask()}
-        canSend={selected.length > 0 && question.trim().length > 0}
+        canSend={!starting && selected.length > 0 && question.trim().length > 0}
         sendDescription={sendDescription}
         onUpload={(file) => void upload.upload(file)}
         onPaste={() => setPasting(true)}

@@ -1,15 +1,14 @@
 import { useCallback, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
+import { Link, useParams, useSearchParams } from 'react-router'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
 import Composer from '../components/Composer.tsx'
 import { Check, Plus } from '../components/icons.tsx'
-import { chatPath, titleFrom } from '../features/chat/conversation-materials.ts'
+import { useStartChat } from '../features/chat/use-start-chat.ts'
 import { WAYS_IN } from '../features/chat/ways-in.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
 import AddMaterialsPanel from '../features/workspaces/AddMaterialsPanel.tsx'
 import { useWorkspace } from '../features/workspaces/use-workspace.ts'
 import { useWorkspaceUpload } from '../features/workspaces/use-workspace-upload.ts'
-import { createConversation } from '../lib/storage/index.ts'
 import type { StoredDocument, Workspace } from '../types/contracts.ts'
 import { H1, LEDE } from './page-heading.ts'
 
@@ -29,7 +28,6 @@ function NewChat({
     { label: workspace.name, to: `/workspaces/${workspace.id}` },
     { label: 'New chat' },
   ])
-  const navigate = useNavigate()
   // Until the user picks, a chat opened from one material uses that one, and
   // a chat opened from the workspace uses all of them.
   const [picked, setPicked] = useState<string[] | null>(null)
@@ -44,8 +42,7 @@ function NewChat({
   const [question, setQuestion] = useState(initialQuestion)
   const [adding, setAdding] = useState(materials.length === 0)
   const [pasting, setPasting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [starting, setStarting] = useState(false)
+  const { start: startChat, starting, error } = useStartChat()
 
   const toggle = (id: string) =>
     setPicked(
@@ -70,23 +67,8 @@ function NewChat({
           materials.length === 1 ? 'material' : 'materials'
         }.`
 
-  const start = async () => {
-    setStarting(true)
-    setError(null)
-    try {
-      const conversation = await createConversation({
-        workspaceId: workspace.id,
-        materialIds: chosen,
-        // TODO(#178): let the LLM title the chat from its first question.
-        title: titleFrom(question),
-      })
-      navigate(chatPath(conversation), { state: { question: question.trim() } })
-    } catch (cause) {
-      console.error('Could not start the chat', cause)
-      setError('We couldn’t start this chat. Try again.')
-      setStarting(false)
-    }
-  }
+  const start = () =>
+    startChat({ workspaceId: workspace.id, materialIds: chosen, question })
 
   return (
     <div className="mx-auto flex max-w-[54rem] flex-col gap-8">
