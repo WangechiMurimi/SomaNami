@@ -9,6 +9,9 @@ import { createApp } from './app.ts'
 import type { Authenticate } from './auth/types.ts'
 import { LIMITS, parseChatRequest } from './chat/chat-request.ts'
 import { handleChat } from './chat/handle-chat.ts'
+import { handleEmbed } from './embed/handle-embed.ts'
+import type { EmbedErrorCode } from './embed/handle-embed.ts'
+import { EMBED_CHUNKS_PER_REQUEST } from './embed/limits.ts'
 import { FETCH_LINK_STATUS, handleFetchLink } from './link/handle-fetch-link.ts'
 import { LINK_MAX_URL_CHARS } from './link/limits.ts'
 
@@ -309,6 +312,32 @@ describe('FetchLinkRequest schema', () => {
   })
 })
 
+describe('EmbedRequest schema', () => {
+  const validate = validator('EmbedRequest')
+  const embedDeps = {
+    authenticate: allow,
+    authorization: 'Bearer token',
+    embed: async () => [],
+    chunks: () => ({ pending: async () => [], save: async () => {} }),
+  }
+
+  const samples: [string, unknown][] = [
+    ['empty object', {}],
+    ['unknown property', { documentIds: ['doc-1'] }],
+    ['null body', null],
+    ['array body', []],
+    ['string body', 'embed'],
+    ['number body', 1],
+  ]
+
+  it.each(samples)('agrees with the zod schema: %s', async (_name, body) => {
+    const result = await handleEmbed(body, embedDeps)
+    expect(validate(body), ajv.errorsText(validate.errors)).toBe(
+      result.status === 200,
+    )
+  })
+})
+
 describe('OpenAPI spec responses', () => {
   it('describes a "not covered" chat reply', async () => {
     const result = await handleChat(
@@ -323,6 +352,49 @@ describe('OpenAPI spec responses', () => {
     const validate = validator('ChatReply')
     expect(result.status).toBe(200)
     expect(validate(result.body), ajv.errorsText(validate.errors)).toBe(true)
+  })
+
+  it('describes an embed reply, including a full page', async () => {
+    const validate = validator('EmbedReply')
+    const pending = Array.from(
+      { length: EMBED_CHUNKS_PER_REQUEST + 1 },
+      (_, index) => ({ id: `doc-1:${index}`, text: 'x' }),
+    )
+    const result = await handleEmbed(
+      {},
+      {
+        authenticate: allow,
+        authorization: 'Bearer token',
+        embed: async (texts) => texts.map(() => [0]),
+        chunks: () => ({
+          pending: async (limit) => pending.slice(0, limit),
+          save: async () => {},
+        }),
+      },
+    )
+    expect(result.status).toBe(200)
+    expect(validate(result.body), ajv.errorsText(validate.errors)).toBe(true)
+  })
+
+  it('documents every embed error code', () => {
+    // Listed by hand so a new EmbedErrorCode fails typecheck until added here.
+    const codes: Record<EmbedErrorCode, true> = {
+      'invalid-json': true,
+      'invalid-request': true,
+      unauthenticated: true,
+      'not-configured': true,
+      'rate-limited': true,
+      'materials-unavailable': true,
+      'upstream-unreachable': true,
+      'upstream-failed': true,
+    }
+    const documented = (
+      spec.components.schemas.EmbedError as SchemaNode | undefined
+    )?.properties?.error?.enum
+    // `too-large` comes from the transports, not the handler.
+    expect(sorted(documented ?? [])).toEqual(
+      sorted([...Object.keys(codes), 'too-large']),
+    )
   })
 
   it('documents every fetch-link error code under its status', () => {

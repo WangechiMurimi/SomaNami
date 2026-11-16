@@ -7,10 +7,11 @@ info:
     The API the SomaNami browser app calls. In production each route is a
     Netlify Function (`netlify/functions/`); locally the same handlers run in
     Express (`server/app.ts`). Both transports share the handlers in
-    `server/chat/` and `server/link/`, so they answer alike except where a
+    `server/chat/`, `server/embed/` and `server/link/`, so they answer alike except where a
     response below says "Express only" or "Netlify only".
 
-    **Auth.** `POST /api/chat` and `POST /api/fetch-link` need a Supabase
+    **Auth.** `POST /api/chat`, `POST /api/embed` and `POST /api/fetch-link`
+    need a Supabase
     access token (the signed-in user's session JWT) as
     `Authorization: Bearer <token>`. The server verifies it locally against the
     Supabase project's published signing keys (ES256 or RS256, audience
@@ -25,12 +26,14 @@ info:
 
     **Rate limits.** Per client IP. Production uses Netlify's function rate
     limit (aggregated by IP and domain); Express uses an in-memory limiter with
-    the same numbers (`server/chat/limits.ts`, `server/link/limits.ts`) and
+    the same numbers (`server/chat/limits.ts`, `server/embed/limits.ts`,
+    `server/link/limits.ts`) and
     sends `RateLimit` and `RateLimit-Policy` headers (IETF draft 8).
 
     **Unknown routes.** Express answers any other `/api/*` path, or a route
     with the wrong method, with `404 { "error": "not-found" }`. On Netlify
-    `/api/chat` and `/api/fetch-link` answer a wrong method with `405`.
+    `/api/chat`, `/api/embed` and `/api/fetch-link` answer a wrong method
+    with `405`.
 
     This file is checked against the registered routes and the zod request
     schemas by `server/openapi-spec.test.ts`.
@@ -44,6 +47,7 @@ servers:
 tags:
   - name: health
   - name: chat
+  - name: embeddings
   - name: links
 
 paths:
@@ -167,6 +171,119 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ChatError'
+
+  /api/embed:
+    post:
+      tags: [embeddings]
+      operationId: postEmbed
+      summary: Embed the learner's chunks that have no vector yet.
+      description: |
+        The server reads the signed-in learner's chunks whose `embedding` is
+        still empty, as that learner (row-level security returns and updates
+        only their own rows), embeds up to 32 of them with SomaNami's own
+        Ollama (`nomic-embed-text`, 768 dimensions), and writes each vector to
+        `chunks.embedding` the same way. The browser sends no text: the body
+        is `{}`. Call again while the reply says `done: false`.
+
+        Chunk text goes only to Supabase and our Ollama; it is never logged.
+
+        Limits: body at most 1 KiB (1,024 bytes); 32 chunks per request; chunk
+        text over 8,000 characters is cut before embedding; 30 requests per IP
+        per 60 seconds.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbedRequest'
+      responses:
+        '200':
+          description: |
+            Up to 32 chunks embedded and stored. `embedded: 0, done: true`
+            means nothing was waiting.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbedReply'
+        '400':
+          description: |
+            `invalid-json`: the body is not JSON.
+            `invalid-request`: the body is not a JSON object; `issues` lists
+            `<path>: <message>` strings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbedError'
+        '401':
+          description: |
+            `unauthenticated`: the `Authorization` header is missing, or the
+            token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbedError'
+        '404':
+          description: |
+            Express only: `not-found` for any method other than POST. (This
+            body is not an `EmbedError` code.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '405':
+          description: |
+            Netlify only: `method-not-allowed` for any method other than POST,
+            with `Allow: POST`. (This body is not an `EmbedError` code.)
+          headers:
+            Allow:
+              schema:
+                type: string
+                const: POST
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '413':
+          description: '`too-large`: the body is over 1 KiB (1,024 bytes).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbedError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          description: |
+            Express only: `internal`, an unhandled error. (This body is not an
+            `EmbedError` code.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '502':
+          description: |
+            `materials-unavailable`: reading the chunks from Supabase, or
+            writing the vectors back, failed.
+            `upstream-unreachable`: Ollama could not be reached, or timed out,
+            after retries.
+            `upstream-failed`: Ollama failed after retries, refused the input,
+            or sent a reply without one 768-number vector per chunk.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbedError'
+        '503':
+          description: |
+            `not-configured`: the server has no Supabase URL (or its signing
+            keys could not be fetched), no Supabase publishable key, no usable
+            `OLLAMA_BASE_URL`, or the Ollama gateway refused its key.
+            `rate-limited`: Ollama's gateway is rate-limiting the server (not
+            the caller's per-IP limit, which is `429`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbedError'
 
   /api/fetch-link:
     post:
@@ -333,8 +450,8 @@ components:
       description: |
         A Supabase Auth access token for the signed-in user, verified against
         the project's JWKS (`<SUPABASE_URL>/auth/v1/.well-known/jwks.json`).
-        The chat route also uses it to query Supabase as the user, so
-        row-level security scopes every row it reads.
+        The chat and embed routes also use it to query Supabase as the user,
+        so row-level security scopes every row they read or write.
 
   responses:
     RateLimited:
@@ -512,6 +629,54 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CitedPassage'
+
+    EmbedRequest:
+      description: |
+        Mirrors `embedRequest` in `server/embed/handle-embed.ts`. Send `{}`:
+        the server chooses the chunks. Unknown properties are ignored.
+      type: object
+      examples:
+        - {}
+
+    EmbedReply:
+      type: object
+      required: [embedded, done]
+      properties:
+        embedded:
+          description: Chunks embedded and stored by this request (0 to 32).
+          type: integer
+          minimum: 0
+          maximum: 32
+        done:
+          description: |
+            True when no chunk is left without an embedding; false means call
+            again.
+          type: boolean
+      examples:
+        - embedded: 32
+          done: false
+
+    EmbedError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          enum:
+            - invalid-json
+            - invalid-request
+            - unauthenticated
+            - too-large
+            - rate-limited
+            - materials-unavailable
+            - upstream-unreachable
+            - upstream-failed
+            - not-configured
+        issues:
+          description: Only with `invalid-request`.
+          type: array
+          items:
+            type: string
 
     FetchLinkRequest:
       description: |
