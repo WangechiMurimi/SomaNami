@@ -29,12 +29,10 @@
 }
 
 /*
- * Active, the box itself glows instead of growing a separate outline around
- * it. The accent ring keeps the focus visible; the soft halo is the glow.
+ * Active, the gradient frame is the input boundary: it glows rather than
+ * gaining a second ring on top of it.
  */
 .composer:focus-within {
   outline: none;
-  box-shadow:
-    0 0 0 2px var(--accent),
-    0 0 28px 4px var(--glow-shadow);
+  box-shadow: 0 0 28px 4px var(--glow-shadow);
 }
