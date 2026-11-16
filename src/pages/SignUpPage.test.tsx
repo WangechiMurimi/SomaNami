@@ -38,9 +38,6 @@ describe('sign-up', () => {
     expect(await screen.findByLabelText('Email')).toBeInTheDocument()
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
     expect(screen.queryByText(/born|13/i)).not.toBeInTheDocument()
-    expect(
-      screen.getByRole('link', { name: 'How your data is handled' }),
-    ).toHaveAttribute('href', '/your-data')
   })
 
   it('offers Google as well as email', async () => {

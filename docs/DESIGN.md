@@ -76,7 +76,7 @@ Home · Workspaces · New workspace (2 steps: name and topic, add materials) ·
 Workspace · New chat (pick the materials the chat may use) · Chat (answers with
 "From your materials" citations; replies the materials can't support are
 labelled "Not answered from your materials") · Library · Saved conversations ·
-Account settings · Help · How your data is handled.
+Account settings · Help.
 
 Chats are either **loose** (started from Home or the Library; they live in the
 hidden default workspace, appear under Recents and may use any material) or
@@ -121,11 +121,9 @@ Screen details the code depends on:
 - **Help** (`/help`): six numbered topic cards (adding materials, asking and
   following up, checking the source, workspaces, Recents, saving chats), a
   panel explaining the "From your materials" and "Not answered from your
-  materials" labels, and a link to the data page. The lede carries the one
-  grounding sentence.
-- **How your data is handled** (public `/your-data`) and **Terms of Use**
-  (public `/terms`): reading pages. Anything the owner hasn't confirmed shows
-  as a visible `[CONFIRM: …]` placeholder. Neither names the development
+  materials" labels. The lede carries the one grounding sentence.
+- **Terms of Use** (public `/terms`): a reading page. Anything the owner hasn't confirmed shows
+  as a visible `[CONFIRM: …]` placeholder. It does not name the development
   model provider.
 
 The persistent sidebar (260 px, sticky to the viewport) holds: New workspace,
@@ -151,19 +149,17 @@ out is in the account menu and Account settings.
 **Auth screens.** Sign in ("Welcome back") · Create account · A few details
 (display name, "I'm 13 or older") · Forgot and new password · Signing you in
 (`/auth/callback`). They share one two-panel layout (`AuthLayout`): a brand
-panel on `side` with three feature rows and a link to "How your data is
-handled" (`/your-data`), and a form column up to 420 px wide that comes first on
+panel on `side` with three feature rows, and a form column up to 420 px wide that comes first on
 phones and in the source order. An outlined "Continue with Google" button comes
 first, then an "or use your email" rule and the email form, with the taller
 `SUBMIT_BUTTON` as the strongest action. Classes live in
 `src/features/auth/auth-ui.ts`: 48 px inputs, 44 px buttons (48 px submit),
 ≥ 3:1 borders, visible focus and errors that don't rely on colour alone. The
 restyle (#176) replaces the earlier plain wireframes (ADR 0001) as the auth
-design. How your data is handled uses the same layout's single wide reading
-column.
+design.
 
 Row 2 of the canvas holds the screens proposed after the first pass. Create
-account, Saved conversations, Help and the data note are built from them, with
+account, Saved conversations, and Help are built from them, with
 copy rewritten so the one product claim is that answers come only from the
 sources the learner adds. Chat level/format controls and the remaining empty
 states are not built yet.
