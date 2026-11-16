@@ -3,6 +3,9 @@ import request from 'supertest'
 import { describe, expect, it, vi } from 'vitest'
 import { createApp } from './app.ts'
 import type { Authenticate } from './auth/types.ts'
+import type { ChunkStore, ChunkStoreFor } from './embed/chunk-store.ts'
+import { EMBED_BODY_LIMIT_BYTES, EMBED_RATE_LIMIT } from './embed/limits.ts'
+import type { Embedder } from './llm/ollama-embedder.ts'
 import type { FetchedLink } from './link/fetch-link.ts'
 import type { FetchLinkDependencies } from './link/handle-fetch-link.ts'
 import { LINK_BODY_LIMIT_BYTES, LINK_RATE_LIMIT } from './link/limits.ts'
@@ -385,6 +388,112 @@ describe('createApp', () => {
 
       for (let index = 0; index < LINK_RATE_LIMIT; index++) {
         await request(app).post('/api/fetch-link').send({})
+      }
+      const chat = await request(app).post('/api/chat').send({})
+
+      expect(chat.status).toBe(401)
+    })
+  })
+
+  describe('POST /api/embed', () => {
+    /** One pending chunk the signed-in user owns; stands in for Supabase. */
+    const chunkStore = () => {
+      const store = {
+        pending: vi
+          .fn<ChunkStore['pending']>()
+          .mockResolvedValue([{ id: 'doc-1:0', text: 'Cells divide.' }]),
+        save: vi.fn<ChunkStore['save']>().mockResolvedValue(undefined),
+      }
+      return { store, chunks: vi.fn<ChunkStoreFor>(() => store) }
+    }
+    const embed = () =>
+      vi.fn<Embedder>(async (texts) => texts.map(() => [0.1, 0.2]))
+
+    it('embeds through the shared handler as the verified user', async () => {
+      const { store, chunks } = chunkStore()
+      const embedder = embed()
+      const app = createApp({ authenticate: allow(), chunks, embed: embedder })
+
+      const response = await request(app)
+        .post('/api/embed')
+        .set('Authorization', 'Bearer token')
+        .send({})
+
+      expect(response.status).toBe(200)
+      expect(response.body).toEqual({ embedded: 1, done: true })
+      expect(chunks).toHaveBeenCalledWith({
+        userId: 'user-1',
+        accessToken: 'token',
+      })
+      expect(embedder).toHaveBeenCalledWith(['Cells divide.'])
+      expect(store.save).toHaveBeenCalledWith([
+        { id: 'doc-1:0', embedding: [0.1, 0.2] },
+      ])
+    })
+
+    it('requires a session and never embeds without one', async () => {
+      const embedder = embed()
+      const app = createApp({
+        authenticate: deny(),
+        chunks: chunkStore().chunks,
+        embed: embedder,
+      })
+
+      const response = await request(app).post('/api/embed').send({})
+
+      expect(response.status).toBe(401)
+      expect(response.body).toEqual({ error: 'unauthenticated' })
+      expect(embedder).not.toHaveBeenCalled()
+    })
+
+    it('reports a server without Ollama as not configured', async () => {
+      const app = createApp({
+        authenticate: allow(),
+        chunks: chunkStore().chunks,
+      })
+
+      const response = await request(app).post('/api/embed').send({})
+
+      expect(response.status).toBe(503)
+      expect(response.body).toEqual({ error: 'not-configured' })
+    })
+
+    it('answers malformed JSON with JSON 400', async () => {
+      const response = await request(createApp({ authenticate: allow() }))
+        .post('/api/embed')
+        .set('Content-Type', 'application/json')
+        .send('{"oops"')
+
+      expect(response.status).toBe(400)
+      expect(response.body).toEqual({ error: 'invalid-json' })
+    })
+
+    it('answers a body over its small limit with JSON 413', async () => {
+      const response = await request(createApp({ authenticate: allow() }))
+        .post('/api/embed')
+        .send({ filler: 'x'.repeat(EMBED_BODY_LIMIT_BYTES) })
+
+      expect(response.status).toBe(413)
+      expect(response.body).toEqual({ error: 'too-large' })
+    })
+
+    it('answers JSON 429 once a client exceeds the embed limit', async () => {
+      const app = createApp({ authenticate: deny() })
+
+      for (let index = 0; index < EMBED_RATE_LIMIT; index++) {
+        await request(app).post('/api/embed').send({})
+      }
+      const limited = await request(app).post('/api/embed').send({})
+
+      expect(limited.status).toBe(429)
+      expect(limited.body).toEqual({ error: 'rate-limited' })
+    })
+
+    it('counts embeds separately from chat', async () => {
+      const app = createApp({ authenticate: deny() })
+
+      for (let index = 0; index < EMBED_RATE_LIMIT; index++) {
+        await request(app).post('/api/embed').send({})
       }
       const chat = await request(app).post('/api/chat').send({})
 
