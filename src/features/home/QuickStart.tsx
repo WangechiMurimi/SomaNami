@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Composer from '../../components/Composer.tsx'
+import ErrorAlert from '../../components/ErrorAlert.tsx'
 import { DEFAULT_WORKSPACE } from '../../lib/storage/index.ts'
 import { useStartChat } from '../chat/use-start-chat.ts'
 import PasteTextForm from '../upload/PasteTextForm.tsx'
@@ -50,11 +51,7 @@ export default function QuickStart() {
 
   return (
     <section aria-label="Start a chat" className="flex flex-col gap-4">
-      {error && (
-        <p role="alert" className="rounded-[10px] bg-warn-soft p-4 text-warn">
-          {error}
-        </p>
-      )}
+      {error && <ErrorAlert>{error}</ErrorAlert>}
 
       <Composer
         label="Ask a question or share what you’re reading"

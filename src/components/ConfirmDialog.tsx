@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from 'react'
 import type { KeyboardEvent, ReactNode } from 'react'
+import { DIALOG_SECONDARY } from './Dialog.tsx'
 
 /**
  * A modal confirmation. Focus starts on Cancel (the safe choice), stays inside
@@ -74,7 +75,7 @@ export default function ConfirmDialog({
             ref={cancel}
             type="button"
             onClick={onCancel}
-            className="inline-flex h-11 items-center rounded-[10px] border border-edge px-[18px] text-sm font-medium hover:bg-tint"
+            className={DIALOG_SECONDARY}
           >
             Cancel
           </button>

@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
 import Composer from '../components/Composer.tsx'
+import ErrorAlert from '../components/ErrorAlert.tsx'
 import { Check, Plus } from '../components/icons.tsx'
 import Loading from '../components/Loading.tsx'
 import NotFound from '../components/NotFound.tsx'
@@ -142,11 +143,7 @@ function NewChat({
         />
       )}
 
-      {error && (
-        <p role="alert" className="rounded-[10px] bg-warn-soft p-4 text-warn">
-          {error}
-        </p>
-      )}
+      {error && <ErrorAlert>{error}</ErrorAlert>}
 
       <Composer
         label="Ask a question about your materials"

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
+import ErrorAlert from '../../components/ErrorAlert.tsx'
 import {
   ArrowLeft,
   ArrowRight,
@@ -336,11 +337,7 @@ export default function NewWorkspaceWizard() {
           </div>
         )}
 
-        {saveError && (
-          <p role="alert" className="rounded-[10px] bg-warn-soft p-4 text-warn">
-            {saveError}
-          </p>
-        )}
+        {saveError && <ErrorAlert>{saveError}</ErrorAlert>}
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-6">
           {step === 0 ? (

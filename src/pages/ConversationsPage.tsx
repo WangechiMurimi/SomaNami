@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 import { Link } from 'react-router'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
+import ErrorAlert from '../components/ErrorAlert.tsx'
 import { ArrowRight } from '../components/icons.tsx'
 import Loading from '../components/Loading.tsx'
 import { Bookmark } from '../features/chat/chat-icons.tsx'
@@ -72,9 +73,9 @@ export default function ConversationsPage() {
       {status === 'loading' ? (
         <Loading>Opening your chats…</Loading>
       ) : status === 'error' ? (
-        <p role="alert" className="rounded-xl bg-warn-soft p-6 text-warn">
+        <ErrorAlert className="rounded-xl p-6">
           We couldn’t open your saved chats. Reload the page to try again.
-        </p>
+        </ErrorAlert>
       ) : saved.length === 0 ? (
         <div className="flex flex-col items-start gap-2 rounded-xl border border-line bg-surface p-6">
           <Bookmark size={22} className="text-accent" />
@@ -126,11 +127,7 @@ export default function ConversationsPage() {
             </div>
           </div>
 
-          {error && (
-            <p role="alert" className="rounded-xl bg-warn-soft p-4 text-warn">
-              {error}
-            </p>
-          )}
+          {error && <ErrorAlert className="rounded-xl p-4">{error}</ErrorAlert>}
 
           <section
             aria-labelledby={`${id}-count`}

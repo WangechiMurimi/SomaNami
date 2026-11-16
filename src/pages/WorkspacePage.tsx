@@ -2,6 +2,7 @@ import { useCallback, useId, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
 import Composer from '../components/Composer.tsx'
+import ErrorAlert from '../components/ErrorAlert.tsx'
 import { ArrowRight, Plus } from '../components/icons.tsx'
 import Loading from '../components/Loading.tsx'
 import NotFound from '../components/NotFound.tsx'
@@ -335,11 +336,7 @@ function WorkspaceView({ workspace }: { workspace: Workspace }) {
         </section>
       </div>
 
-      {error && (
-        <p role="alert" className="rounded-[10px] bg-warn-soft p-4 text-warn">
-          {error}
-        </p>
-      )}
+      {error && <ErrorAlert>{error}</ErrorAlert>}
 
       <Composer
         label={`Ask about ${workspace.name}`}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
+import ErrorAlert from '../components/ErrorAlert.tsx'
 import { ArrowRight, Plus } from '../components/icons.tsx'
 import Loading from '../components/Loading.tsx'
 import { useRecentConversations } from '../features/chat/use-recent-conversations.ts'
@@ -58,18 +59,14 @@ export default function WorkspacesPage() {
         </p>
       </div>
 
-      {error && (
-        <p role="alert" className="rounded-xl bg-warn-soft p-4 text-warn">
-          {error}
-        </p>
-      )}
+      {error && <ErrorAlert className="rounded-xl p-4">{error}</ErrorAlert>}
 
       {status === 'loading' ? (
         <Loading>Opening your workspaces…</Loading>
       ) : status === 'error' ? (
-        <p role="alert" className="rounded-xl bg-warn-soft p-6 text-warn">
+        <ErrorAlert className="rounded-xl p-6">
           We couldn’t open your workspaces. Reload the page to try again.
-        </p>
+        </ErrorAlert>
       ) : (
         <ul
           aria-label="Your workspaces"

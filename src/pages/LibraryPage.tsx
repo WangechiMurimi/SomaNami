@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import ConfirmDialog from '../components/ConfirmDialog.tsx'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
+import ErrorAlert from '../components/ErrorAlert.tsx'
 import { ArrowRight, Trash } from '../components/icons.tsx'
 import Loading from '../components/Loading.tsx'
 import { chatPath } from '../features/chat/conversation-materials.ts'
@@ -416,9 +417,7 @@ export default function LibraryPage() {
             </div>
 
             {error && (
-              <p role="alert" className="rounded-xl bg-warn-soft p-4 text-warn">
-                {error}
-              </p>
+              <ErrorAlert className="rounded-xl p-4">{error}</ErrorAlert>
             )}
 
             {searching ? (
