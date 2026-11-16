@@ -333,8 +333,9 @@ export default function LibraryPage() {
             with it.
           </p>
         </div>
-        <div className="flex min-w-0 flex-col gap-2">
-          <label htmlFor={`${id}-target`} className="text-sm font-medium">
+        <div className="flex min-w-0 flex-col">
+          {/* Not shown, but the picker still needs a name for screen readers. */}
+          <label htmlFor={`${id}-target`} className="sr-only">
             Add to workspace
           </label>
           <select

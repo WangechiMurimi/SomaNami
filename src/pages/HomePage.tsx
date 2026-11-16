@@ -12,9 +12,7 @@ import { H1 } from './page-heading.ts'
 export default function HomePage() {
   return (
     <div className="flex min-h-[calc(100dvh-13rem)] flex-col gap-14 md:min-h-[calc(100dvh-14rem)]">
-      <h1 className={`${H1} text-center`}>
-        What would you like to explore today?
-      </h1>
+      <h1 className={H1}>What would you like to explore today?</h1>
 
       <div className="grid items-center gap-5 md:grid-cols-2">
         <HomeCube />
