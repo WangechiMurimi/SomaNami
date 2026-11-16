@@ -3,19 +3,32 @@ import request from 'supertest'
 import { describe, expect, it, vi } from 'vitest'
 import { createApp } from './app.ts'
 import type { Authenticate } from './auth/types.ts'
+import type { LoadMaterials } from './chat/load-materials.ts'
 import type { Answerer } from './llm/claude-answerer.ts'
 
-const passage = {
-  documentId: 'doc-1',
-  chunkId: 'doc-1:0',
-  text: 'Mitochondria produce ATP.',
-  source: { type: 'page', page: 1 },
-}
+const question = { question: 'Why ATP?', materialIds: ['doc-1'] }
+
+/** One material the signed-in user owns; stands in for Supabase. */
+const loadMaterials = () =>
+  vi.fn<LoadMaterials>().mockResolvedValue([
+    {
+      id: 'doc-1',
+      name: 'Cells.pdf',
+      chunks: [
+        {
+          id: 'doc-1:0',
+          text: 'Mitochondria produce ATP.',
+          source: { type: 'page', page: 1 },
+        },
+      ],
+    },
+  ])
 
 const allow = () =>
   vi.fn<Authenticate>().mockResolvedValue({
     ok: true,
     user: { id: 'user-1', aal: 'aal1' },
+    accessToken: 'token',
   })
 
 const deny = () =>
@@ -42,16 +55,31 @@ describe('createApp', () => {
       answer: { answer: 'ATP.', answerable: true, citations: ['doc-1:0'] },
     })
 
-    const response = await request(createApp({ answer, authenticate: allow() }))
+    const response = await request(
+      createApp({
+        answer,
+        authenticate: allow(),
+        loadMaterials: loadMaterials(),
+      }),
+    )
       .post('/api/chat')
       .set('Authorization', 'Bearer token')
-      .send({ question: 'Why ATP?', passages: [passage] })
+      .send(question)
 
     expect(response.status).toBe(200)
     expect(response.body).toEqual({
       answer: 'ATP.',
       answerable: true,
       citations: [{ documentId: 'doc-1', chunkId: 'doc-1:0' }],
+      passages: [
+        {
+          documentId: 'doc-1',
+          chunkId: 'doc-1:0',
+          documentName: 'Cells.pdf',
+          text: 'Mitochondria produce ATP.',
+          source: { type: 'page', page: 1 },
+        },
+      ],
     })
   })
 
@@ -66,12 +94,41 @@ describe('createApp', () => {
   })
 
   it('reports a server without credentials as not configured', async () => {
-    const response = await request(createApp({ authenticate: allow() }))
+    const response = await request(
+      createApp({ authenticate: allow(), loadMaterials: loadMaterials() }),
+    )
       .post('/api/chat')
-      .send({ question: 'Why ATP?', passages: [passage] })
+      .send(question)
 
     expect(response.status).toBe(503)
     expect(response.body).toEqual({ error: 'not-configured' })
+  })
+
+  it('reports a server without Supabase settings as not configured', async () => {
+    const answer = vi.fn<Answerer>()
+
+    const response = await request(createApp({ answer, authenticate: allow() }))
+      .post('/api/chat')
+      .send(question)
+
+    expect(response.status).toBe(503)
+    expect(response.body).toEqual({ error: 'not-configured' })
+    expect(answer).not.toHaveBeenCalled()
+  })
+
+  it('answers a JSON 502 when materials cannot be loaded', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const failing = vi.fn<LoadMaterials>().mockRejectedValue(new Error('down'))
+
+    const response = await request(
+      createApp({ authenticate: allow(), loadMaterials: failing }),
+    )
+      .post('/api/chat')
+      .send(question)
+
+    expect(response.status).toBe(502)
+    expect(response.body).toEqual({ error: 'materials-unavailable' })
+    vi.restoreAllMocks()
   })
 
   describe('authentication', () => {
@@ -81,7 +138,7 @@ describe('createApp', () => {
       await request(createApp({ authenticate }))
         .post('/api/chat')
         .set('Authorization', 'Bearer abc.def.ghi')
-        .send({ question: 'Why ATP?', passages: [] })
+        .send({ question: 'Why ATP?', materialIds: [] })
 
       expect(authenticate).toHaveBeenCalledWith('Bearer abc.def.ghi')
     })
@@ -93,7 +150,7 @@ describe('createApp', () => {
         createApp({ answer, authenticate: deny() }),
       )
         .post('/api/chat')
-        .send({ question: 'Why ATP?', passages: [passage] })
+        .send(question)
 
       expect(response.status).toBe(401)
       expect(response.body).toEqual({ error: 'unauthenticated' })
@@ -106,7 +163,7 @@ describe('createApp', () => {
       const response = await request(createApp({ answer }))
         .post('/api/chat')
         .set('Authorization', 'Bearer looks-real')
-        .send({ question: 'Why ATP?', passages: [passage] })
+        .send(question)
 
       expect(response.status).toBeGreaterThanOrEqual(400)
       expect(answer).not.toHaveBeenCalled()

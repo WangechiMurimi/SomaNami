@@ -7,6 +7,10 @@
 # - SUPABASE_URL (optional; falls back to VITE_SUPABASE_URL): the Functions
 #   verify session tokens against this project's keys. With neither set, every
 #   chat request is refused with 503 not-configured.
+# - SUPABASE_PUBLISHABLE_KEY (optional; falls back to
+#   VITE_SUPABASE_PUBLISHABLE_KEY): the chat Function loads the learner's
+#   materials with it and the learner's own token, so RLS applies (#148).
+#   Without it, chat answers 503 not-configured. Never a secret key.
 [build]
   command = "npm run build"
   publish = "dist"

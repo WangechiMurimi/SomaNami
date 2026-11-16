@@ -26,11 +26,12 @@ const keyOf = ({ chunkId }: ChunkRef): string => chunkId
 
 /**
  * Turns `{ documentId, chunkId }` citations into labels naming a real document
- * and location, resolved against the passages that were sent with the question.
+ * and location, resolved against the given passages: those the server returned
+ * with an answer, or a stored conversation's materials.
  */
 export function resolveCitations(
   citations: readonly ChunkRef[] = [],
-  passages: readonly Passage[] = [],
+  passages: readonly (Passage & { documentName?: string })[] = [],
   documents: readonly Pick<StoredDocument, 'id' | 'name'>[] = [],
 ): ResolvedCitation[] {
   const names = new Map(documents.map(({ id, name }) => [id, name]))
@@ -44,7 +45,9 @@ export function resolveCitations(
     seen.add(key)
 
     const passage = byKey.get(key)
-    const name = names.get(citation.documentId)
+    // Prefer the local name (it follows renames); fall back to the server's.
+    const name =
+      names.get(citation.documentId) || passage?.documentName || undefined
     const where = passage ? describeSource(passage.source) : 'Unknown passage'
     return [
       { key, label: name ? `${name} · ${where}` : where, text: passage?.text },

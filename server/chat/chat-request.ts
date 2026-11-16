@@ -1,13 +1,16 @@
 import { z } from 'zod'
 import type { ChatRequest } from '../../src/types/contracts.ts'
 
-// Bounds keep one request's prompt (and its cost) predictable. The client
-// retrieves at most a handful of chunks of at most MAX_CHUNK_CHARS each, so
-// these leave headroom without letting a caller post an entire book.
+// Bounds keep one request's prompt (and its cost) predictable.
 export const LIMITS = {
   questionChars: 2_000,
-  passages: 12,
-  passageChars: 4_000,
+  /**
+   * Materials one conversation may draw on. Far above what a learner picks
+   * for one chat, while keeping the database `in (...)` list small.
+   */
+  materialIds: 50,
+  /** Client ids are short (`doc-…`, UUIDs); this only rejects junk. */
+  materialIdChars: 200,
   /** Most recent turns kept as context; older ones are dropped, not rejected. */
   historyTurns: 20,
   /** Longer turns are shortened to this; history is context, not evidence. */
@@ -16,32 +19,15 @@ export const LIMITS = {
   historyTurnsAccepted: 500,
 } as const
 
-const source = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('page'), page: z.number().int().positive() }),
-  z.object({
-    type: z.literal('paragraph'),
-    paragraph: z.number().int().positive(),
-  }),
-  z.object({
-    type: z.literal('line'),
-    startLine: z.number().int().positive(),
-    endLine: z.number().int().positive(),
-  }),
-])
-
 const chatRequest = z.object({
   question: z.string().trim().min(1).max(LIMITS.questionChars),
-  passages: z
-    .array(
-      z.object({
-        documentId: z.string().min(1),
-        chunkId: z.string().min(1),
-        text: z.string().max(LIMITS.passageChars),
-        source,
-      }),
-    )
-    .max(LIMITS.passages)
-    .default([]),
+  // Required, so a client still sending the old `passages` shape gets a 400
+  // instead of a misleading "not covered". Duplicates ask for nothing new, so
+  // they are dropped rather than rejected.
+  materialIds: z
+    .array(z.string().min(1).max(LIMITS.materialIdChars))
+    .max(LIMITS.materialIds)
+    .transform((ids) => [...new Set(ids)]),
   // A long study session must keep working, so history is trimmed to a
   // budget instead of failing validation once the conversation grows.
   history: z
