@@ -133,18 +133,6 @@ describe('SignInPage', () => {
     expect(auth.signInWithPassword).not.toHaveBeenCalled()
   })
 
-  it('goes to the code screen when the account has an authenticator', async () => {
-    const { auth, state } = installFakeSupabase()
-    auth.signInWithPassword.mockImplementationOnce(async () => {
-      const session = fakeSession({ mfa: true })
-      state.session = session
-      return { data: { session, user: session.user }, error: null }
-    })
-    page('/sign-in?next=%2Flibrary')
-    await fillAndSubmit()
-    expect(await redirectedTo()).toBe('/sign-in/verify?next=%2Flibrary')
-  })
-
   it('skips the form when already signed in', async () => {
     installFakeSupabase({ session: fakeSession() })
     page('/sign-in?next=%2Faccount')

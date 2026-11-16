@@ -12,9 +12,6 @@ const CODE_MAP: Record<string, AuthErrorCode> = {
   weak_password: 'weak-password',
   same_password: 'weak-password',
   captcha_failed: 'captcha-failed',
-  mfa_verification_failed: 'invalid-code',
-  mfa_verification_rejected: 'invalid-code',
-  mfa_challenge_expired: 'invalid-code',
   over_request_rate_limit: 'rate-limited',
   over_email_send_rate_limit: 'rate-limited',
   user_already_exists: 'email-in-use',
@@ -48,7 +45,6 @@ const MESSAGES: Record<AuthErrorCode, string> = {
   'weak-password':
     'Choose a stronger password: at least 10 characters, and not one you’ve used before.',
   'captcha-failed': 'The security check didn’t go through. Please try again.',
-  'invalid-code': 'That code didn’t work. Check your app and try again.',
   'rate-limited': 'Too many attempts. Wait a few minutes, then try again.',
   offline: 'You’re offline. Reconnect, then try again.',
   'not-configured': 'Sign-in isn’t set up on this copy of SomaNami yet.',

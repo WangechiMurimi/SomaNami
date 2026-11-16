@@ -141,30 +141,18 @@ describe('network errors never sign the user out', () => {
 
 describe('stale session checks', () => {
   it('ignores a session check that finishes after sign-out', async () => {
-    const { auth, emit } = installFakeSupabase({ session: fakeSession() })
-    const { result } = renderAuth()
-    await waitFor(() => expect(result.current.status).toBe('signed-in'))
-
-    // A refresh starts evaluating the session, then stalls on the MFA check.
+    const { auth } = installFakeSupabase({ session: fakeSession() })
+    // The boot restore stalls on reading the saved session.
     let release: () => void = () => {}
-    auth.mfa.getAuthenticatorAssuranceLevel.mockImplementationOnce(
+    auth.getSession.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
           release = () =>
-            resolve({
-              data: {
-                currentLevel: 'aal1',
-                nextLevel: 'aal1',
-                currentAuthenticationMethods: [],
-              },
-              error: null,
-            })
+            resolve({ data: { session: fakeSession() }, error: null })
         }) as never,
     )
-    act(() => emit('TOKEN_REFRESHED', fakeSession()))
-    await waitFor(() =>
-      expect(auth.mfa.getAuthenticatorAssuranceLevel).toHaveBeenCalledTimes(2),
-    )
+    const { result } = renderAuth()
+    expect(result.current.status).toBe('loading')
 
     await act(() => result.current.signOut())
     expect(result.current.status).toBe('signed-out')
@@ -192,76 +180,6 @@ describe('stale session checks', () => {
     auth.signOut.mockRejectedValueOnce(new Error('listener failed'))
     await act(() => result.current.signOut())
     expect(result.current.status).toBe('signed-out')
-  })
-})
-
-describe('MFA', () => {
-  it('needs a code when the account has a verified authenticator', async () => {
-    installFakeSupabase({ session: fakeSession({ mfa: true }) })
-    const { result } = renderAuth()
-    await waitFor(() => expect(result.current.status).toBe('needs-mfa'))
-    expect(result.current.user).not.toBeNull()
-    // Half-signed-in users can't come back offline without the code.
-    expect(readLastUser()).toBeNull()
-  })
-
-  it('is signed in once the code is verified', async () => {
-    const { auth } = installFakeSupabase({
-      session: fakeSession({ mfa: true }),
-    })
-    const { result } = renderAuth()
-    await waitFor(() => expect(result.current.status).toBe('needs-mfa'))
-
-    await act(async () => {
-      await result.current.mfa.verify('factor-1', '123456')
-    })
-    expect(auth.mfa.challengeAndVerify).toHaveBeenCalledWith({
-      factorId: 'factor-1',
-      code: '123456',
-    })
-    await waitFor(() => expect(result.current.status).toBe('signed-in'))
-  })
-
-  it('maps a wrong code', async () => {
-    const { auth } = installFakeSupabase({
-      session: fakeSession({ mfa: true }),
-    })
-    auth.mfa.challengeAndVerify.mockResolvedValueOnce({
-      data: null,
-      error: new AuthApiError('bad', 422, 'mfa_verification_failed'),
-    } as never)
-    const { result } = renderAuth()
-    await waitFor(() => expect(result.current.status).toBe('needs-mfa'))
-
-    await expect(
-      result.current.mfa.verify('factor-1', '000000'),
-    ).resolves.toEqual({ ok: false, error: 'invalid-code' })
-  })
-
-  it('wraps listing, enrolling and removing factors', async () => {
-    const { auth } = installFakeSupabase({
-      session: fakeSession({ mfa: true }),
-      aal: 'aal2',
-    })
-    const { result } = renderAuth()
-    await waitFor(() => expect(result.current.status).toBe('signed-in'))
-
-    await expect(result.current.mfa.listFactors()).resolves.toEqual([
-      { id: 'factor-1', friendlyName: null, status: 'verified' },
-    ])
-    await expect(result.current.mfa.enrollTotp('Phone')).resolves.toEqual({
-      factorId: 'factor-2',
-      qrCode: 'data:image/svg+xml;utf-8,<svg/>',
-      secret: 'SECRET',
-    })
-    expect(auth.mfa.enroll).toHaveBeenCalledWith({
-      factorType: 'totp',
-      friendlyName: 'Phone',
-    })
-    await expect(result.current.mfa.unenroll('factor-1')).resolves.toEqual({
-      ok: true,
-    })
-    expect(auth.mfa.unenroll).toHaveBeenCalledWith({ factorId: 'factor-1' })
   })
 })
 
@@ -415,10 +333,5 @@ describe('without a Supabase project', () => {
     await expect(result.current.updatePassword('x')).resolves.toEqual(
       notConfigured,
     )
-    await expect(result.current.mfa.verify('f', '1')).resolves.toEqual(
-      notConfigured,
-    )
-    await expect(result.current.mfa.listFactors()).resolves.toEqual([])
-    await expect(result.current.mfa.enrollTotp()).rejects.toThrow()
   })
 })

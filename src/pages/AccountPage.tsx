@@ -1,9 +1,8 @@
 import { useAuth } from '../features/auth/auth-context.ts'
-import MfaSection from './account/MfaSection.tsx'
 import SessionsSection from './account/SessionsSection.tsx'
 import { H1, H2, LEDE } from './page-heading.ts'
 
-/** The signed-in user's account: email, two-step verification and sign-out. */
+/** The signed-in user's account: email and sign-out. */
 export default function AccountPage() {
   const { user } = useAuth()
   return (
@@ -20,7 +19,6 @@ export default function AccountPage() {
           {user?.email}
         </p>
       </section>
-      <MfaSection />
       <SessionsSection />
     </div>
   )
