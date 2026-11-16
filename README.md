@@ -79,6 +79,7 @@ Email and password sign-in works without them.
 | `npm run dev`          | Vite dev server                                       |
 | `npm run server:dev`   | Express API with reload, loading `.env` if present    |
 | `npm test`             | Vitest (unit and component tests)                     |
+| `npm run test:e2e`     | Playwright end-to-end tests (`test:e2e:ui` to debug)  |
 | `npm run typecheck`    | `tsc -b` across app, tests and server                 |
 | `npm run lint`         | ESLint                                                |
 | `npm run format:check` | Prettier check (`npm run format` to fix)              |
@@ -89,6 +90,23 @@ Email and password sign-in works without them.
 
 CI runs lint, typecheck, format check, tests and build on every pull request,
 and applies the migrations to a fresh database to run the pgTAP tests.
+
+### End-to-end tests
+
+Playwright specs live in `tests/e2e/` as `*.e2e.ts` (so Vitest never picks
+them up) and cover signing in, uploading a document and asking about it.
+
+```bash
+npx playwright install chromium   # once
+npm run test:e2e
+```
+
+The suite builds the app against a fake Supabase project and serves it with
+`vite preview` on port 4179; no `.env`, Supabase project or API key is needed.
+All network is stubbed in the browser: Supabase Auth, REST and Storage calls
+and `/api/chat` are answered by `tests/e2e/support/fake-backend.ts`, which
+fails a test on any request it doesn't recognise. The stubs mirror the real
+APIs by hand, so update them when the app starts calling something new.
 
 ## Deploying to Netlify
 
