@@ -32,6 +32,24 @@ npm run dev             # app on http://localhost:5173 (proxies /api to the API)
 Without an API key the app still uploads, stores and searches documents; the
 chat route answers `503 not-configured`.
 
+### Local database
+
+Schema changes live in `supabase/migrations/` and their row-level security
+tests in `supabase/tests/`. Running them needs
+[Docker Desktop](https://www.docker.com/products/docker-desktop/) (running) and
+the Supabase CLI (`brew install supabase/tap/supabase`).
+
+```bash
+npm run db:start    # local Supabase; prints the API URL and keys for .env
+npm run db:test     # pgTAP tests for migrations and RLS
+npm run db:reset    # rebuild the database from the migrations
+npm run db:stop
+```
+
+Add a migration with `supabase migration new <name>`. The hosted database is
+not updated by CI: after a migration is merged, apply it with
+`supabase db push` (once, after `supabase link`).
+
 ## Scripts
 
 | Script                 | What it does                                          |
@@ -43,8 +61,12 @@ chat route answers `503 not-configured`.
 | `npm run lint`         | ESLint                                                |
 | `npm run format:check` | Prettier check (`npm run format` to fix)              |
 | `npm run build`        | Production build to `dist/`                           |
+| `npm run db:start`     | Local Supabase in Docker (`db:stop` to stop it)       |
+| `npm run db:test`      | pgTAP tests against the local database                |
+| `npm run db:reset`     | Rebuild the local database from the migrations        |
 
-CI runs lint, typecheck, format check, tests and build on every pull request.
+CI runs lint, typecheck, format check, tests and build on every pull request,
+and applies the migrations to a fresh database to run the pgTAP tests.
 
 ## Deploying to Netlify
 
