@@ -52,9 +52,9 @@ export interface UseDocumentUploadOptions {
   /**
    * Runs with each parsed document, and the file it came from, before it is
    * shown as ready, e.g. to save it. If it throws, the upload is reported as
-   * failed.
+   * failed. Links have no original file: they keep their URL instead.
    */
-  onReady?: (document: NewDocument, file: File) => void | Promise<void>
+  onReady?: (document: NewDocument, file?: File) => void | Promise<void>
 }
 
 /** A web page with no extractable text is usually a sign-in wall or a script-only app. */
@@ -111,7 +111,10 @@ export function useDocumentUpload({ onReady }: UseDocumentUploadOptions = {}) {
           ? await parseDocument(source.file)
           : await parseLink(source.url)
       if (ticket !== latest.current) return
-      await onReadyRef.current?.(document, file)
+      await onReadyRef.current?.(
+        document,
+        'file' in source ? source.file : undefined,
+      )
       if (ticket === latest.current) {
         setState({ status: 'ready', document, error: null })
       }

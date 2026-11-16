@@ -15,7 +15,7 @@ export function useWorkspaceUpload(
   const { add } = useLibraryContext()
 
   const keep = useCallback(
-    async (document: NewDocument, file: File) => {
+    async (document: NewDocument, file?: File) => {
       let stored: StoredDocument
       try {
         stored = await add(document, workspaceId, file)

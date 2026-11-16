@@ -21,6 +21,7 @@ const allow = () =>
   vi.fn<Authenticate>().mockResolvedValue({
     ok: true,
     user: { id: 'user-1', aal: 'aal1' },
+    accessToken: 'token-of-user-1',
   })
 
 const fetched = (outcome: FetchLinkOutcome = { ok: true, link }) =>

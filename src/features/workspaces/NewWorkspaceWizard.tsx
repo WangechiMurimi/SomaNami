@@ -72,7 +72,7 @@ function StepIndicator({ current }: { current: number }) {
 
 interface PendingMaterial {
   document: NewDocument
-  file: File
+  file?: File
 }
 
 /**
@@ -98,7 +98,7 @@ export default function NewWorkspaceWizard() {
   const nameInput = useRef<HTMLInputElement>(null)
   const moved = useRef(false)
 
-  const keep = useCallback((document: NewDocument, file: File) => {
+  const keep = useCallback((document: NewDocument, file?: File) => {
     setPending((current) => [
       ...current.filter((item) => item.document.id !== document.id),
       { document, file },

@@ -134,7 +134,8 @@ describe('useDocumentUpload links', () => {
       sourceUrl: 'https://example.org/leaves.txt',
       fetchedAt: expect.any(Number),
     })
-    expect(onReady).toHaveBeenCalledWith(parsed)
+    // A link has no original file to keep; its URL is the source.
+    expect(onReady).toHaveBeenCalledWith(parsed, undefined)
     expect(result.current.status).toBe('ready')
   })
 

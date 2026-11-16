@@ -19,7 +19,7 @@ export default function UploadSection({
 
   const [saved, setSaved] = useState<StoredDocument | null>(null)
   const keepDocument = useCallback(
-    async (document: NewDocument, file: File) => {
+    async (document: NewDocument, file?: File) => {
       try {
         setSaved(await add(document, workspaceId, file))
       } catch (cause) {
