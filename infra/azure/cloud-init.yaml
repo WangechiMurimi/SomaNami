@@ -1,0 +1,153 @@
+#cloud-config
+# Template for the SomaNami Ollama VM (infra/azure/README.md, #150, #151).
+#
+# provision.sh replaces two placeholders before passing this as custom data:
+#   __DOMAIN__            the Azure DNS name, <label>.<region>.cloudapp.azure.com
+#   __OLLAMA_API_KEY__    the bearer token Caddy requires
+# Never commit a copy with real values substituted.
+#
+# Progress log on the VM: /var/log/somanami-setup.log (contains no secrets).
+# Check completion with: cloud-init status --wait
+
+package_update: true
+package_upgrade: true
+packages:
+  - curl
+  - ca-certificates
+  - gnupg
+  - zstd
+  - debian-keyring
+  - debian-archive-keyring
+  - apt-transport-https
+  - unattended-upgrades
+
+write_files:
+  # Ollama must only ever listen on loopback; Caddy is the sole way in.
+  - path: /etc/systemd/system/ollama.service.d/override.conf
+    permissions: '0644'
+    content: |
+      [Service]
+      Environment="OLLAMA_HOST=127.0.0.1:11434"
+      # Keep the model loaded so learners rarely pay the cold-start cost.
+      Environment="OLLAMA_KEEP_ALIVE=24h"
+      # The default 4096-token window can silently truncate the system prompt
+      # once passages and history are added.
+      Environment="OLLAMA_CONTEXT_LENGTH=8192"
+      # Do not set OLLAMA_DEBUG: debug logging can include prompts.
+
+  # The token lives only here (root-only), loaded into Caddy's environment, so
+  # the Caddyfile itself holds no secret.
+  - path: /etc/caddy/somanami.env
+    permissions: '0600'
+    owner: root:root
+    content: |
+      SOMANAMI_API_KEY=__OLLAMA_API_KEY__
+
+  - path: /etc/systemd/system/caddy.service.d/somanami.conf
+    permissions: '0644'
+    content: |
+      [Service]
+      EnvironmentFile=/etc/caddy/somanami.env
+
+  # Staged here and copied after the caddy package is installed, so dpkg does
+  # not stop on a pre-existing /etc/caddy/Caddyfile conffile.
+  - path: /etc/somanami/Caddyfile
+    permissions: '0644'
+    content: |
+      # No `log` directive anywhere: Caddy then writes no access log at all.
+      # Learner passages travel in request bodies, which Caddy never logs.
+      __DOMAIN__ {
+          @unauthorized not header Authorization "Bearer {$SOMANAMI_API_KEY}"
+
+          # Default deny: anything that isn't exactly one of the three calls the
+          # app makes. Each `not` block negates its own AND, and the blocks are
+          # ANDed, so this reads "neither GET /api/tags nor POST chat/embed".
+          # Admin routes (/api/pull, /api/delete, /api/create, ...) land here.
+          @forbidden {
+              not {
+                  method GET
+                  path /api/tags
+              }
+              not {
+                  method POST
+                  path /api/chat /api/embed
+              }
+          }
+
+          # `route` keeps these in written order. Auth runs first, so callers
+          # without the token can't probe which routes exist.
+          route {
+              respond @unauthorized "Unauthorized" 401
+              respond @forbidden "Not found" 404
+              request_body {
+                  max_size 4MB
+              }
+              reverse_proxy 127.0.0.1:11434 {
+                  # Ollama bound to loopback rejects unfamiliar Host headers.
+                  header_up Host localhost:11434
+                  # The gateway credential stops here; Ollama never needs it.
+                  header_up -Authorization
+              }
+          }
+      }
+
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    permissions: '0644'
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+
+  - path: /usr/local/sbin/somanami-setup.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      # Installs Ollama and Caddy and pulls the models. Safe to re-run.
+      set -euo pipefail
+      export DEBIAN_FRONTEND=noninteractive
+      exec >>/var/log/somanami-setup.log 2>&1
+      echo "== somanami-setup start $(date -u +%FT%TZ)"
+
+      # --- Ollama -------------------------------------------------------------
+      if ! command -v ollama >/dev/null 2>&1; then
+        curl -fsSL https://ollama.com/install.sh | sh
+      fi
+      systemctl daemon-reload
+      systemctl enable ollama
+      systemctl restart ollama
+      for _ in $(seq 1 60); do
+        curl -fsS -o /dev/null http://127.0.0.1:11434/api/tags && break
+        sleep 2
+      done
+      ollama pull qwen2.5:3b
+      ollama pull nomic-embed-text
+
+      # --- Caddy (official apt repository) ------------------------------------
+      if ! command -v caddy >/dev/null 2>&1; then
+        curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key \
+          | gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+        curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt \
+          > /etc/apt/sources.list.d/caddy-stable.list
+        apt-get update
+        apt-get install -y caddy
+      fi
+      # An empty or unsubstituted token would make Caddy accept "Bearer " alone.
+      if ! grep -Eq '^SOMANAMI_API_KEY=[0-9a-f]{64}$' /etc/caddy/somanami.env; then
+        echo "Refusing to start Caddy: /etc/caddy/somanami.env has no valid token"
+        exit 1
+      fi
+      install -m 0644 /etc/somanami/Caddyfile /etc/caddy/Caddyfile
+      systemctl daemon-reload
+      systemctl enable caddy
+      systemctl restart caddy
+
+      # --- Unattended security upgrades ----------------------------------------
+      systemctl enable --now unattended-upgrades
+
+      # Load the chat model now so the first real request is warm.
+      curl -fsS -o /dev/null http://127.0.0.1:11434/api/chat \
+        -d '{"model":"qwen2.5:3b","messages":[],"keep_alive":"24h"}' || true
+
+      echo "== somanami-setup done $(date -u +%FT%TZ)"
+
+runcmd:
+  - [bash, /usr/local/sbin/somanami-setup.sh]

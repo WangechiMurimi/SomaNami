@@ -43,3 +43,27 @@ jobs:
       # Only Postgres is needed to apply migrations and run pgTAP.
       - run: supabase db start
       - run: supabase test db
+
+  # Runs the Ollama gateway's real Caddyfile against a mock Ollama (#151).
+  gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CADDY_VERSION: 2.10.0
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      # Pinned and checksum-verified, so the test runs the Caddy we expect.
+      - name: Install Caddy
+        run: |
+          base="https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}"
+          archive="caddy_${CADDY_VERSION}_linux_amd64.tar.gz"
+          curl -fsSLO "$base/$archive"
+          curl -fsSLO "$base/caddy_${CADDY_VERSION}_checksums.txt"
+          grep " ${archive}\$" "caddy_${CADDY_VERSION}_checksums.txt" | sha512sum -c -
+          tar -xzf "$archive" caddy
+          sudo install caddy /usr/local/bin/caddy
+          caddy version
+      - run: npm run test:gateway
