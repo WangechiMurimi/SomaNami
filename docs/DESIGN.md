@@ -88,8 +88,10 @@ Screen details the code depends on:
 - **Home:** one composer. Files attach inside the input box: a ghost chip
   while a file is read and saved, then a chip with its type icon and a remove
   button (removing deletes the file it added). The question is typed in the
-  same box. The box glows on focus (`.composer:focus-within`, the only
-  shadow). Send needs a question and at least one ready file, and opens the
+  same box. On focus the gradient frame itself is the indicator: it shifts
+  to stronger colours (≥ 4.5:1 in both themes) and glows
+  (`.composer:focus-within`, the only shadow); the textarea draws no outline
+  of its own. Send needs a question and at least one ready file, and opens the
   new loose chat directly, asking the question there.
 - **Workspaces:** the default workspace is never listed (`userWorkspaces()`);
   pinned workspaces come first. The whole card opens the workspace; a
