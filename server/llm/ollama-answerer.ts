@@ -6,11 +6,16 @@ import { buildMessages, SYSTEM_PROMPT } from './prompt.ts'
 /** A small model that answers on a CPU-only VM within our credit budget. */
 export const DEFAULT_OLLAMA_MODEL = 'qwen2.5:3b'
 
+/** Netlify's default time limit for a synchronous function. */
+export const NETLIFY_FUNCTION_LIMIT_MS = 10_000
+
 /**
- * The whole answer, retry included, must finish inside Netlify's ~10 s
- * synchronous function limit, leaving time to send the JSON reply.
+ * The whole answer, retry included, must finish inside the function limit.
+ * Before the model call the chat route verifies the session and loads the
+ * learner's materials from Supabase (#148), and a cold start comes first, so
+ * 3 s is left for those and for sending the JSON reply.
  */
-export const DEFAULT_OLLAMA_TIMEOUT_MS = 8_500
+export const DEFAULT_OLLAMA_TIMEOUT_MS = NETLIFY_FUNCTION_LIMIT_MS - 3_000
 
 /** Caps generation: a grounded answer to one question needs little room. */
 export const MAX_ANSWER_TOKENS = 512
