@@ -4,7 +4,8 @@ import { renderSignedInApp } from '../features/auth/testing/render-app.tsx'
 import { createMemoryAdapter, setStorageAdapter } from '../lib/storage/index.ts'
 
 // Materials belong to an account but live on one device until sync ships, so
-// the copy must say both, and never imply another device holds a copy.
+// the copy must say both, and never imply another device holds a copy. Since
+// #145 the original files are also uploaded, and the copy must say so.
 const NOT_HERE =
   'It may have been removed, or added on another device. For now, each device keeps its own materials and chats.'
 
@@ -41,6 +42,24 @@ describe('Account-aware device copy', () => {
     expect(
       await screen.findByText(
         /Every chat is saved to your account on this device/,
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('says the sidebar’s original files are kept in the account', async () => {
+    await renderSignedInApp('/')
+    expect(
+      screen.getByRole('region', { name: 'On this device' }),
+    ).toHaveTextContent(
+      'Original files are also kept privately in your account.',
+    )
+  })
+
+  it('explains on the help page that original files are uploaded', async () => {
+    await renderSignedInApp('/help')
+    expect(
+      await screen.findByText(
+        /keeps a private copy of the original file in your account/,
       ),
     ).toBeInTheDocument()
   })

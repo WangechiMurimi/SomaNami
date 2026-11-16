@@ -59,7 +59,8 @@ export function createApp({
   )
 
   // Questions arrive with client-retrieved passages, which are JSON of a
-  // non-trivial size; documents themselves are never uploaded.
+  // non-trivial size. Original files go from the browser straight to
+  // Supabase Storage (#145), never through this server.
   app.use(express.json({ limit: CHAT_BODY_LIMIT_BYTES }))
 
   app.get('/api/health', (_request, response) => {
