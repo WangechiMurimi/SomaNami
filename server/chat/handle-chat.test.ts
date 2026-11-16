@@ -229,22 +229,25 @@ describe('handleChat', () => {
     })
   })
 
-  it('does not present an answer as grounded when none of its citations are real', async () => {
-    const answer = answering({
-      answer: 'Confident but unsupported.',
-      answerable: true,
-      citations: ['made-up'],
-    })
+  it.each([
+    ['none of its citations are real', ['made-up']],
+    ['it cites nothing', []],
+  ])(
+    'treats an answer claimed as grounded as unanswerable when %s, without showing its text',
+    async (_label, citations) => {
+      const answer = answering({
+        answer: 'Confident but unsupported.',
+        answerable: true,
+        citations,
+      })
 
-    const result = await handleChat(request(), { answer, ...signedIn() })
+      const result = await handleChat(request(), { answer, ...signedIn() })
 
-    expect(result.body).toEqual({
-      answer: 'Confident but unsupported.',
-      answerable: false,
-      citations: [],
-      passages: [],
-    })
-  })
+      // The model's own words are not shown: with no real passage behind
+      // them they may come from its general knowledge, not the materials.
+      expect(result).toEqual({ status: 200, body: notCovered })
+    },
+  )
 
   it('strips citations from an answer the model marked unanswerable', async () => {
     const answer = answering({
