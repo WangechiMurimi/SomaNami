@@ -54,6 +54,11 @@ describe('SignInPage', () => {
     page()
     const password = await screen.findByLabelText('Password')
     expect(password).toHaveAttribute('type', 'password')
+    // Nothing to reveal until the visitor starts typing.
+    expect(
+      screen.queryByRole('button', { name: /password$/ }),
+    ).not.toBeInTheDocument()
+    await userEvent.type(password, 'secret')
     await userEvent.click(screen.getByRole('button', { name: 'Show password' }))
     expect(password).toHaveAttribute('type', 'text')
     await userEvent.click(screen.getByRole('button', { name: 'Hide password' }))
