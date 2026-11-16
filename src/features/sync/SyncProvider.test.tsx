@@ -6,6 +6,7 @@ import {
   listOutbox,
   setStorageAdapter,
 } from '../../lib/storage/index.ts'
+import type { EmbedScheduler } from '../../lib/embeddings/embed-scheduler.ts'
 import type { CloudStore } from '../../lib/sync/cloud.ts'
 import { createMemoryCloud } from '../../lib/sync/testing/memory-cloud.ts'
 import type { AuthContextValue } from '../../types/auth.ts'
@@ -32,10 +33,24 @@ function Probe({ onSync }: { onSync: (value: SyncContextValue) => void }) {
   return <p data-testid="status">{value.status}</p>
 }
 
-function renderSync(cloud: CloudStore | null) {
+/** A scheduler that records calls instead of reaching the server. */
+const fakeEmbeddings = () => ({
+  markNeeded: vi.fn<EmbedScheduler['markNeeded']>(),
+  kick: vi.fn<EmbedScheduler['kick']>().mockResolvedValue(undefined),
+})
+
+function renderSync(
+  cloud: CloudStore | null,
+  embeddings: EmbedScheduler = fakeEmbeddings(),
+) {
   return render(
     <AuthContext.Provider value={auth}>
-      <SyncProvider cloud={cloud} intervalMs={60_000} afterChangeMs={10}>
+      <SyncProvider
+        cloud={cloud}
+        embeddings={embeddings}
+        intervalMs={60_000}
+        afterChangeMs={10}
+      >
         <Probe onSync={keep} />
       </SyncProvider>
     </AuthContext.Provider>,
@@ -142,6 +157,53 @@ describe('SyncProvider', () => {
     })
 
     await waitFor(() => expect(cloud.rows('workspaces')).toHaveLength(1))
+  })
+
+  describe('embeddings', () => {
+    it('asks for embeddings after each successful sync', async () => {
+      const embeddings = fakeEmbeddings()
+
+      renderSync(cloud.cloud, embeddings)
+
+      await waitFor(() => expect(embeddings.kick).toHaveBeenCalled())
+    })
+
+    it('marks embeddings as needed once this device pushed changes', async () => {
+      const embeddings = fakeEmbeddings()
+      renderSync(cloud.cloud, embeddings)
+      await waitFor(() => expect(embeddings.kick).toHaveBeenCalled())
+      expect(embeddings.markNeeded).not.toHaveBeenCalled()
+
+      await act(() => createWorkspace({ name: 'Biology' }))
+
+      await waitFor(() => expect(embeddings.markNeeded).toHaveBeenCalled())
+      expect(embeddings.kick).toHaveBeenCalledTimes(2)
+    })
+
+    it('does not wait for embeddings before reporting the sync done', async () => {
+      const embeddings = fakeEmbeddings()
+      embeddings.kick.mockReturnValue(new Promise(() => {}))
+
+      renderSync(cloud.cloud, embeddings)
+
+      await waitFor(() =>
+        expect(screen.getByTestId('status')).toHaveTextContent('idle'),
+      )
+      expect(sync.lastSyncedAt).not.toBeNull()
+    })
+
+    it('asks for nothing when a sync fails', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const embeddings = fakeEmbeddings()
+      cloud.failNext('pullDeletions', new Error('server down'))
+
+      renderSync(cloud.cloud, embeddings)
+
+      await waitFor(() =>
+        expect(screen.getByTestId('status')).toHaveTextContent('error'),
+      )
+      expect(embeddings.kick).not.toHaveBeenCalled()
+    })
   })
 
   it('is off without a cloud, and flush has nothing to wait for', async () => {

@@ -13,6 +13,12 @@ from. See [`docs/PRD.md`](docs/PRD.md) for the product requirements.
   the conversation so far, and asks Claude to answer **only** from those
   passages. Citations the model returns are checked against the passages that
   were sent. The Anthropic API key exists only on the server.
+- **Embeddings:** after a sync, the browser calls `POST /api/embed` (body
+  `{}`). The server reads the learner's chunks that have no vector yet, as
+  that learner through row-level security, embeds them with our self-hosted
+  Ollama (`nomic-embed-text`, 768 dimensions) and writes them to
+  `chunks.embedding` the same way. Chunk text goes only to Supabase and our
+  Ollama, and is never logged.
 - **Deployment:** Netlify serves the static build and runs the API as Netlify
   Functions (`netlify/functions/`). Locally, the same handlers run in Express.
 
@@ -30,7 +36,9 @@ npm run dev             # app on http://localhost:5173 (proxies /api to the API)
 ```
 
 Without an API key the app still uploads, stores and searches documents; the
-chat route answers `503 not-configured`.
+chat route answers `503 not-configured`. Likewise, without `OLLAMA_BASE_URL`
+the embed route answers `503 not-configured` and chunks simply wait for their
+vectors; the app retries later.
 
 ### Local database
 
@@ -90,11 +98,28 @@ Email and password sign-in works without them.
 CI runs lint, typecheck, format check, tests and build on every pull request,
 and applies the migrations to a fresh database to run the pgTAP tests.
 
+## API
+
+The API (`GET /api/health`, `POST /api/chat`, `POST /api/embed`,
+`POST /api/fetch-link`) is
+described in [`docs/api/openapi.yaml`](docs/api/openapi.yaml) (OpenAPI 3.1),
+including every error code and limit. `server/openapi-spec.test.ts` fails if
+the routes or request schemas drift from it.
+
+Chat, embed and fetch-link need the signed-in user's Supabase access token as
+`Authorization: Bearer <token>`; the server verifies it against the Supabase
+project's signing keys and answers `401` without a valid one. Health is
+public.
+
 ## Deploying to Netlify
 
 Connect the repository in Netlify; `netlify.toml` sets the build command,
 publish directory and functions directory. Set `ANTHROPIC_API_KEY` in the
 site's environment variables (optionally `CLAUDE_MODEL`, `CLAUDE_EFFORT`).
+For embeddings set `OLLAMA_BASE_URL` (https; plain http is accepted only for
+an Ollama on the same machine), `OLLAMA_API_KEY` for the gateway in front of
+it, and optionally `OLLAMA_EMBED_MODEL` (default `nomic-embed-text`; any
+replacement must also produce 768-dimensional vectors).
 
 ## Contributing
 

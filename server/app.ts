@@ -4,6 +4,13 @@ import { rateLimit } from 'express-rate-limit'
 import { API_HEADERS } from './api-headers.ts'
 import type { Authenticate } from './auth/types.ts'
 import { handleChat } from './chat/handle-chat.ts'
+import type { ChunkStoreFor } from './embed/chunk-store.ts'
+import { handleEmbed } from './embed/handle-embed.ts'
+import {
+  EMBED_BODY_LIMIT_BYTES,
+  EMBED_RATE_LIMIT,
+  EMBED_RATE_WINDOW_SECONDS,
+} from './embed/limits.ts'
 import {
   CHAT_BODY_LIMIT_BYTES,
   CHAT_RATE_LIMIT,
@@ -22,6 +29,7 @@ import {
 import { linkResponseHeaders } from './link/link-headers.ts'
 import type { LoadMaterials } from './chat/load-materials.ts'
 import type { Answerer } from './llm/claude-answerer.ts'
+import type { Embedder } from './llm/ollama-embedder.ts'
 
 export interface AppOptions {
   /** Answers chat questions; `null` means the server has no Claude credentials. */
@@ -31,6 +39,10 @@ export interface AppOptions {
    * forgotten wiring fails closed rather than opening the model to anyone.
    */
   authenticate?: Authenticate
+  /** Opens a learner's chunks for `/api/embed`; `null` means Supabase isn't configured. */
+  chunks?: ChunkStoreFor | null
+  /** Embeds chunk text with our Ollama; `null` means it isn't configured. */
+  embed?: Embedder | null
   /** Fetches links for `/api/fetch-link`; tests inject a fake. */
   fetchLink?: FetchLinkDependencies['fetch']
   /** Loads chat materials as the caller; `null` means Supabase isn't configured. */
@@ -49,6 +61,8 @@ const refuseAll: Authenticate = async () => ({
 export function createApp({
   answer = null,
   authenticate = refuseAll,
+  chunks = null,
+  embed = null,
   fetchLink = defaultFetchLink,
   loadMaterials = null,
 }: AppOptions = {}) {
@@ -70,12 +84,17 @@ export function createApp({
     '/api/fetch-link',
     limitPerIp(LINK_RATE_LIMIT, LINK_RATE_WINDOW_SECONDS),
   )
+  // Embedding keeps our CPU-bound Ollama busy, so it is budgeted separately.
+  app.use('/api/embed', limitPerIp(EMBED_RATE_LIMIT, EMBED_RATE_WINDOW_SECONDS))
 
   // Chat bodies are small now (a question, material ids and recent history);
   // the cap mainly bounds a long history. A link request is only `{ url }`,
   // so it gets a far smaller cap. Original files go from the browser
   // straight to Supabase Storage (#145), never through this server.
   app.use('/api/chat', express.json({ limit: CHAT_BODY_LIMIT_BYTES }))
+  // The embed body is `{}`: the server picks the chunks, so text never
+  // travels from the browser on this route.
+  app.use('/api/embed', express.json({ limit: EMBED_BODY_LIMIT_BYTES }))
 
   app.get('/api/health', (_request, response) => {
     response.json({ status: 'ok' })
@@ -87,6 +106,16 @@ export function createApp({
       authenticate,
       authorization: request.get('authorization'),
       loadMaterials,
+    })
+    response.status(result.status).json(result.body)
+  })
+
+  app.post('/api/embed', async (request, response) => {
+    const result = await handleEmbed(request.body, {
+      authenticate,
+      authorization: request.get('authorization'),
+      chunks,
+      embed,
     })
     response.status(result.status).json(result.body)
   })
