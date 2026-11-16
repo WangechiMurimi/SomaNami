@@ -5,6 +5,8 @@ import {
   isOnline,
   subscribeToConnectivity,
 } from '../../lib/connectivity/use-online.ts'
+import { createEmbedScheduler } from '../../lib/embeddings/embed-scheduler.ts'
+import type { EmbedScheduler } from '../../lib/embeddings/embed-scheduler.ts'
 import {
   listOutbox,
   subscribeToConversations,
@@ -27,6 +29,8 @@ export interface SyncProviderProps {
   children: ReactNode
   /** Test seam: the cloud to sync with. Defaults to Supabase. */
   cloud?: CloudStore | null
+  /** Test seam: embeds synced chunks. Defaults to `POST /api/embed`. */
+  embeddings?: EmbedScheduler
   intervalMs?: number
   afterChangeMs?: number
 }
@@ -40,6 +44,7 @@ export interface SyncProviderProps {
 export default function SyncProvider({
   children,
   cloud: injected,
+  embeddings,
   intervalMs = INTERVAL_MS,
   afterChangeMs = AFTER_CHANGE_MS,
 }: SyncProviderProps) {
@@ -59,6 +64,7 @@ export default function SyncProvider({
   return (
     <ActiveSync
       cloud={cloud}
+      embeddings={embeddings}
       intervalMs={intervalMs}
       afterChangeMs={afterChangeMs}
     >
@@ -70,11 +76,13 @@ export default function SyncProvider({
 function ActiveSync({
   children,
   cloud,
+  embeddings: injectedEmbeddings,
   intervalMs,
   afterChangeMs,
 }: {
   children: ReactNode
   cloud: CloudStore
+  embeddings: EmbedScheduler | undefined
   intervalMs: number
   afterChangeMs: number
 }) {
@@ -85,6 +93,11 @@ function ActiveSync({
   // The run in progress, if any; a request during it waits for one more.
   const current = useRef<Promise<SyncResult> | null>(null)
   const queued = useRef<Promise<SyncResult> | null>(null)
+  // Kept across sync runs, so a failure's backoff outlives the run.
+  const embeddings = useMemo(
+    () => injectedEmbeddings ?? createEmbedScheduler(),
+    [injectedEmbeddings],
+  )
 
   const runOnce = useCallback(async (): Promise<SyncResult> => {
     if (!isOnline()) {
@@ -94,6 +107,10 @@ function ActiveSync({
     if (mounted.current) setStatus('syncing')
     try {
       const result = await syncOnce(cloud)
+      // Chunks reach the cloud with their document, so they can be embedded
+      // now (#153). Not awaited: embedding is slow, and nothing waits on it.
+      if (result.pushed > 0) embeddings.markNeeded()
+      void embeddings.kick()
       if (mounted.current) {
         setPending(result.pending)
         setLastSyncedAt(Date.now())
@@ -110,7 +127,7 @@ function ActiveSync({
         cause: error,
       })
     }
-  }, [cloud])
+  }, [cloud, embeddings])
 
   /** Starts a run, or joins the one queued behind the current run. */
   const run = useCallback((): Promise<SyncResult> => {
