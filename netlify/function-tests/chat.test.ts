@@ -8,7 +8,7 @@ import {
   CHAT_RATE_LIMIT,
   CHAT_RATE_WINDOW_SECONDS,
 } from '../../server/chat/limits.ts'
-import chat, { config, createChatFunction } from './chat.ts'
+import chat, { config, createChatFunction } from '../functions/chat.ts'
 
 const allow = () =>
   vi.fn<Authenticate>().mockResolvedValue({
