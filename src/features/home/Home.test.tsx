@@ -1,30 +1,34 @@
 import { readFileSync } from 'node:fs'
 import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import GroundingNote from './GroundingNote.tsx'
 import HomeCube from './HomeCube.tsx'
 import HowItWorks from './HowItWorks.tsx'
 
 describe('HowItWorks', () => {
-  it('lists the four steps in order', () => {
-    render(<HowItWorks uploadTo="#upload" />)
+  it('lists the four directives in order', () => {
+    render(<HowItWorks />)
 
     const steps = within(
       screen.getByRole('list', { name: 'How it works' }),
     ).getAllByRole('heading', { level: 2 })
     expect(steps.map((step) => step.textContent)).toEqual([
       'Add your materials',
-      'Talk it through',
-      'Find your explanation',
-      'See another perspective',
+      'Ask questions, explore ideas',
+      'Make it make sense to you',
+      'Explore it another way',
     ])
   })
+})
 
-  it('points the upload link where the caller says', () => {
-    render(<HowItWorks uploadTo="#upload" />)
+describe('GroundingNote', () => {
+  it('says answers trace back to the materials, with the chips hidden', () => {
+    const { container } = render(<GroundingNote />)
 
-    expect(
-      screen.getByRole('link', { name: 'Upload materials' }),
-    ).toHaveAttribute('href', '#upload')
+    expect(screen.getByText(/stays grounded in your materials/)).toBeVisible()
+    expect(container.querySelector('[aria-hidden="true"]')).toHaveTextContent(
+      'Your content',
+    )
   })
 })
 

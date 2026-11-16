@@ -1,21 +1,57 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import Composer from '../../components/Composer.tsx'
-import { useAuth } from '../auth/auth-context.ts'
+import { ANSWER_FORMATS } from './answer-formats.ts'
+import { AssistantAvatar, Bulb, ListIcon } from './chat-icons.tsx'
 import ChatMessage from './ChatMessage.tsx'
 import { useChat } from './use-chat.ts'
 import type { UseChatOptions } from './use-chat.ts'
 
-const OFFLINE_NOTICE = 'You’re offline. Reconnect to ask questions.'
+const FORMAT_ICON = { example: Bulb, summary: ListIcon }
 
 function PendingBubble() {
   return (
-    <li role="status" className="flex items-center gap-2.5 text-sm text-muted">
-      <span
-        aria-hidden="true"
-        className="size-2 flex-none animate-pulse rounded-full bg-accent motion-reduce:animate-none"
-      />
-      Reading your materials…
+    <li role="status" className="flex items-center gap-3 text-sm text-muted">
+      <AssistantAvatar />
+      <span className="flex items-center gap-2.5">
+        <span
+          aria-hidden="true"
+          className="size-2 flex-none animate-pulse rounded-full bg-accent motion-reduce:animate-none"
+        />
+        Reading your materials…
+      </span>
     </li>
+  )
+}
+
+/** Re-asks for the latest answer in another form (US-05). */
+function AnotherFormat({ onPick }: { onPick: (prompt: string) => void }) {
+  const id = useId()
+  return (
+    <div
+      role="group"
+      aria-labelledby={id}
+      className="flex flex-col gap-3 rounded-2xl bg-tile px-[18px] py-4"
+    >
+      <span id={id} className="text-[15px] leading-[1.5] font-medium">
+        Show another format
+      </span>
+      <div className="flex flex-wrap gap-2.5">
+        {ANSWER_FORMATS.map(({ id, label, prompt }) => {
+          const Icon = FORMAT_ICON[id]
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onPick(prompt)}
+              className="flex h-12 flex-[1_1_120px] items-center justify-center gap-2 rounded-xl border border-edge bg-surface px-3.5 text-[15px] font-medium hover:border-accent hover:text-accent"
+            >
+              <Icon size={18} />
+              {label}
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -35,26 +71,26 @@ export default function ChatPanel({
   addMaterialTo?: string
 }) {
   const { messages, status, error, send, retry } = useChat(chatOptions)
-  // A saved session keeps the transcript readable offline (US-07), but the
-  // session can't be refreshed, so asking waits for the connection. The
-  // server's 401 stays the real check; this only spares a doomed request.
-  const isOffline = useAuth().status === 'signed-in-offline'
   const askedInitial = useRef(false)
 
   useEffect(() => {
-    // A chat started from New chat arrives with its first question; ask it
-    // once, even when React runs effects twice in development. Offline, it
-    // waits for the connection instead of failing.
-    if (!initialQuestion || askedInitial.current || isOffline) return
+    // A chat started from Home or New chat arrives with its first question;
+    // ask it once, even when React runs effects twice in development.
+    if (!initialQuestion || askedInitial.current) return
     askedInitial.current = true
     send(initialQuestion)
-  }, [initialQuestion, send, isOffline])
+  }, [initialQuestion, send])
   const [draft, setDraft] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const endRef = useRef<HTMLDivElement>(null)
 
   const isSending = status === 'sending'
-  const canSend = draft.trim().length > 0 && !isSending && !isOffline
+  const canSend = draft.trim().length > 0 && !isSending
+  const latest = messages.at(-1)
+  // Only a grounded answer has something to reshape; after a refusal or a
+  // failure the learner needs to rephrase instead.
+  const canReformat =
+    latest?.role === 'assistant' && latest.answerable && status === 'idle'
 
   useLayoutEffect(() => {
     // New turns arrive at the bottom; bring them into view as they land.
@@ -82,7 +118,7 @@ export default function ChatPanel({
             came from.
           </p>
         ) : (
-          <ol aria-live="polite" className="flex flex-col gap-6">
+          <ol aria-live="polite" className="flex flex-col gap-4">
             {messages.map((message) => (
               <ChatMessage
                 key={message.id}
@@ -96,13 +132,17 @@ export default function ChatPanel({
         <div ref={endRef} />
       </section>
 
+      {/* TODO(#28): the Level control (and Format, #40) from the chat design
+          go here once the server can answer at a level and in a format. */}
+      {canReformat && <AnotherFormat onPick={send} />}
+
       {error && (
         <div
           role="alert"
           className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5 rounded-xl border border-warn bg-warn-soft px-4 py-3"
         >
           <span className="text-sm leading-[1.5]">{error.message}</span>
-          {error.retryable && !isOffline && (
+          {error.retryable && (
             <button
               type="button"
               onClick={retry}
@@ -114,15 +154,6 @@ export default function ChatPanel({
         </div>
       )}
 
-      {isOffline && (
-        <p
-          role="status"
-          className="rounded-xl bg-warn-soft px-4 py-2.5 text-sm text-warn"
-        >
-          {OFFLINE_NOTICE}
-        </p>
-      )}
-
       <div className="flex flex-col gap-2.5">
         <Composer
           label="Ask a follow-up about your materials"
@@ -131,7 +162,6 @@ export default function ChatPanel({
           onChange={setDraft}
           onSubmit={submit}
           canSend={canSend}
-          sendDescription={isOffline ? OFFLINE_NOTICE : undefined}
           inputRef={inputRef}
         />
         <p className="text-center text-[13px] leading-[1.5] text-muted">

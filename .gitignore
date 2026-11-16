@@ -36,7 +36,5 @@ dist-ssr
 .venv/
 __pycache__/
 
-# Playwright output
-test-results/
-playwright-report/
-blob-report/
+# Vitest coverage reports (npm run test:coverage)
+coverage/

@@ -10,8 +10,10 @@ import Turnstile from '../features/auth/Turnstile.tsx'
 import { useAuth } from '../features/auth/auth-context.ts'
 import { authErrorMessage } from '../features/auth/auth-errors.ts'
 import {
+  AUTH_FOOTER,
+  FOOTER_LINK,
   MIN_PASSWORD,
-  PRIMARY_BUTTON,
+  SUBMIT_BUTTON,
   TEXT_LINK,
 } from '../features/auth/auth-ui.ts'
 import { useCaptcha } from '../features/auth/use-captcha.ts'
@@ -60,20 +62,15 @@ export default function SignUpPage() {
       ) : (
         <>
           <GoogleSignIn />
-          <div className="mt-5">
+          <div className="mt-4">
             <AccountForm onSent={setSentTo} />
           </div>
         </>
       )}
-      <p className="mt-8 text-[15px] text-muted">
+      <p className={AUTH_FOOTER}>
         Already have an account?{' '}
-        <Link to="/sign-in" className={TEXT_LINK}>
+        <Link to="/sign-in" className={FOOTER_LINK}>
           Sign in
-        </Link>
-      </p>
-      <p className="mt-3 text-[15px]">
-        <Link to="/your-data" className={TEXT_LINK}>
-          How your data is handled
         </Link>
       </p>
     </AuthLayout>
@@ -130,7 +127,7 @@ function AccountForm({ onSent }: { onSent: (email: string) => void }) {
       ref={formRef}
       noValidate
       onSubmit={handleSubmit}
-      className="flex flex-col gap-5"
+      className="flex flex-col gap-4"
     >
       {formError && <FormAlert>{formError}</FormAlert>}
       <TextField
@@ -156,7 +153,11 @@ function AccountForm({ onSent }: { onSent: (email: string) => void }) {
         error={errors.password}
       />
       <Turnstile onToken={captcha.onToken} resetKey={captcha.resetKey} />
-      <button type="submit" disabled={submitting} className={PRIMARY_BUTTON}>
+      <button
+        type="submit"
+        disabled={submitting}
+        className={`${SUBMIT_BUTTON} mt-2`}
+      >
         {submitting ? 'Creating your account…' : 'Create account'}
       </button>
     </form>

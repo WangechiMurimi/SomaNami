@@ -1,4 +1,4 @@
-import { getAccessToken } from '../../lib/auth/access-token.ts'
+import { getAccessToken, isOffline } from '../../lib/auth/access-token.ts'
 import type {
   ChatReply,
   ChatRequest,
@@ -7,10 +7,10 @@ import type {
 
 const ENDPOINT = '/api/chat'
 
-const OFFLINE_MESSAGE =
-  'We couldn’t reach the answer service. Check your connection and try again.'
-const SERVER_MESSAGE =
-  'The answer service had a problem answering that question.'
+// Users are treated as always online, so a failed request is just a failed
+// request: one plain message whether the network or the server let us down.
+export const FAILED_MESSAGE = 'Couldn’t get an answer. Try again.'
+const REJECTED_MESSAGE = 'Couldn’t get an answer to that question.'
 const MALFORMED_MESSAGE = 'The answer service sent something we couldn’t read.'
 export const SESSION_ENDED_MESSAGE =
   'Your session ended. Sign in again to ask questions.'
@@ -88,7 +88,11 @@ export async function askQuestion({
   // Without a session the server can only refuse, so don't spend a request
   // (or a slot of the per-IP rate limit) finding that out.
   const token = await getAccessToken()
-  if (!token) throw sessionEnded()
+  if (!token) {
+    throw isOffline()
+      ? new ChatError(FAILED_MESSAGE, { code: 'network' })
+      : sessionEnded()
+  }
 
   let response = await post(body, token)
   if (response.status === 401) {
@@ -106,9 +110,10 @@ export async function askQuestion({
 
   if (!response.ok) {
     // 4xx will fail the same way on a retry, so only offer it for 5xx.
-    throw new ChatError(SERVER_MESSAGE, {
+    const retryable = response.status >= 500
+    throw new ChatError(retryable ? FAILED_MESSAGE : REJECTED_MESSAGE, {
       code: `http_${response.status}`,
-      retryable: response.status >= 500,
+      retryable,
     })
   }
 
@@ -135,6 +140,6 @@ async function post(body: string, token: string): Promise<Response> {
   try {
     return await fetch(ENDPOINT, { method: 'POST', headers, body })
   } catch (cause) {
-    throw new ChatError(OFFLINE_MESSAGE, { code: 'offline', cause })
+    throw new ChatError(FAILED_MESSAGE, { code: 'network', cause })
   }
 }

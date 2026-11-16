@@ -91,22 +91,17 @@ Email and password sign-in works without them.
 CI runs lint, typecheck, format check, tests and build on every pull request,
 and applies the migrations to a fresh database to run the pgTAP tests.
 
-### End-to-end tests
+## API
 
-Playwright specs live in `tests/e2e/` as `*.e2e.ts` (so Vitest never picks
-them up) and cover signing in, uploading a document and asking about it.
+The API (`GET /api/health`, `POST /api/chat`, `POST /api/fetch-link`) is
+described in [`docs/api/openapi.yaml`](docs/api/openapi.yaml) (OpenAPI 3.1),
+including every error code and limit. `server/openapi-spec.test.ts` fails if
+the routes or request schemas drift from it.
 
-```bash
-npx playwright install chromium   # once
-npm run test:e2e
-```
-
-The suite builds the app against a fake Supabase project and serves it with
-`vite preview` on port 4179; no `.env`, Supabase project or API key is needed.
-All network is stubbed in the browser: Supabase Auth, REST and Storage calls
-and `/api/chat` are answered by `tests/e2e/support/fake-backend.ts`, which
-fails a test on any request it doesn't recognise. The stubs mirror the real
-APIs by hand, so update them when the app starts calling something new.
+Chat and fetch-link need the signed-in user's Supabase access token as
+`Authorization: Bearer <token>`; the server verifies it against the Supabase
+project's signing keys and answers `401` without a valid one. Health is
+public.
 
 ## Deploying to Netlify
 

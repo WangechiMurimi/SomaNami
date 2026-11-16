@@ -11,6 +11,8 @@ import {
   createConversation,
   createMemoryAdapter,
   createWorkspace,
+  DEFAULT_WORKSPACE,
+  getConversation,
   listWorkspaceConversations,
   listWorkspaceDocuments,
   saveDocument,
@@ -61,7 +63,10 @@ const question = () =>
 const send = () => screen.getByRole('button', { name: 'Send' })
 
 describe('Workspace page', () => {
-  it('lists the workspace’s materials and chats', async () => {
+  const materialsRegion = async () =>
+    within(await screen.findByRole('region', { name: 'Your materials' }))
+
+  it('lists the workspace’s chats, with their sources, and its materials', async () => {
     const chat = await createConversation({
       workspaceId: workspace.id,
       materialIds: ['cells'],
@@ -69,33 +74,28 @@ describe('Workspace page', () => {
     })
     await open(`/workspaces/${workspace.id}`)
 
-    const materials = within(
-      await screen.findByRole('region', { name: /Materials/ }),
-    )
-    expect(materials.getByText('cells.txt')).toBeInTheDocument()
-    expect(
-      materials.getByRole('link', { name: 'Ask about this: plants.txt' }),
-    ).toHaveAttribute(
-      'href',
-      `/workspaces/${workspace.id}/chats/new?material=plants`,
-    )
-    expect(
-      materials.getByText(/only see these 2 materials/),
-    ).toBeInTheDocument()
+    const materials = await materialsRegion()
+    expect(materials.getByLabelText(/cells\.txt/)).toBeChecked()
+    expect(materials.getByLabelText(/plants\.txt/)).toBeChecked()
 
     const chats = within(screen.getByRole('region', { name: 'Chats' }))
     expect(
-      await chats.findByRole('link', { name: /What makes ATP\?.*Continue/ }),
+      await chats.findByRole('link', { name: 'Continue: What makes ATP?' }),
     ).toHaveAttribute('href', `/chats/${chat.id}`)
+    const sources = chats.getByRole('button', { name: '1 source' })
+    expect(sources).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(sources)
+    expect(sources).toHaveAttribute('aria-expanded', 'true')
+    expect(chats.getByText('Sources in this chat')).toBeInTheDocument()
+    expect(chats.getByText('cells.txt')).toBeInTheDocument()
   })
 
   it('adds pasted text to this workspace', async () => {
     await open(`/workspaces/${workspace.id}`)
 
-    await userEvent.click(
-      await screen.findByRole('button', { name: 'Add materials' }),
+    const panel = within(
+      await screen.findByRole('region', { name: 'Add materials' }),
     )
-    const panel = within(screen.getByRole('region', { name: 'Add materials' }))
     await userEvent.click(panel.getByRole('button', { name: 'Paste text' }))
     await userEvent.type(panel.getByLabelText(/Title/), 'Seminar')
     await userEvent.type(
@@ -105,10 +105,8 @@ describe('Workspace page', () => {
     await userEvent.click(panel.getByRole('button', { name: 'Add text' }))
 
     expect(
-      await within(
-        screen.getByRole('region', { name: /Materials/ }),
-      ).findByText('Seminar.txt'),
-    ).toBeInTheDocument()
+      await (await materialsRegion()).findByLabelText(/Seminar\.txt/),
+    ).toBeChecked()
     expect(
       (await listWorkspaceDocuments(workspace.id)).map(({ name }) => name),
     ).toContain('Seminar.txt')
@@ -125,10 +123,9 @@ describe('Workspace page', () => {
     )
     await open(`/workspaces/${workspace.id}`)
 
-    await userEvent.click(
-      await screen.findByRole('button', { name: 'Add materials' }),
+    const panel = within(
+      await screen.findByRole('region', { name: 'Add materials' }),
     )
-    const panel = within(screen.getByRole('region', { name: 'Add materials' }))
     await userEvent.click(panel.getByRole('button', { name: 'Add a link' }))
     await userEvent.type(
       panel.getByLabelText('Link'),
@@ -136,11 +133,12 @@ describe('Workspace page', () => {
     )
     await userEvent.click(panel.getByRole('button', { name: 'Add link' }))
 
+    // Shown on the upload card and in the workspace's material list.
     expect(
       await within(
-        screen.getByRole('region', { name: /Materials/ }),
-      ).findByText('ribosomes.txt'),
-    ).toBeInTheDocument()
+        screen.getByRole('region', { name: 'Your materials' }),
+      ).findAllByText('ribosomes.txt'),
+    ).not.toHaveLength(0)
     const stored = await listWorkspaceDocuments(workspace.id)
     expect(stored.find(({ name }) => name === 'ribosomes.txt')).toMatchObject({
       sourceUrl: 'https://example.org/ribosomes.txt',
@@ -165,6 +163,40 @@ describe('Workspace page', () => {
     ])
     // The server ranked both and cited the one that answers.
     expect(screen.getByText('plants.txt · Line 1')).toBeInTheDocument()
+  })
+
+  it('asks only over the materials left ticked', async () => {
+    serveChat()
+    await open(`/workspaces/${workspace.id}`)
+    const materials = await materialsRegion()
+
+    await userEvent.click(materials.getByLabelText(/plants\.txt/))
+    expect(materials.getByLabelText(/plants\.txt/)).not.toBeChecked()
+    await userEvent.type(
+      screen.getByLabelText('Ask about Biology'),
+      'What makes ATP?{Enter}',
+    )
+
+    expect(await screen.findByText('From your notes.')).toBeInTheDocument()
+    const [chat] = await listWorkspaceConversations(workspace.id)
+    expect(chat?.materialIds).toEqual(['cells'])
+  })
+
+  it('cannot ask with no material ticked', async () => {
+    await open(`/workspaces/${workspace.id}`)
+    const materials = await materialsRegion()
+
+    await userEvent.click(
+      materials.getByRole('button', { name: 'Select none' }),
+    )
+    await userEvent.type(screen.getByLabelText('Ask about Biology'), 'Why?')
+
+    expect(send()).toBeDisabled()
+    expect(send()).toHaveAccessibleDescription(
+      'Tick at least one material to ask about.',
+    )
+    await userEvent.click(materials.getByRole('button', { name: 'Select all' }))
+    expect(send()).toBeEnabled()
   })
 })
 
@@ -230,7 +262,7 @@ describe('New chat', () => {
       await screen.findByText('Not answered from your materials'),
     ).toBeInTheDocument()
     expect(
-      within(screen.getByRole('list', { name: 'Materials this chat uses' }))
+      within(screen.getByRole('list', { name: 'Sources in this chat' }))
         .getAllByRole('listitem')
         .map((item) => item.textContent),
     ).toEqual(['cells.txt'])
@@ -261,8 +293,100 @@ describe('Chat', () => {
   })
 })
 
+describe('Chat header', () => {
+  it('saves and unsaves the chat', async () => {
+    const chat = await createConversation({
+      workspaceId: workspace.id,
+      materialIds: ['cells'],
+      title: 'Saved chat',
+    })
+    await open(`/chats/${chat.id}`)
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Save', pressed: false }),
+    )
+    expect(
+      screen.getByRole('button', { name: 'Saved', pressed: true }),
+    ).toBeInTheDocument()
+    await vi.waitFor(async () =>
+      expect((await getConversation(chat.id))?.saved).toBe(true),
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'Saved' }))
+    await vi.waitFor(async () =>
+      expect((await getConversation(chat.id))?.saved).toBe(false),
+    )
+    expect(
+      screen.getByRole('button', { name: 'Save', pressed: false }),
+    ).toBeInTheDocument()
+  })
+
+  it('lists its sources without a materials count', async () => {
+    const chat = await createConversation({
+      workspaceId: workspace.id,
+      materialIds: ['cells', 'plants'],
+      title: 'Two sources',
+    })
+    await open(`/chats/${chat.id}`)
+
+    const sources = within(
+      await screen.findByRole('list', { name: 'Sources in this chat' }),
+    )
+    expect(
+      sources.getAllByRole('listitem').map((item) => item.textContent),
+    ).toEqual(['cells.txt', 'plants.txt'])
+    const main = screen.getByRole('main')
+    expect(main).not.toHaveTextContent(/\d+ materials/)
+    expect(main).not.toHaveTextContent(/Using/)
+    expect(main).not.toHaveTextContent(/offline/i)
+  })
+
+  it('shows a loose chat’s sources from any workspace', async () => {
+    const chat = await createConversation({
+      workspaceId: DEFAULT_WORKSPACE.id,
+      materialIds: ['plants'],
+      title: 'Loose chat',
+    })
+    await open(`/chats/${chat.id}`)
+
+    const sources = within(
+      await screen.findByRole('list', { name: 'Sources in this chat' }),
+    )
+    expect(sources.getByText('plants.txt')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Add materials' })).toHaveAttribute(
+      'href',
+      '/library',
+    )
+    const trail = within(screen.getByRole('navigation', { name: 'Breadcrumb' }))
+    expect(trail.queryByRole('link', { name: 'Workspaces' })).toBeNull()
+  })
+
+  it('shows a plain, retryable error when a request fails', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(
+      new TypeError('Failed to fetch'),
+    )
+    const chat = await createConversation({
+      workspaceId: workspace.id,
+      materialIds: ['cells'],
+      title: 'Failing chat',
+    })
+    await open(`/chats/${chat.id}`)
+
+    await userEvent.type(
+      await screen.findByLabelText('Ask a follow-up about your materials'),
+      'What makes ATP?{Enter}',
+    )
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Couldn’t get an answer. Try again.')
+    expect(
+      within(alert).getByRole('button', { name: 'Try again' }),
+    ).toBeInTheDocument()
+  })
+})
+
 describe('Chat addresses', () => {
-  it('says when a chat is not on this device', async () => {
+  it('says when a chat cannot be found', async () => {
     await open('/chats/nope')
 
     expect(
@@ -287,6 +411,27 @@ describe('Chat addresses', () => {
       await screen.findByRole('heading', { level: 1, name: 'Saved chat' }),
     ).toBeInTheDocument()
     expect(window.location.pathname).toBe(`/chats/${chat.id}`)
+  })
+
+  it('shows where a chat sits in the top bar trail', async () => {
+    const chat = await createConversation({
+      workspaceId: workspace.id,
+      materialIds: ['cells'],
+      title: 'Saved chat',
+    })
+    await open(`/chats/${chat.id}`)
+
+    await screen.findByRole('heading', { level: 1, name: 'Saved chat' })
+    const trail = within(screen.getByRole('navigation', { name: 'Breadcrumb' }))
+    expect(await trail.findByRole('link', { name: 'Biology' })).toHaveAttribute(
+      'href',
+      `/workspaces/${workspace.id}`,
+    )
+    expect(trail.getByText('Saved chat')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Add materials' })).toHaveAttribute(
+      'href',
+      `/workspaces/${workspace.id}`,
+    )
   })
 
   it('sends an old material link without chats to New chat', async () => {
