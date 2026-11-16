@@ -56,7 +56,7 @@ describe('signed out', () => {
     ['/sign-up', 'Create your account'],
     ['/forgot-password', 'Reset your password'],
     ['/privacy', 'How your data is handled'],
-    ['/terms', 'Terms'],
+    ['/terms', 'Terms of Use'],
   ])('serves the public page %s', async (path, heading) => {
     installFakeSupabase()
     renderAt(path)

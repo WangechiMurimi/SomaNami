@@ -1,19 +1,8 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import AuthLayout from '../features/auth/AuthLayout.tsx'
+import Confirm from '../features/auth/OwnerToConfirm.tsx'
 import { TEXT_LINK } from '../features/auth/auth-ui.ts'
-
-/**
- * Wording the owner has not confirmed yet. Kept visible on purpose, so the
- * page can't ship looking finished while it still guesses.
- */
-function Confirm({ children }: { children: ReactNode }) {
-  return (
-    <mark className="rounded bg-warn-soft px-1 text-warn">
-      [CONFIRM: {children}]
-    </mark>
-  )
-}
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
