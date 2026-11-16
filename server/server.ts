@@ -4,7 +4,7 @@ import { createAuthenticatorFromEnv } from './auth/verify-access-token.ts'
 import { createMaterialsLoaderFromEnv } from './chat/load-materials.ts'
 import { createAnswererFromEnv } from './llm/answerer-from-env.ts'
 
-export const DEFAULT_PORT = 3001
+const DEFAULT_PORT = 3001
 
 const port = Number(process.env.PORT) || DEFAULT_PORT
 

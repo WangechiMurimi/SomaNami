@@ -1,6 +1,6 @@
 /**
- * Schema for the local-first store: IndexedDB is the primary store so US-07
- * offline reading works; Supabase is a later sync target.
+ * Schema for the local-first store: IndexedDB holds the learner's records on
+ * the device, and the sync engine mirrors the synced stores to Supabase.
  */
 
 /**

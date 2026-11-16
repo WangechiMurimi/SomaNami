@@ -170,5 +170,3 @@ const jsonErrors: ErrorRequestHandler = (error, _request, response, next) => {
   console.error('Unhandled API error', error)
   response.status(500).json({ error: 'internal' })
 }
-
-export default createApp
