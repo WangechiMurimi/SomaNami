@@ -10,8 +10,8 @@ import {
   chatPath,
   materialsFor,
 } from '../features/chat/conversation-materials.ts'
-import { useStartChat } from '../features/chat/use-start-chat.ts'
 import { useRecentConversations } from '../features/chat/use-recent-conversations.ts'
+import { useStartChat } from '../features/chat/use-start-chat.ts'
 import { KIND_LABEL } from '../features/library/kind-label.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
 import AddMaterialsPanel from '../features/workspaces/AddMaterialsPanel.tsx'
@@ -19,6 +19,7 @@ import WorkspaceActionDialog from '../features/workspaces/WorkspaceActionDialog.
 import { useWorkspace } from '../features/workspaces/use-workspace.ts'
 import { useWorkspaceUpload } from '../features/workspaces/use-workspace-upload.ts'
 import { isLooseWorkspace, setConversationSaved } from '../lib/storage/index.ts'
+import { count } from '../lib/text/count.ts'
 import type {
   Conversation,
   StoredDocument,
@@ -35,8 +36,6 @@ const BADGE: Record<StoredDocument['kind'], string> = {
   text: 'TXT',
   web: 'WEB',
 }
-
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 /** The "N sources" chip on a chat row, opening the list of materials it uses. */
 function ChatSources({ sources }: { sources: StoredDocument[] }) {
@@ -55,7 +54,7 @@ function ChatSources({ sources }: { sources: StoredDocument[] }) {
         className="flex h-8 items-center gap-1.5 rounded-full border border-edge px-2.5 text-[13px] text-muted hover:text-fg"
       >
         <FileIcon size={14} strokeWidth={1.9} />
-        {plural(sources.length, 'source')}
+        {count(sources.length, 'source', 'sources')}
       </button>
       {open && (
         <div

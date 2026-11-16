@@ -1,12 +1,10 @@
 import { Link } from 'react-router'
 import { ArrowRight } from '../../components/icons.tsx'
+import { count } from '../../lib/text/count.ts'
 import type { Workspace } from '../../types/contracts.ts'
 import { Pin } from './workspace-icons.tsx'
 import WorkspaceMenu from './WorkspaceMenu.tsx'
 import type { WorkspaceAction } from './WorkspaceMenu.tsx'
-
-const count = (n: number, one: string, many: string) =>
-  `${n} ${n === 1 ? one : many}`
 
 /**
  * A workspace in the list. The whole card opens it (the title link stretches

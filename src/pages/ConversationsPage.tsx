@@ -13,6 +13,7 @@ import {
   isLooseWorkspace,
   setConversationSaved,
 } from '../lib/storage/index.ts'
+import { count } from '../lib/text/count.ts'
 import type { Conversation } from '../types/contracts.ts'
 import { H1, LEDE } from './page-heading.ts'
 
@@ -25,9 +26,6 @@ const FIELD =
   'h-11 w-full rounded-[10px] border border-edge bg-surface px-3 text-[15px] text-fg'
 
 const ALL = 'all'
-
-const conversationCount = (n: number) =>
-  `${n} ${n === 1 ? 'conversation' : 'conversations'}`
 
 /** Saved chats from Recents and from every workspace, newest first. */
 export default function ConversationsPage() {
@@ -143,7 +141,8 @@ export default function ConversationsPage() {
               aria-live="polite"
               className="text-[13px] font-medium text-muted"
             >
-              {conversationCount(shown.length)} · newest first
+              {count(shown.length, 'conversation', 'conversations')} · newest
+              first
             </h2>
             {shown.length === 0 ? (
               <p className="rounded-xl border border-line bg-surface p-6 text-muted">

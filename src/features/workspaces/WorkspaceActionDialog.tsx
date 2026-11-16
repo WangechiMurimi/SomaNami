@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import ConfirmDialog from '../../components/ConfirmDialog.tsx'
+import { count } from '../../lib/text/count.ts'
 import type { Workspace } from '../../types/contracts.ts'
 import { useLibraryContext } from '../library/library-context.ts'
 import AddSourcesDialog from './AddSourcesDialog.tsx'
@@ -12,9 +13,6 @@ export type DialogAction = Extract<
   WorkspaceAction,
   'add-sources' | 'remove-sources' | 'rename' | 'delete'
 >
-
-const count = (n: number, one: string, many: string) =>
-  `${n} ${n === 1 ? one : many}`
 
 /** Asks before deleting, and says plainly what goes with the workspace. */
 function DeleteWorkspaceDialog({

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { isLooseWorkspace } from '../../lib/storage/index.ts'
+import { count } from '../../lib/text/count.ts'
 import type { Workspace } from '../../types/contracts.ts'
 import { useLibraryContext } from '../library/library-context.ts'
 import DocumentCard from '../upload/DocumentCard.tsx'
@@ -11,8 +12,6 @@ import Dialog, {
 import SourceChecklist from './SourceChecklist.tsx'
 import { useWorkspaceUpload } from './use-workspace-upload.ts'
 import { useWorkspaces } from './use-workspaces.ts'
-
-const sources = (n: number) => `${n} ${n === 1 ? 'source' : 'sources'}`
 
 /**
  * Adds sources to a workspace: files already in My library move in, and new
@@ -113,7 +112,7 @@ export default function AddSourcesDialog({
         >
           {selected.length === 0
             ? 'Add sources'
-            : `Add ${sources(selected.length)}`}
+            : `Add ${count(selected.length, 'source', 'sources')}`}
         </button>
       </div>
     </Dialog>

@@ -20,6 +20,7 @@ import {
   isLooseWorkspace,
   listConversations,
 } from '../lib/storage/index.ts'
+import { count } from '../lib/text/count.ts'
 import type {
   Conversation,
   DocumentKind,
@@ -37,8 +38,6 @@ const FILTERS: { label: string; kind: DocumentKind | null }[] = [
   { label: 'Text', kind: 'text' },
   { label: 'Web', kind: 'web' },
 ]
-
-const chats = (n: number) => `${n} ${n === 1 ? 'chat' : 'chats'}`
 
 /** What removing a material does to the chats that use it (US-08 AC5). */
 function RemoveMaterial({
@@ -111,13 +110,13 @@ function RemoveMaterial({
       </p>
       {effect && effect.ending > 0 && (
         <p className="mt-2">
-          {chats(effect.ending)} that only used this material will be removed
-          too.
+          {count(effect.ending, 'chat', 'chats')} that only used this material
+          will be removed too.
         </p>
       )}
       {effect && effect.keeping > 0 && (
         <p className="mt-2">
-          {chats(effect.keeping)} that also{' '}
+          {count(effect.keeping, 'chat', 'chats')} that also{' '}
           {effect.keeping === 1 ? 'uses' : 'use'} other materials will keep
           those, and earlier answers that quoted this one will no longer show
           the passage.

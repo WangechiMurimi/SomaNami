@@ -11,6 +11,7 @@ import { useLibraryContext } from '../features/library/library-context.ts'
 import AddMaterialsPanel from '../features/workspaces/AddMaterialsPanel.tsx'
 import { useWorkspace } from '../features/workspaces/use-workspace.ts'
 import { useWorkspaceUpload } from '../features/workspaces/use-workspace-upload.ts'
+import { count } from '../lib/text/count.ts'
 import type { StoredDocument, Workspace } from '../types/contracts.ts'
 import { H1, LEDE } from './page-heading.ts'
 
@@ -65,9 +66,11 @@ function NewChat({
   const status =
     chosen.length === 0
       ? 'Choose at least one material to start.'
-      : `This chat will use ${chosen.length} of ${materials.length} ${
-          materials.length === 1 ? 'material' : 'materials'
-        }.`
+      : `This chat will use ${chosen.length} of ${count(
+          materials.length,
+          'material',
+          'materials',
+        )}.`
 
   const start = () =>
     startChat({ workspaceId: workspace.id, materialIds: chosen, question })
