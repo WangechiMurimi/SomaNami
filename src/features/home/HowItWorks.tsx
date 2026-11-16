@@ -53,7 +53,7 @@ const STEPS: { title: string; body: string; icon: ReactNode }[] = [
 /** The four directives beside the Home cube, with copy from the canvas. */
 export default function HowItWorks() {
   return (
-    <ol aria-label="How it works" className="flex flex-col gap-6 md:pt-10">
+    <ol aria-label="How it works" className="flex flex-col gap-6 lg:pt-10">
       {STEPS.map(({ title, body, icon }) => (
         <li key={title} className="flex gap-4">
           <span

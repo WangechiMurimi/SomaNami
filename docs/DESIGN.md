@@ -68,6 +68,12 @@ Inter 400/500/600 for everything; Manjari 700 for the "SomaNami" wordmark only.
 Radii: 6 tags · 10 buttons, inputs, nav items · 12 cards · 16 large panels ·
 24 composer · pill for chips. Buttons and chips are 44 px high; inputs 48 px.
 Main content: max width 1376 px, padding 64/48/96 px, 56 px between sections.
+
+Sizes above are at the default 16 px root. In code they are written in rem
+(15 px is `0.9375rem`; hairlines of 2 px or less stay px) so they follow the
+reader's browser font size and the root steps in `src/index.css`: 106.25% from
+1680 px wide, 112.5% from 1920 px and 125% from 2560 px. Page titles drop to
+28 px below `sm`, and Home's cube and steps sit side by side only from `lg`.
 The only shadow is the composer's soft glow.
 
 ## Screens

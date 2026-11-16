@@ -14,7 +14,9 @@ export default function HomePage() {
     <div className="flex min-h-[calc(100dvh-13rem)] flex-col gap-14 md:min-h-[calc(100dvh-14rem)]">
       <h1 className={H1}>What would you like to explore today?</h1>
 
-      <div className="grid items-center gap-5 md:grid-cols-2">
+      {/* Side by side only from lg: between md and lg the sidebar leaves too
+          little room for two columns. */}
+      <div className="grid items-center gap-5 lg:grid-cols-2">
         <HomeCube />
         <HowItWorks />
       </div>

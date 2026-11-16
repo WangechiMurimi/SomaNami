@@ -11,8 +11,12 @@
   --cube-side-lit: #f0d9f1;
   --cube-top-lit: #d9bdef;
   --cube-hot: #7a68e3;
+  /* The drawing is in px; --k scales it with the root size and, on phones,
+     shrinks it so the cube doesn't crowd out the steps beside it. */
+  --cube-fit: 1;
+  --k: calc(var(--root-scale, 1) * var(--cube-fit));
   position: relative;
-  height: 400px;
+  height: calc(400px * var(--k));
   overflow: hidden;
 }
 
@@ -40,11 +44,11 @@
 
 .home-cube__anchor {
   position: absolute;
-  left: calc(50% + 35px);
+  left: calc(50% + 35px * var(--k));
   top: 50%;
   width: 0;
   height: 0;
-  transform: skewY(-20deg) scale(0.75);
+  transform: skewY(-20deg) scale(calc(0.75 * var(--k)));
 }
 
 .home-cube__shift {
@@ -180,6 +184,6 @@
 
 @media (max-width: 760px) {
   .home-cube {
-    height: 340px;
+    --cube-fit: 0.7;
   }
 }
