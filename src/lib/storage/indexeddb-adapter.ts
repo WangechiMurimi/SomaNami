@@ -145,12 +145,15 @@ function openDatabase(factory: IDBFactory, name: string): Promise<IDBDatabase> {
 /**
  * Deletes a whole database, resolving once it's gone. Pass `evenIfBlocked`
  * to resolve as soon as the delete is queued instead, for callers that must
- * not wait on a tab that may never let go.
+ * not wait on a tab that may never let go; `onBlocked` hears that it waits.
  */
 export function deleteDatabase(
   factory: IDBFactory,
   name: string,
-  { evenIfBlocked = false }: { evenIfBlocked?: boolean } = {},
+  {
+    evenIfBlocked = false,
+    onBlocked,
+  }: { evenIfBlocked?: boolean; onBlocked?: () => void } = {},
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const request = factory.deleteDatabase(name)
@@ -158,7 +161,10 @@ export function deleteDatabase(
     // `blocked` means another tab still holds a connection: the delete stays
     // queued and succeeds once that tab lets go. By default wait for it, so
     // materials are never reported removed while still on the device.
-    if (evenIfBlocked) request.onblocked = () => resolve()
+    request.onblocked = () => {
+      onBlocked?.()
+      if (evenIfBlocked) resolve()
+    }
     request.onerror = () => reject(request.error)
   })
 }

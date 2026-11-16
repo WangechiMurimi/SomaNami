@@ -1,5 +1,10 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router'
+import { Link, useLocation } from 'react-router'
+import {
+  LEAVE_MESSAGES,
+  OTHER_TABS_MESSAGE,
+  useLeaveDevice,
+} from '../sync/use-leave-device.ts'
 import { useAuth } from './auth-context.ts'
 
 /**
@@ -8,8 +13,9 @@ import { useAuth } from './auth-context.ts'
  * works with plain Tab and Enter.
  */
 export default function AccountMenu() {
-  const { user, signOut } = useAuth()
-  const navigate = useNavigate()
+  const { user } = useAuth()
+  // Saves changes first and stops with a reason rather than lose them (#147).
+  const { leave, busy, problem, waitingForTabs } = useLeaveDevice()
   const { pathname } = useLocation()
   const panelId = useId()
   const button = useRef<HTMLButtonElement>(null)
@@ -39,11 +45,6 @@ export default function AccountMenu() {
   if (!user) return null
   const email = user.email || 'Your account'
   const initial = (user.email[0] ?? '?').toUpperCase()
-
-  async function handleSignOut() {
-    await signOut()
-    navigate('/sign-in', { replace: true })
-  }
 
   return (
     <div ref={wrapper} className="relative">
@@ -84,11 +85,22 @@ export default function AccountMenu() {
           </Link>
           <button
             type="button"
-            onClick={handleSignOut}
-            className="flex h-11 w-full items-center rounded-[10px] px-3 text-left text-sm text-fg hover:bg-tint"
+            disabled={busy}
+            onClick={() => void leave('local')}
+            className="flex h-11 w-full items-center rounded-[10px] px-3 text-left text-sm text-fg hover:bg-tint disabled:opacity-60"
           >
-            Sign out
+            {busy ? 'Saving and signing out…' : 'Sign out'}
           </button>
+          {problem && (
+            <p role="alert" className="px-3 pt-1 pb-2 text-[13px] text-warn">
+              {LEAVE_MESSAGES[problem]}
+            </p>
+          )}
+          {waitingForTabs && (
+            <p role="status" className="px-3 pt-1 pb-2 text-[13px] text-muted">
+              {OTHER_TABS_MESSAGE}
+            </p>
+          )}
         </div>
       )}
     </div>

@@ -72,7 +72,7 @@ export function createSupabaseCloud(
     }
   }
 
-  return {
+  const cloud: CloudStore = {
     async upsert(table, rows) {
       if (rows.length === 0) return []
       // Only rows the server actually wrote come back: its triggers skip a
@@ -220,5 +220,51 @@ export function createSupabaseCloud(
       }
       return rows
     },
+
+    async eraseEverything() {
+      const idsOf = (table: CloudTable) =>
+        allPages<{ id: string }>((from, to) =>
+          client.from(table).select('id').order('id').range(from, to),
+        )
+      const tables: CloudTable[] = [
+        'workspaces',
+        'documents',
+        'conversations',
+        'messages',
+      ]
+      const ids = await Promise.all(tables.map(idsOf))
+      const now = Date.now()
+      await cloud.recordDeletions(
+        tables.flatMap((table, i) =>
+          ids[i]!.map(({ id }) => ({
+            record_type: table,
+            record_id: id,
+            deleted_at: now,
+          })),
+        ),
+      )
+
+      // Every folder in the learner's area, not only known documents: a file
+      // whose row never synced goes too.
+      const folders: string[] = []
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await client.storage
+          .from(MATERIALS_BUCKET)
+          .list(userId, { limit: 1000, offset })
+        if (error) throw new Error('Listing originals failed', { cause: error })
+        folders.push(...(data ?? []).map((entry) => entry.name))
+        if (!data || data.length < 1000) break
+      }
+      const documentIds = ids[1]!.map(({ id }) => id)
+      await cloud.removeOriginals([...new Set([...documentIds, ...folders])])
+
+      // Deleting the workspaces cascades to every other row.
+      const { error } = await client
+        .from('workspaces')
+        .delete()
+        .eq('user_id', userId)
+      check(error)
+    },
   }
+  return cloud
 }

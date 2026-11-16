@@ -187,6 +187,24 @@ export function createMemoryCloud({ userId = 'user-a' } = {}) {
         .filter((m) => conversationIds.includes(m.conversation_id))
         .map(copy)
     },
+
+    async eraseEverything() {
+      failIfAsked('eraseEverything')
+      const now = Date.now()
+      for (const [name, rows] of tables) {
+        await cloud.recordDeletions(
+          [...rows.keys()].map((id) => ({
+            record_type: name,
+            record_id: id,
+            deleted_at: now,
+          })),
+        )
+      }
+      for (const path of [...objects])
+        if (path.startsWith(`${userId}/`)) objects.delete(path)
+      for (const id of [...table('workspaces').keys()])
+        removeCascade('workspaces', id)
+    },
   }
 
   return {

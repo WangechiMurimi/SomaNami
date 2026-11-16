@@ -38,6 +38,12 @@ export interface SyncContextValue {
   flush(): Promise<void>
   /** Starts a run soon, e.g. after a user action. */
   syncNow(): void
+  /**
+   * Deletes everything the learner stored in the cloud, files included
+   * (#147). Rejects with `SyncFlushError` offline or on failure; safe to
+   * retry. The device copy is the caller's to clear afterwards.
+   */
+  eraseCloud(): Promise<void>
 }
 
 const OFF: SyncContextValue = {
@@ -47,6 +53,8 @@ const OFF: SyncContextValue = {
   // Nothing to save to, so nothing is waiting.
   flush: async () => {},
   syncNow: () => {},
+  // No cloud, so nothing stored there.
+  eraseCloud: async () => {},
 }
 
 export const SyncContext = createContext<SyncContextValue>(OFF)
