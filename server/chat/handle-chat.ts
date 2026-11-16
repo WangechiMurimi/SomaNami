@@ -22,6 +22,24 @@ export interface HandlerResponse {
 export const NO_PASSAGES_ANSWER =
   'Your documents don’t seem to cover this. Try rephrasing the question, or upload material that does.'
 
+/**
+ * The retrieval-score gate: the best passage must reach this relevance (the
+ * 0-1 ratio `retrieveChunks` returns) before a model is asked anything.
+ *
+ * WHY 0.2, above retrieval's own 0.12 floor: that floor decides which passages
+ * are worth showing the model, and is kept low so the one relevant passage is
+ * never dropped (#25). This gate decides whether the question is covered at
+ * all, and guards against a small self-hosted model (#149) stitching an answer
+ * together from passages that each share only a word with the question.
+ * Retrieval's notes put accidental overlaps at 0.05-0.10 and passages that
+ * really cover a question above 0.3; 0.2 is the middle of that gap. Weaker
+ * passages still travel with a best passage that clears it. The ratio ignores
+ * question terms the materials never contain, so a question about a subject
+ * that is absent can still score high on one shared word; the citation check
+ * below is the backstop for that case.
+ */
+export const MIN_ANSWER_SCORE = 0.2
+
 export const REFUSAL_ANSWER =
   'I can’t help with that request. Try asking about the content of your documents.'
 
@@ -99,7 +117,18 @@ export async function handleChat(
     return { status: 502, body: { error: 'materials-unavailable' } }
   }
 
-  const passages: Passage[] = retrieveChunks(request.question, materials).map(
+  const hits = retrieveChunks(request.question, materials)
+  // The index is cached for the browser's repeated questions; on the server it
+  // would only keep this user's text in memory after the request ends.
+  clearIndexCache()
+
+  // Retrieval found nothing relevant enough (hits come best first): there is
+  // nothing to ground an answer in, so say so without spending a model call
+  // that could only guess.
+  if ((hits[0]?.score ?? 0) < MIN_ANSWER_SCORE) {
+    return { status: 200, body: notAnswerable(NO_PASSAGES_ANSWER) }
+  }
+  const passages: Passage[] = hits.map(
     ({ documentId, chunkId, text, source }) => ({
       documentId,
       chunkId,
@@ -107,15 +136,6 @@ export async function handleChat(
       source,
     }),
   )
-  // The index is cached for the browser's repeated questions; on the server it
-  // would only keep this user's text in memory after the request ends.
-  clearIndexCache()
-
-  // Retrieval found nothing relevant: there is nothing to ground an answer in,
-  // so say so without spending a model call that could only guess.
-  if (passages.length === 0) {
-    return { status: 200, body: notAnswerable(NO_PASSAGES_ANSWER) }
-  }
 
   if (!answer) {
     return { status: 503, body: { error: 'not-configured' } }
