@@ -79,6 +79,7 @@ Email and password sign-in works without them.
 | `npm run dev`          | Vite dev server                                       |
 | `npm run server:dev`   | Express API with reload, loading `.env` if present    |
 | `npm test`             | Vitest (unit and component tests)                     |
+| `npm run test:e2e`     | Playwright end-to-end tests (`test:e2e:ui` to debug)  |
 | `npm run typecheck`    | `tsc -b` across app, tests and server                 |
 | `npm run lint`         | ESLint                                                |
 | `npm run format:check` | Prettier check (`npm run format` to fix)              |
