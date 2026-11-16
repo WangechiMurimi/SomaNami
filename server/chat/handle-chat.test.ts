@@ -6,6 +6,7 @@ import { UpstreamError } from '../llm/answerer.ts'
 import type { Answerer, ModelAnswer } from '../llm/answerer.ts'
 import {
   handleChat,
+  MIN_ANSWER_SCORE,
   NO_PASSAGES_ANSWER,
   REFUSAL_ANSWER,
 } from './handle-chat.ts'
@@ -271,6 +272,43 @@ describe('handleChat', () => {
 
     expect(answer).not.toHaveBeenCalled()
     expect(result).toEqual({ status: 200, body: notCovered })
+  })
+
+  describe('retrieval-score gate', () => {
+    // Each chunk of doc-1 covers one of the three terms, so every passage
+    // clears retrieval's own floor (0.12) but none reaches MIN_ANSWER_SCORE.
+    const scattered = request({ question: 'Genome, energy, nucleus?' })
+
+    it('answers "not covered" without calling the model when even the best passage scores below the gate', async () => {
+      const answer = vi.fn<Answerer>()
+
+      const result = await handleChat(scattered, { answer, ...signedIn() })
+
+      expect(MIN_ANSWER_SCORE).toBeGreaterThan(0.15)
+      expect(answer).not.toHaveBeenCalled()
+      expect(result).toEqual({ status: 200, body: notCovered })
+    })
+
+    it('still sends weaker passages along once the best one clears the gate', async () => {
+      const answer = answering({
+        answer: 'The nucleus stores DNA.',
+        answerable: true,
+        citations: ['doc-1:2'],
+      })
+
+      await handleChat(
+        request({ question: 'Does the nucleus store energy?' }),
+        {
+          answer,
+          ...signedIn(),
+        },
+      )
+
+      expect(answer.mock.calls[0]?.[0].passages.map((p) => p.chunkId)).toEqual([
+        'doc-1:2',
+        'doc-1:0',
+      ])
+    })
   })
 
   it('treats a safety refusal as unanswerable rather than an error', async () => {
