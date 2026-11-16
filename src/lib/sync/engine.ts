@@ -15,6 +15,8 @@ import {
   setSyncMeta,
 } from '../storage/index.ts'
 import type { OutboxEntry, PulledRecord } from '../storage/index.ts'
+import { SYNCED_STORES } from '../storage/schema.ts'
+import { batches } from './batches.ts'
 import { MissingParentError } from './cloud.ts'
 import type { CloudStore, CloudTable, Cursor, Row } from './cloud.ts'
 import {
@@ -31,12 +33,7 @@ import {
 } from './mapping.ts'
 
 /** Parents before children, so a row's parent is always written first. */
-const PARENT_FIRST: readonly CloudTable[] = [
-  'workspaces',
-  'documents',
-  'conversations',
-  'messages',
-]
+const PARENT_FIRST: readonly CloudTable[] = SYNCED_STORES
 const CHILD_FIRST = [...PARENT_FIRST].reverse()
 
 const PAGE = 500
@@ -172,11 +169,15 @@ async function toRecords(
 
 // ── Push ───────────────────────────────────────────────────────────────────
 
-const batches = <T>(items: readonly T[], size: number): T[][] => {
-  const result: T[][] = []
-  for (let i = 0; i < items.length; i += size)
-    result.push(items.slice(i, i + size))
-  return result
+/** Acknowledges each settled entry; resolves to how many were acknowledged. */
+async function acknowledgeAll(
+  entries: readonly OutboxEntry[],
+): Promise<number> {
+  let acknowledged = 0
+  for (const entry of entries) {
+    if (await acknowledgeOutbox(entry)) acknowledged += 1
+  }
+  return acknowledged
 }
 
 const TO_ROW: Record<CloudTable, (record: never) => Row> = {
@@ -242,11 +243,7 @@ async function pushUpserts(
   // Everything in the batch is settled: written; skipped by the server as
   // stale or deleted (the next pull brings the winning copy); or orphaned
   // because its parent was deleted elsewhere (the next pull removes it here).
-  let acknowledged = 0
-  for (const entry of entries) {
-    if (await acknowledgeOutbox(entry)) acknowledged += 1
-  }
-  return acknowledged
+  return acknowledgeAll(entries)
 }
 
 /**
@@ -294,9 +291,5 @@ async function pushDeletes(
     })),
   )
   await cloud.remove(table, ids)
-  let acknowledged = 0
-  for (const entry of entries) {
-    if (await acknowledgeOutbox(entry)) acknowledged += 1
-  }
-  return acknowledged
+  return acknowledgeAll(entries)
 }
