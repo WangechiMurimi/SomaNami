@@ -1,17 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk'
-import {
-  clearIndexCache,
-  retrieveChunks,
-} from '../../src/lib/retrieval/index.ts'
-import type {
-  ChatReply,
-  CitedPassage,
-  Passage,
-} from '../../src/types/contracts.ts'
+import { clearIndexCache } from '../../src/lib/retrieval/index.ts'
+import type { ChatReply, CitedPassage } from '../../src/types/contracts.ts'
 import type { Authenticate } from '../auth/types.ts'
 import type { Answerer } from '../llm/claude-answerer.ts'
 import { parseChatRequest } from './chat-request.ts'
 import type { LoadMaterials } from './load-materials.ts'
+import { selectPassages } from './select-passages.ts'
 
 /** A transport-neutral response, so Express and Netlify share one handler. */
 export interface HandlerResponse {
@@ -48,8 +42,8 @@ const notAnswerable = (answer: string): ChatReply => ({
 
 /**
  * Handles one `POST /api/chat`: checks the session, validates the body, loads
- * the named materials as the caller, ranks their chunks, answers from the best
- * ones, and enforces grounding on the way out.
+ * the named materials as the caller, selects the passages to answer from, and
+ * enforces grounding on the way out.
  */
 export async function handleChat(
   body: unknown,
@@ -99,20 +93,14 @@ export async function handleChat(
     return { status: 502, body: { error: 'materials-unavailable' } }
   }
 
-  const passages: Passage[] = retrieveChunks(request.question, materials).map(
-    ({ documentId, chunkId, text, source }) => ({
-      documentId,
-      chunkId,
-      text,
-      source,
-    }),
-  )
+  const passages = selectPassages(request.question, materials, request.history)
   // The index is cached for the browser's repeated questions; on the server it
   // would only keep this user's text in memory after the request ends.
   clearIndexCache()
 
-  // Retrieval found nothing relevant: there is nothing to ground an answer in,
-  // so say so without spending a model call that could only guess.
+  // Only materials with no text at all leave nothing to select. Whether the
+  // selected passages cover the question is the model's call, not the
+  // lexical ranker's (#207).
   if (passages.length === 0) {
     return { status: 200, body: notAnswerable(NO_PASSAGES_ANSWER) }
   }
