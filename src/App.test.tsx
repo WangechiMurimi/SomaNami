@@ -478,12 +478,11 @@ describe('app shell and navigation', () => {
     expect(open).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('shows whether the device is online', async () => {
+  it('shows no connection status', async () => {
     await renderApp()
 
-    expect(
-      screen.getByRole('region', { name: 'On this device' }),
-    ).toHaveTextContent('Online')
+    expect(screen.queryByRole('region', { name: 'On this device' })).toBeNull()
+    expect(screen.queryByText('Online')).toBeNull()
   })
 
   it('links to every screen from the sidebar', async () => {

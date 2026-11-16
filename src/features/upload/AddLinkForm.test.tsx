@@ -49,13 +49,13 @@ describe('AddLinkForm', () => {
     )
   })
 
-  it('needs a connection', () => {
+  it('doesn’t block or warn while offline; the fetch reports failures', async () => {
     setOnline(false)
-    setup()
-    expect(screen.getByRole('button', { name: 'Add link' })).toBeDisabled()
-    expect(screen.getByLabelText('Link')).toHaveAccessibleDescription(
-      /needs an internet connection/,
-    )
+    const { onLink } = setup()
+    expect(screen.queryByText(/internet connection/)).toBeNull()
+    await userEvent.type(screen.getByLabelText('Link'), 'example.org/article')
+    await userEvent.click(screen.getByRole('button', { name: 'Add link' }))
+    expect(onLink).toHaveBeenCalledWith('https://example.org/article')
   })
 
   it('cancels', async () => {

@@ -40,12 +40,12 @@ describe('AccountPage', () => {
     ).toBeInTheDocument()
   })
 
-  it('explains that the name needs a connection', async () => {
+  it('says the name couldn’t load without a fresh session', async () => {
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
     installFakeSupabase({ session: fakeSession() })
     page()
     expect(
-      await screen.findByText('Connect to the internet to see your name.'),
+      await screen.findByText('We couldn’t load your name.'),
     ).toBeInTheDocument()
     expect(
       screen.queryByRole('link', { name: 'Change your name' }),

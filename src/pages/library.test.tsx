@@ -189,7 +189,7 @@ describe('Removing a material (US-08 AC5)', () => {
     expect(syncOnce).toHaveBeenCalled()
   })
 
-  it('says exactly what happened when the cloud can’t confirm yet', async () => {
+  it('confirms plainly even when the cloud can’t confirm yet', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     await renderSignedInApp()
     // Let the sync that runs on opening finish before the cloud goes away.
@@ -202,11 +202,8 @@ describe('Removing a material (US-08 AC5)', () => {
       await within(dialog).findByRole('button', { name: 'Remove' }),
     )
 
-    expect(
-      await screen.findByText(
-        '‘cells.pdf’ was deleted from this device. It will be erased from your account the next time you’re online.',
-      ),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('‘cells.pdf’ deleted')).toBeInTheDocument()
+    expect(screen.queryByText(/this device|online/)).toBeNull()
     expect(await getDocument('cells')).toBeUndefined()
   })
 })

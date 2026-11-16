@@ -68,17 +68,10 @@ function RemoveMaterial({
       setBusy(false)
       return
     }
-    // Deleted here and queued for the cloud; only say "deleted" once the
-    // cloud has confirmed it (#147). If it can't yet, the queue keeps it and
-    // a later sync finishes the job, so say exactly that.
-    try {
-      await flush()
-      onDone(`‘${material.name}’ deleted`)
-    } catch {
-      onDone(
-        `‘${material.name}’ was deleted from this device. It will be erased from your account the next time you’re online.`,
-      )
-    }
+    // Deleted here and queued for the cloud (#147). If this flush can't reach
+    // it, the queue keeps the deletion and a later sync finishes the job.
+    await flush().catch(() => {})
+    onDone(`‘${material.name}’ deleted`)
   }
 
   return (
@@ -92,7 +85,7 @@ function RemoveMaterial({
       <p>
         {inCloud
           ? 'It will be deleted from your account and all your devices, original file included.'
-          : 'It will be removed from this device.'}
+          : 'It will be deleted.'}
       </p>
       {effect && effect.ending > 0 && (
         <p className="mt-2">

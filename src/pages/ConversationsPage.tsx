@@ -21,8 +21,7 @@ export default function ConversationsPage() {
       <div>
         <h1 className={H1}>Saved conversations</h1>
         <p className={LEDE}>
-          Every chat is saved to your account on this device, so you can read it
-          again even when you’re offline.
+          Every chat is saved to your account. Open one to keep going.
         </p>
       </div>
       {status === 'loading' ? (

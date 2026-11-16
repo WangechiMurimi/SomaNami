@@ -4,7 +4,6 @@ import { chatPath } from '../features/chat/conversation-materials.ts'
 import { useRecentConversations } from '../features/chat/use-recent-conversations.ts'
 import { useAuth } from '../features/auth/auth-context.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
-import { useOnline } from '../lib/connectivity/use-online.ts'
 
 const RECENT_LIMIT = 3
 
@@ -99,39 +98,6 @@ function RecentChats() {
       >
         View all chats
       </Link>
-    </section>
-  )
-}
-
-function DeviceStatus() {
-  const online = useOnline()
-  return (
-    <section
-      aria-labelledby="device-status-title"
-      className="rounded-xl border border-line bg-surface p-4"
-    >
-      <svg {...ICON} className="text-accent">
-        <rect x="5" y="2" width="14" height="20" rx="2" />
-        <path d="M12 18h.01" />
-      </svg>
-      <h2 id="device-status-title" className="mt-3 text-[13px] font-semibold">
-        On this device
-      </h2>
-      <p className="mt-2 text-xs leading-[18px] text-muted">
-        Your materials and chats are saved to your account on this device and
-        work offline. Original files are also kept privately in your account.
-        Asking new questions needs a connection.
-      </p>
-      <p
-        className="mt-3 flex items-center gap-2 text-xs font-medium"
-        role="status"
-      >
-        <span
-          aria-hidden="true"
-          className={`size-2 rounded-full ${online ? 'bg-online' : 'bg-warn'}`}
-        />
-        {online ? 'Online' : 'Offline — you can still read saved chats'}
-      </p>
     </section>
   )
 }
@@ -263,9 +229,7 @@ export default function Sidebar() {
 
       <RecentChats />
 
-      <div className="mt-auto pt-8">
-        <DeviceStatus />
-      </div>
+      <div className="mt-auto pt-8"></div>
       <ProfileRow />
     </div>
   )

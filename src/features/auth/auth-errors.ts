@@ -61,7 +61,7 @@ const MESSAGES: Record<AuthErrorCode, string> = {
   'provider-unavailable':
     'Google sign-in isn’t available right now. Use your email and password instead.',
   'rate-limited': 'Too many attempts. Wait a few minutes, then try again.',
-  offline: 'You’re offline. Reconnect, then try again.',
+  offline: 'We couldn’t reach SomaNami. Check your connection and try again.',
   'not-configured': 'Sign-in isn’t set up on this copy of SomaNami yet.',
   unknown: 'Something went wrong. Please try again.',
 }

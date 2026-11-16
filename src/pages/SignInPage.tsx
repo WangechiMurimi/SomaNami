@@ -70,7 +70,7 @@ export default function SignInPage() {
   return (
     <AuthLayout
       title="Sign in"
-      lede="Welcome back. Your materials are waiting on this device."
+      lede="Sign in to keep exploring your materials."
     >
       {!configured ? (
         <FormAlert>{authErrorMessage('not-configured')}</FormAlert>

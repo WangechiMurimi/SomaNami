@@ -107,7 +107,7 @@ describe('SessionsSection', () => {
   it('does the same for every device, and says when the others notice', async () => {
     const { auth } = setup()
     expect(
-      await screen.findByText(/other devices sign out the next time/i),
+      await screen.findByText(/other devices are signed out the next time/i),
     ).toBeInTheDocument()
     await userEvent.click(
       screen.getByRole('button', { name: 'Sign out of all devices' }),
@@ -117,18 +117,34 @@ describe('SessionsSection', () => {
     expect(auth.signOut).toHaveBeenCalledWith({ scope: 'global' })
   })
 
-  it('won’t sign out other devices or erase while offline', async () => {
+  it('shows no connection notes, even offline', async () => {
     offline()
     setup()
     expect(
       await screen.findByRole('button', { name: 'Sign out of all devices' }),
-    ).toBeDisabled()
+    ).toBeEnabled()
     expect(
       screen.getByRole('button', { name: 'Erase my materials' }),
-    ).toBeDisabled()
-    expect(
-      screen.getAllByText(/connect to the internet to use this/i),
-    ).toHaveLength(2)
+    ).toBeEnabled()
+    expect(screen.queryByText(/internet|online|offline/i)).toBeNull()
+  })
+
+  it('stays signed in everywhere when every-device sign-out can’t reach SomaNami', async () => {
+    // Nothing is waiting to be saved, so only the global sign-out is at stake:
+    // Supabase would quietly sign out just this device.
+    const { auth } = setup({
+      flush: vi.fn(async () => {
+        throw new SyncFlushError('offline')
+      }),
+    })
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Sign out of all devices' }),
+    )
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'We couldn’t reach SomaNami, so you’re still signed in on every device. Check your connection and try again.',
+    )
+    expect(removeUserStore).not.toHaveBeenCalled()
+    expect(auth.signOut).not.toHaveBeenCalled()
   })
 
   it('stays signed in when changes can’t be saved offline', async () => {
@@ -142,7 +158,7 @@ describe('SessionsSection', () => {
       await screen.findByRole('button', { name: 'Sign out' }),
     )
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'You have changes that haven’t saved yet. Connect to the internet to finish.',
+      'Some changes haven’t saved to your account yet, so you’re still signed in. Check your connection and try again.',
     )
     expect(removeUserStore).not.toHaveBeenCalled()
     expect(auth.signOut).not.toHaveBeenCalled()
@@ -236,6 +252,23 @@ describe('SessionsSection', () => {
       )
       expect(await redirectedTo()).toBe('/sign-in')
       expect(calls).toEqual(['eraseCloud', 'removeUserStore:user-7', 'signOut'])
+    })
+
+    it('keeps everything and says so when the erase can’t reach SomaNami', async () => {
+      const { auth } = setup({
+        eraseCloud: vi.fn(async () => {
+          throw new SyncFlushError('offline')
+        }),
+      })
+      const dialog = await openDialog()
+      await userEvent.click(
+        within(dialog).getByRole('button', { name: 'Erase everything' }),
+      )
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+        'We couldn’t reach SomaNami, so nothing was erased and you’re still signed in. Check your connection and try again.',
+      )
+      expect(removeUserStore).not.toHaveBeenCalled()
+      expect(auth.signOut).not.toHaveBeenCalled()
     })
 
     it('keeps everything and says so when the erase fails', async () => {

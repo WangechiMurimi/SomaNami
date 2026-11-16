@@ -6,7 +6,6 @@ import {
   OTHER_TABS_MESSAGE,
   useLeaveDevice,
 } from '../../features/sync/use-leave-device.ts'
-import { useOnline } from '../../lib/connectivity/use-online.ts'
 import { H2 } from '../page-heading.ts'
 
 const BUTTON =
@@ -40,7 +39,6 @@ function Row({
  * erase everything stored in SomaNami.
  */
 export default function SessionsSection() {
-  const online = useOnline()
   const { leave, erase, busy, problem, waitingForTabs, reset } =
     useLeaveDevice()
   const [confirmingErase, setConfirmingErase] = useState(false)
@@ -71,17 +69,14 @@ export default function SessionsSection() {
             </button>
           }
         >
-          Saves your changes to your account, then removes your materials from
-          this device. They come back the next time you sign in.
+          Your materials and chats are kept for the next time you sign in.
         </Row>
         <Row
           title="Every device"
           action={
             <button
               type="button"
-              // Offline, the other devices can't be reached, and Supabase would
-              // quietly sign out only this one.
-              disabled={busy || !online}
+              disabled={busy}
               onClick={() => void leave('global')}
               className={SECONDARY}
             >
@@ -89,16 +84,15 @@ export default function SessionsSection() {
             </button>
           }
         >
-          For a device you no longer use or have lost. Other devices sign out
-          the next time they’re online.
-          {!online && ' Connect to the internet to use this.'}
+          For a device you no longer use or have lost. Other devices are signed
+          out the next time they use SomaNami.
         </Row>
         <Row
           title="Your materials"
           action={
             <button
               type="button"
-              disabled={busy || !online}
+              disabled={busy}
               onClick={() => setConfirmingErase(true)}
               className={DESTRUCTIVE}
             >
@@ -108,7 +102,6 @@ export default function SessionsSection() {
         >
           Deletes every material, chat and uploaded file from your SomaNami
           account and from all your devices, then signs you out.
-          {!online && ' Connect to the internet to use this.'}
         </Row>
       </ul>
 

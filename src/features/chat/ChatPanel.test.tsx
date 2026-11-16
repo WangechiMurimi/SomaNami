@@ -220,44 +220,23 @@ describe('ChatPanel', () => {
       expect(within(log).getByText('The cell’s energy currency.')).toBeVisible()
     })
 
-    it('explains that asking needs a connection, and blocks sending', async () => {
-      const { user, box, send } = setup({ status: 'signed-in-offline' })
-
-      const offline = 'You’re offline. Reconnect to ask questions.'
-      expect(screen.getByRole('status')).toHaveTextContent(offline)
-      // Typing a draft stays possible; Send says why it's unavailable.
-      expect(send).toBeDisabled()
-      expect(send).toHaveAccessibleDescription(offline)
+    it('shows no offline notice, and lets a failed send explain itself', async () => {
+      vi.mocked(askQuestion).mockRejectedValue(
+        new ChatError(
+          'We couldn’t reach the answer service. Check your connection and try again.',
+          { code: 'offline', retryable: true },
+        ),
+      )
+      const { user, box } = setup({ status: 'signed-in-offline' })
+      expect(screen.queryByText(/offline/i)).toBeNull()
 
       await user.type(box, 'Why?{Enter}')
-      expect(askQuestion).not.toHaveBeenCalled()
-    })
-
-    it('hides "Try again" once the connection drops', async () => {
-      vi.mocked(askQuestion).mockRejectedValue(
-        new ChatError('The answer service had a problem.', { retryable: true }),
-      )
-      const user = userEvent.setup()
-      const panel = (status: AuthStatus) => (
-        <AuthContext.Provider value={authAs(status)}>
-          <ChatPanel materialIds={['doc-1']} />
-        </AuthContext.Provider>
-      )
-      const { rerender } = render(panel('signed-in'))
-      await user.type(
-        screen.getByLabelText('Ask a follow-up about your materials'),
-        'Why?{Enter}',
-      )
+      expect(askQuestion).toHaveBeenCalledOnce()
       const alert = await screen.findByRole('alert')
+      expect(alert).toHaveTextContent(/Check your connection and try again/)
       expect(
         within(alert).getByRole('button', { name: 'Try again' }),
       ).toBeVisible()
-
-      rerender(panel('signed-in-offline'))
-
-      expect(
-        within(alert).queryByRole('button', { name: 'Try again' }),
-      ).not.toBeInTheDocument()
     })
 
     it('says nothing about being offline when online', () => {

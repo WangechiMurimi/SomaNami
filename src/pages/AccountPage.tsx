@@ -30,9 +30,9 @@ export default function AccountPage() {
     }
   }, [online, userId])
 
-  // The name lives in the cloud profile, so offline there is nothing to show.
+  // The name lives in the cloud profile; without a fresh session it can't load.
   const nameText = !online
-    ? 'Connect to the internet to see your name.'
+    ? 'We couldn’t load your name.'
     : loaded?.userId !== userId
       ? 'Loading…'
       : (loaded.name ?? 'We couldn’t load your name.')
