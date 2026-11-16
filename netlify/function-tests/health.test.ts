@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import health, { config } from './health.ts'
+import health, { config } from '../functions/health.ts'
 
 describe('health function', () => {
   it('is routed at /api/health', () => {

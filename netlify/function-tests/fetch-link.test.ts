@@ -11,7 +11,7 @@ import {
 import fetchLinkFunction, {
   config,
   createFetchLinkFunction,
-} from './fetch-link.ts'
+} from '../functions/fetch-link.ts'
 
 const allow = () =>
   vi.fn<Authenticate>().mockResolvedValue({

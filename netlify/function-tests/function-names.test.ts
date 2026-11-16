@@ -1,7 +1,9 @@
 import { readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const FUNCTIONS_DIR = new URL('../functions/', import.meta.url)
+// Vitest runs from the repository root; import.meta.url is not a file URL in jsdom.
+const FUNCTIONS_DIR = join(process.cwd(), 'netlify', 'functions')
 
 describe('netlify/functions', () => {
   // Netlify deploys every file in this folder as a function and rejects names
