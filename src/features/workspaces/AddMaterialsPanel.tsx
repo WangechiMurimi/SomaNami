@@ -9,7 +9,7 @@ import type { useDocumentUpload } from '../upload/use-document-upload.ts'
 type Upload = ReturnType<typeof useDocumentUpload>
 
 const SECONDARY =
-  'inline-flex h-11 items-center gap-[9px] rounded-[10px] border border-edge bg-surface px-[18px] text-sm font-medium text-fg hover:bg-tint'
+  'inline-flex h-11 items-center gap-[0.5625rem] rounded-[10px] border border-edge bg-surface px-[1.125rem] text-sm font-medium text-fg hover:bg-tint'
 
 /** Upload, link or paste materials into a workspace, with the upload's progress. */
 export default function AddMaterialsPanel({

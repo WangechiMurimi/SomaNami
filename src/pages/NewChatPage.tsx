@@ -97,8 +97,8 @@ function NewChat({
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-[15px] font-medium">This chat can use</h2>
-          <span className="text-[13px] text-muted">
+          <h2 className="text-[0.9375rem] font-medium">This chat can use</h2>
+          <span className="text-[0.8125rem] text-muted">
             From{' '}
             <Link
               to={`/workspaces/${workspace.id}`}
@@ -142,7 +142,7 @@ function NewChat({
             Add materials
           </button>
         </div>
-        <p aria-live="polite" className="text-[13px] text-muted">
+        <p aria-live="polite" className="text-[0.8125rem] text-muted">
           {status}
         </p>
       </div>
@@ -179,7 +179,7 @@ function NewChat({
       />
 
       <div className="flex flex-col gap-3">
-        <h2 className="text-[13px] font-medium tracking-[0.06em] text-muted uppercase">
+        <h2 className="text-[0.8125rem] font-medium tracking-[0.06em] text-muted uppercase">
           Or start with a way of understanding
         </h2>
         <div className="flex flex-wrap gap-2">

@@ -28,14 +28,14 @@ export default function SourceChecklist({
                 type="checkbox"
                 checked={selected.includes(material.id)}
                 onChange={() => onToggle(material.id)}
-                className="size-[18px] flex-none cursor-pointer accent-accent"
+                className="size-[1.125rem] flex-none cursor-pointer accent-accent"
               />
               <KindIcon kind={material.kind} />
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-sm leading-[1.45] font-semibold">
                   {material.name}
                 </span>
-                <span className="text-[13px] leading-[1.5] text-muted">
+                <span className="text-[0.8125rem] leading-[1.5] text-muted">
                   {detail(material)}
                 </span>
               </span>

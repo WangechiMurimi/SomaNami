@@ -119,19 +119,19 @@ export default function UserMenu({ compact = false }: { compact?: boolean }) {
         aria-controls={open ? menuId : undefined}
         title={compact ? email : undefined}
         onClick={() => setOpen(!open)}
-        className={`flex min-h-11 w-full items-center gap-[11px] rounded-[10px] py-1.5 text-left hover:bg-tint ${
+        className={`flex min-h-11 w-full items-center gap-[0.6875rem] rounded-[10px] py-1.5 text-left hover:bg-tint ${
           compact ? 'justify-center px-0' : 'px-2.5'
         } ${open ? 'bg-tint' : ''}`}
       >
         <span
           aria-hidden="true"
-          className="flex size-[34px] flex-none items-center justify-center rounded-full bg-line text-[11px] font-semibold text-fg"
+          className="flex size-[2.125rem] flex-none items-center justify-center rounded-full bg-line text-[0.6875rem] font-semibold text-fg"
         >
           {initialsFor(user.email)}
         </span>
         {!compact && (
           <>
-            <span className="min-w-0 flex-1 truncate text-[13px] leading-[1.5] font-medium">
+            <span className="min-w-0 flex-1 truncate text-[0.8125rem] leading-[1.5] font-medium">
               {email}
             </span>
             <svg {...ICON}>
@@ -187,17 +187,17 @@ export default function UserMenu({ compact = false }: { compact?: boolean }) {
       )}
       {/* Outside the menu, which closes on click, so the reason stays visible. */}
       {busy && (
-        <p role="status" className="px-2.5 pt-1 text-[13px] text-muted">
+        <p role="status" className="px-2.5 pt-1 text-[0.8125rem] text-muted">
           Saving and signing out…
         </p>
       )}
       {problem && (
-        <p role="alert" className="px-2.5 pt-1 text-[13px] text-warn">
+        <p role="alert" className="px-2.5 pt-1 text-[0.8125rem] text-warn">
           {LEAVE_MESSAGES[problem]}
         </p>
       )}
       {waitingForTabs && (
-        <p role="status" className="px-2.5 pt-1 text-[13px] text-muted">
+        <p role="status" className="px-2.5 pt-1 text-[0.8125rem] text-muted">
           {OTHER_TABS_MESSAGE}
         </p>
       )}

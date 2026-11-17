@@ -83,7 +83,7 @@ export default function DetailsPage() {
   if (loadedFor !== userId) {
     return (
       <AuthLayout title="A few details">
-        <p role="status" className="text-[15px] text-muted">
+        <p role="status" className="text-[0.9375rem] text-muted">
           Loading…
         </p>
       </AuthLayout>

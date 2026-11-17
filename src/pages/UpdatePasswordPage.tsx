@@ -29,7 +29,7 @@ export default function UpdatePasswordPage() {
   if (status === 'loading') {
     return (
       <AuthLayout title="Reset your password">
-        <p role="status" className="text-[15px] text-muted">
+        <p role="status" className="text-[0.9375rem] text-muted">
           Checking your link…
         </p>
       </AuthLayout>

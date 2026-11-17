@@ -12,7 +12,7 @@ test.describe('Sign in', () => {
 
     await expect(page).toHaveURL(/\/$/)
     await expect(
-      page.getByRole('link', { name: `${LEARNER.email}, Account settings` }),
+      page.getByRole('button', { name: `${LEARNER.email}, account menu` }),
     ).toBeVisible()
   })
 

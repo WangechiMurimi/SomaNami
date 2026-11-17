@@ -115,7 +115,7 @@ function Conversation({
           {materials.map((material) => (
             <li
               key={material.id}
-              className="flex min-h-8 max-w-full items-center gap-1.5 rounded-full bg-tint px-3 py-1 text-[13px] leading-[1.5] font-medium break-all text-accent"
+              className="flex min-h-8 max-w-full items-center gap-1.5 rounded-full bg-tint px-3 py-1 text-[0.8125rem] leading-[1.5] font-medium break-all text-accent"
             >
               <KindIcon kind={material.kind} size={14} />
               {material.name}

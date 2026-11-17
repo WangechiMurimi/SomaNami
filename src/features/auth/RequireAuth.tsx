@@ -14,7 +14,7 @@ export default function RequireAuth() {
   if (status === 'loading') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-ground">
-        <p role="status" className="text-[15px] text-muted">
+        <p role="status" className="text-[0.9375rem] text-muted">
           Loading…
         </p>
       </div>

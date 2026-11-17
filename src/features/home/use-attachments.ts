@@ -58,7 +58,7 @@ export function useAttachments() {
         const parsed = await parseDocument(file)
         let document: StoredDocument
         try {
-          document = await add(parsed, DEFAULT_WORKSPACE.id)
+          document = await add(parsed, DEFAULT_WORKSPACE.id, file)
         } catch (cause) {
           // Parsing worked, so say it's the saving that failed.
           throw new UploadError('save-failed', SAVE_FAILED, {

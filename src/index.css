@@ -93,6 +93,37 @@
   color-scheme: dark;
 }
 
+/*
+ * Sizes are in rem, so stepping the root size scales the whole layout on wide
+ * screens, where the 16px design otherwise looks small. Percentages keep the
+ * reader's own browser font size as the base. `--root-scale` mirrors each step
+ * for the few drawings sized in px (the Home cube).
+ */
+:root {
+  --root-scale: 1;
+}
+
+@media (min-width: 1680px) {
+  :root {
+    font-size: 106.25%;
+    --root-scale: 1.0625;
+  }
+}
+
+@media (min-width: 1920px) {
+  :root {
+    font-size: 112.5%;
+    --root-scale: 1.125;
+  }
+}
+
+@media (min-width: 2560px) {
+  :root {
+    font-size: 125%;
+    --root-scale: 1.25;
+  }
+}
+
 body {
   margin: 0;
   background: var(--ground);

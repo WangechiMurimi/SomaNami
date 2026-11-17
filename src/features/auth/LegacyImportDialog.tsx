@@ -3,7 +3,7 @@ import type { KeyboardEvent } from 'react'
 import { H2 } from '../../pages/page-heading.ts'
 
 const BUTTON =
-  'inline-flex h-11 items-center justify-center rounded-[10px] px-[18px] text-sm font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-60'
+  'inline-flex h-11 items-center justify-center rounded-[10px] px-[1.125rem] text-sm font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-60'
 
 interface LegacyImportDialogProps {
   /** Moves the materials; rejects if they could not all be moved. */
@@ -94,7 +94,7 @@ export default function LegacyImportDialog({
         </h2>
         <p
           id={descriptionId}
-          className="mt-3 text-[15px] leading-[1.6] text-muted"
+          className="mt-3 text-[0.9375rem] leading-[1.6] text-muted"
         >
           Documents and conversations were saved on this device before you
           signed in. Moving them puts them in your library. If you leave them

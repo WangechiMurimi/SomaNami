@@ -76,9 +76,9 @@ export default function Turnstile({ onToken, resetKey }: TurnstileProps) {
   if (!key) return null
   return (
     <div>
-      <div ref={container} className="min-h-[65px]" />
+      <div ref={container} className="min-h-[4.0625rem]" />
       {failed && (
-        <p role="alert" className="mt-2 text-[13px] text-warn">
+        <p role="alert" className="mt-2 text-[0.8125rem] text-warn">
           The security check couldn’t load. Check your connection and reload the
           page.
         </p>
