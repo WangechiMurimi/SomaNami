@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
 import ErrorAlert from '../components/ErrorAlert.tsx'
@@ -104,7 +104,12 @@ export default function LibraryPage() {
   const placeOf = ({ workspaceId }: Conversation) =>
     workspaceName(workspaceId) ?? 'Recents'
 
+  // A ref, not state: a double click's second event can arrive before React
+  // re-renders, and it must already see the first chat on its way.
+  const starting = useRef(false)
   const startChat = async (material: StoredDocument) => {
+    if (starting.current) return
+    starting.current = true
     setError(null)
     try {
       const conversation = await createConversation({
@@ -116,6 +121,7 @@ export default function LibraryPage() {
     } catch (cause) {
       console.error('Could not start the chat', cause)
       setError('We couldn’t start a chat with that file. Try again.')
+      starting.current = false
     }
   }
 

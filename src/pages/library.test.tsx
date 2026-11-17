@@ -9,10 +9,12 @@ import {
   DEFAULT_WORKSPACE,
   getConversation,
   getDocument,
+  listWorkspaceConversations,
   listWorkspaceDocuments,
   saveDocument,
   setStorageAdapter,
 } from '../lib/storage/index.ts'
+import * as storage from '../lib/storage/index.ts'
 import { newDoc } from '../lib/storage/testing/documents.ts'
 import { syncOnce } from '../lib/sync/engine.ts'
 import type { DocumentKind, Workspace } from '../types/contracts.ts'
@@ -111,6 +113,43 @@ describe('Library', () => {
       materialIds: ['cells'],
       title: 'cells.pdf',
     })
+  })
+
+  it('starts one chat when a file is double clicked', async () => {
+    await renderSignedInApp()
+
+    await userEvent.dblClick(
+      within(await table()).getByRole('button', { name: /^cells\.pdf/ }),
+    )
+
+    await vi.waitFor(() =>
+      expect(window.location.pathname).toMatch(/^\/chats\/./),
+    )
+    expect(await listWorkspaceConversations(DEFAULT_WORKSPACE.id)).toHaveLength(
+      1,
+    )
+  })
+
+  it('lets the learner try again after a chat fails to start', async () => {
+    const save = vi
+      .spyOn(storage, 'createConversation')
+      .mockRejectedValueOnce(new Error('disk full'))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await renderSignedInApp()
+    const file = within(await table()).getByRole('button', {
+      name: /^cells\.pdf/,
+    })
+
+    await userEvent.click(file)
+    await screen.findByText(
+      'We couldn’t start a chat with that file. Try again.',
+    )
+    await userEvent.click(file)
+
+    await vi.waitFor(() =>
+      expect(window.location.pathname).toMatch(/^\/chats\/./),
+    )
+    expect(save).toHaveBeenCalledTimes(2)
   })
 
   it('starts a chat when the row itself is clicked', async () => {
