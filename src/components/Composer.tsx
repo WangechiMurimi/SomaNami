@@ -67,9 +67,9 @@ export default function Composer({
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={`${placeholder}…`}
-        className="min-h-[52px] w-full resize-none bg-transparent px-5 pt-[15px] pb-1 text-[15px] leading-[1.5] text-fg placeholder:text-muted focus:outline-none"
+        className="min-h-[3.25rem] w-full resize-none bg-transparent px-5 pt-[0.9375rem] pb-1 text-[0.9375rem] leading-[1.5] text-fg placeholder:text-muted focus:outline-none"
       />
-      <div className="flex items-center justify-between gap-3 py-[5px] pr-[5px] pl-2">
+      <div className="flex items-center justify-between gap-3 py-[0.3125rem] pr-[0.3125rem] pl-2">
         <div className="flex flex-wrap items-center gap-1">
           {onUpload && (
             <>

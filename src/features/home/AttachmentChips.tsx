@@ -36,7 +36,7 @@ function GhostChip({ attachment }: { attachment: Attachment }) {
     >
       <span
         aria-hidden="true"
-        className="size-[18px] flex-none animate-pulse rounded-[5px] bg-line motion-reduce:animate-none"
+        className="size-[1.125rem] flex-none animate-pulse rounded-[5px] bg-line motion-reduce:animate-none"
       />
       <span className="max-w-[14rem] truncate text-muted">
         <span className="sr-only">Adding </span>
@@ -90,7 +90,7 @@ export default function AttachmentChips({
                 <span className="max-w-[14rem] truncate font-medium">
                   {attachment.fileName}
                 </span>
-                <span role="alert" className="text-[13px] text-warn">
+                <span role="alert" className="text-[0.8125rem] text-warn">
                   {attachment.error.message}
                 </span>
               </span>
@@ -99,7 +99,7 @@ export default function AttachmentChips({
                   type="button"
                   onClick={() => onRetry(attachment.key)}
                   aria-label={`Try again with ${attachment.fileName}`}
-                  className="h-9 flex-none rounded-lg px-3 text-[13px] font-semibold text-warn hover:bg-warn/10"
+                  className="h-9 flex-none rounded-lg px-3 text-[0.8125rem] font-semibold text-warn hover:bg-warn/10"
                 >
                   Try again
                 </button>

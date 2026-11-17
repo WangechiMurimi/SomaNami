@@ -21,13 +21,13 @@ import { useDocumentUpload } from '../upload/use-document-upload.ts'
 const STEPS = ['Name and topic', 'Add materials'] as const
 
 const LABEL = 'text-base leading-[1.5] font-semibold'
-const HINT = 'text-[15px] leading-[1.5] text-muted'
+const HINT = 'text-[0.9375rem] leading-[1.5] text-muted'
 const FIELD =
   'h-12 w-full rounded-[10px] border border-edge bg-surface px-3.5 text-base text-fg'
 const SECONDARY =
-  'inline-flex h-11 items-center gap-[9px] rounded-[10px] border border-edge bg-surface px-[18px] text-sm font-medium text-fg hover:bg-tint disabled:cursor-not-allowed disabled:opacity-50'
+  'inline-flex h-11 items-center gap-[0.5625rem] rounded-[10px] border border-edge bg-surface px-[1.125rem] text-sm font-medium text-fg hover:bg-tint disabled:cursor-not-allowed disabled:opacity-50'
 const PRIMARY =
-  'inline-flex h-11 items-center gap-[9px] rounded-[10px] bg-accent px-[18px] text-sm font-medium text-on-accent transition-opacity hover:opacity-90 disabled:opacity-50'
+  'inline-flex h-11 items-center gap-[0.5625rem] rounded-[10px] bg-accent px-[1.125rem] text-sm font-medium text-on-accent transition-opacity hover:opacity-90 disabled:opacity-50'
 
 function StepIndicator({ current }: { current: number }) {
   return (
@@ -55,7 +55,7 @@ function StepIndicator({ current }: { current: number }) {
               {done ? <Check size={15} strokeWidth={2.6} /> : index + 1}
             </span>
             <span
-              className={`truncate text-[15px] leading-[1.5] ${active ? 'font-semibold text-fg' : 'text-muted'}`}
+              className={`truncate text-[0.9375rem] leading-[1.5] ${active ? 'font-semibold text-fg' : 'text-muted'}`}
             >
               {label}
               {done && <span className="sr-only">, done</span>}
@@ -170,7 +170,7 @@ export default function NewWorkspaceWizard() {
               <h2
                 ref={heading}
                 tabIndex={-1}
-                className="text-[22px] leading-[1.3] font-semibold outline-none"
+                className="text-[1.375rem] leading-[1.3] font-semibold outline-none"
               >
                 Set up your workspace
               </h2>
@@ -246,7 +246,7 @@ export default function NewWorkspaceWizard() {
               >
                 Add the materials it should learn from
               </h2>
-              <p className="text-[15px] leading-[1.6] text-muted">
+              <p className="text-[0.9375rem] leading-[1.6] text-muted">
                 Chats here answer only from what you add. You can add more at
                 any time.
               </p>
@@ -302,7 +302,7 @@ export default function NewWorkspaceWizard() {
 
             {pending.length > 0 && (
               <section aria-labelledby={`${id}-added`}>
-                <h3 id={`${id}-added`} className="text-[15px] font-medium">
+                <h3 id={`${id}-added`} className="text-[0.9375rem] font-medium">
                   Added so far
                 </h3>
                 <ul className="mt-3 divide-y divide-line rounded-xl border border-line">
@@ -357,7 +357,7 @@ export default function NewWorkspaceWizard() {
             </button>
           )}
           <div className="flex items-center gap-4">
-            <span className="text-[13px] text-muted">
+            <span className="text-[0.8125rem] text-muted">
               Step {step + 1} of {STEPS.length}
             </span>
             {step === 0 ? (

@@ -30,9 +30,9 @@ function AnotherFormat({ onPick }: { onPick: (prompt: string) => void }) {
     <div
       role="group"
       aria-labelledby={id}
-      className="flex flex-col gap-3 rounded-2xl bg-tile px-[18px] py-4"
+      className="flex flex-col gap-3 rounded-2xl bg-tile px-[1.125rem] py-4"
     >
-      <span id={id} className="text-[15px] leading-[1.5] font-medium">
+      <span id={id} className="text-[0.9375rem] leading-[1.5] font-medium">
         Show another format
       </span>
       <div className="flex flex-wrap gap-2.5">
@@ -43,7 +43,7 @@ function AnotherFormat({ onPick }: { onPick: (prompt: string) => void }) {
               key={id}
               type="button"
               onClick={() => onPick(prompt)}
-              className="flex h-12 flex-[1_1_120px] items-center justify-center gap-2 rounded-xl border border-edge bg-surface px-3.5 text-[15px] font-medium hover:border-accent hover:text-accent"
+              className="flex h-12 flex-[1_1_120px] items-center justify-center gap-2 rounded-xl border border-edge bg-surface px-3.5 text-[0.9375rem] font-medium hover:border-accent hover:text-accent"
             >
               <Icon size={18} />
               {label}
@@ -164,7 +164,7 @@ export default function ChatPanel({
           canSend={canSend}
           inputRef={inputRef}
         />
-        <p className="text-center text-[13px] leading-[1.5] text-muted">
+        <p className="text-center text-[0.8125rem] leading-[1.5] text-muted">
           This is a simplified overview to get you started. For accuracy and
           depth, always refer to the original source.
         </p>

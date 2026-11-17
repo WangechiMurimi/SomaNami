@@ -66,7 +66,10 @@ export default function ConfirmDialog({
         <h2 id={`${id}-title`} className="text-xl leading-[1.3] font-medium">
           {title}
         </h2>
-        <div id={`${id}-body`} className="text-[15px] leading-[1.6] text-muted">
+        <div
+          id={`${id}-body`}
+          className="text-[0.9375rem] leading-[1.6] text-muted"
+        >
           {children}
         </div>
         <div className="flex flex-wrap justify-end gap-3">
@@ -74,7 +77,7 @@ export default function ConfirmDialog({
             ref={cancel}
             type="button"
             onClick={onCancel}
-            className="inline-flex h-11 items-center rounded-[10px] border border-edge px-[18px] text-sm font-medium hover:bg-tint"
+            className="inline-flex h-11 items-center rounded-[10px] border border-edge px-[1.125rem] text-sm font-medium hover:bg-tint"
           >
             Cancel
           </button>
@@ -82,7 +85,7 @@ export default function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className="inline-flex h-11 items-center rounded-[10px] bg-warn px-[18px] text-sm font-medium text-surface hover:opacity-90 disabled:opacity-50"
+            className="inline-flex h-11 items-center rounded-[10px] bg-warn px-[1.125rem] text-sm font-medium text-surface hover:opacity-90 disabled:opacity-50"
           >
             {confirmLabel}
           </button>

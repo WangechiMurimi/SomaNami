@@ -21,7 +21,7 @@ const DATE = new Intl.DateTimeFormat(undefined, {
 })
 
 const FIELD =
-  'h-11 w-full rounded-[10px] border border-edge bg-surface px-3 text-[15px] text-fg'
+  'h-11 w-full rounded-[10px] border border-edge bg-surface px-3 text-[0.9375rem] text-fg'
 
 const ALL = 'all'
 
@@ -82,7 +82,7 @@ export default function ConversationsPage() {
         <div className="flex flex-col items-start gap-2 rounded-xl border border-line bg-surface p-6">
           <Bookmark size={22} className="text-accent" />
           <h2 className="text-lg font-semibold">No saved chats yet</h2>
-          <p className="text-[15px] leading-[1.6] text-muted">
+          <p className="text-[0.9375rem] leading-[1.6] text-muted">
             Save a chat from Recents or from a{' '}
             <Link
               to="/workspaces"
@@ -142,7 +142,7 @@ export default function ConversationsPage() {
             <h2
               id={`${id}-count`}
               aria-live="polite"
-              className="text-[13px] font-medium text-muted"
+              className="text-[0.8125rem] font-medium text-muted"
             >
               {conversationCount(shown.length)} · newest first
             </h2>
@@ -167,7 +167,7 @@ export default function ConversationsPage() {
                       >
                         {conversation.title}
                       </Link>
-                      <span className="flex flex-wrap items-center gap-2 text-[13px] text-muted">
+                      <span className="flex flex-wrap items-center gap-2 text-[0.8125rem] text-muted">
                         <span className="rounded-md bg-tag px-2 py-0.5 text-xs font-medium text-accent">
                           {placeOf(conversation)}
                         </span>
@@ -194,7 +194,7 @@ export default function ConversationsPage() {
                         to={chatPath(conversation)}
                         aria-hidden="true"
                         tabIndex={-1}
-                        className="inline-flex h-11 items-center gap-[7px] px-2 text-sm font-semibold text-accent hover:underline"
+                        className="inline-flex h-11 items-center gap-[0.4375rem] px-2 text-sm font-semibold text-accent hover:underline"
                       >
                         Continue
                         <ArrowRight size={14} strokeWidth={2.2} />

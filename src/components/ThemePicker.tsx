@@ -12,7 +12,9 @@ export default function ThemePicker() {
 
   return (
     <fieldset>
-      <legend className="text-[15px] leading-[1.5] font-medium">Theme</legend>
+      <legend className="text-[0.9375rem] leading-[1.5] font-medium">
+        Theme
+      </legend>
       <div className="mt-2 inline-flex flex-wrap gap-1 rounded-[12px] border border-line bg-ground p-1">
         {OPTIONS.map((option) => (
           // Native radios keep arrow-key behaviour; the label is the visible pill.

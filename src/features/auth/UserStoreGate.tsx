@@ -109,13 +109,13 @@ export default function UserStoreGate({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen items-center justify-center bg-ground px-4 text-center">
       {outcome === 'failed' ? (
         <div role="alert" className="max-w-[28rem]">
-          <p className="text-[15px] leading-[1.6] text-fg">
+          <p className="text-[0.9375rem] leading-[1.6] text-fg">
             We couldn’t open your materials on this device.
           </p>
           <button
             type="button"
             onClick={() => setAttempt((n) => n + 1)}
-            className="mt-4 inline-flex h-11 items-center rounded-[10px] bg-accent px-[18px] text-sm font-medium text-on-accent transition-opacity hover:opacity-90"
+            className="mt-4 inline-flex h-11 items-center rounded-[10px] bg-accent px-[1.125rem] text-sm font-medium text-on-accent transition-opacity hover:opacity-90"
           >
             Try again
           </button>

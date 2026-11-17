@@ -55,7 +55,7 @@ function ChatSources({ sources }: { sources: StoredDocument[] }) {
         aria-expanded={open}
         aria-controls={id}
         onClick={() => setOpen((shown) => !shown)}
-        className="flex h-8 items-center gap-1.5 rounded-full border border-edge px-2.5 text-[13px] text-muted hover:text-fg"
+        className="flex h-8 items-center gap-1.5 rounded-full border border-edge px-2.5 text-[0.8125rem] text-muted hover:text-fg"
       >
         <FileIcon size={14} strokeWidth={1.9} />
         {plural(sources.length, 'source')}
@@ -69,9 +69,9 @@ function ChatSources({ sources }: { sources: StoredDocument[] }) {
             Sources in this chat
           </p>
           {sources.length === 0 ? (
-            <p className="text-[13px]">Its materials have been removed.</p>
+            <p className="text-[0.8125rem]">Its materials have been removed.</p>
           ) : (
-            <ul className="list-disc pl-[18px] text-[13px] leading-[1.65]">
+            <ul className="list-disc pl-[1.125rem] text-[0.8125rem] leading-[1.65]">
               {sources.map(({ id: key, name }) => (
                 <li key={key} className="break-words">
                   {name}
@@ -145,7 +145,7 @@ function ChatList({
             <Chats size={18} strokeWidth={1.7} />
           </span>
           <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
-            <span className="max-w-full truncate text-[15px] leading-[1.5] font-medium">
+            <span className="max-w-full truncate text-[0.9375rem] leading-[1.5] font-medium">
               {chat.title}
             </span>
             <ChatSources sources={materialsFor(chat, documents)} />
@@ -153,7 +153,7 @@ function ChatList({
           <SaveToggle chat={chat} />
           <Link
             to={chatPath(chat)}
-            className="flex h-11 flex-none items-center gap-[7px] text-sm font-semibold text-accent hover:underline"
+            className="flex h-11 flex-none items-center gap-[0.4375rem] text-sm font-semibold text-accent hover:underline"
           >
             Continue
             <span className="sr-only">: {chat.title}</span>
@@ -225,7 +225,7 @@ function WorkspaceView({ workspace }: { workspace: Workspace }) {
   return (
     <div className="flex flex-col gap-6">
       {/* The workspace starts straight away: its name and what you can do. */}
-      <div className="flex min-h-[50px] flex-wrap items-center justify-between gap-3">
+      <div className="flex min-h-[3.125rem] flex-wrap items-center justify-between gap-3">
         <h1 className="min-w-0 text-2xl leading-[1.3] font-semibold break-words">
           {workspace.name}
         </h1>
@@ -273,7 +273,7 @@ function WorkspaceView({ workspace }: { workspace: Workspace }) {
             onPastingChange={setPasting}
           />
           {materials.length === 0 ? (
-            <p className="text-[13px] text-muted">
+            <p className="text-[0.8125rem] text-muted">
               Nothing here yet. Add notes, readings or slides for this workspace
               to learn from.
             </p>
@@ -297,7 +297,7 @@ function WorkspaceView({ workspace }: { workspace: Workspace }) {
                       allSelected ? materials.map(({ id }) => id) : [],
                     )
                   }
-                  className="h-11 px-1 text-[13px] font-semibold text-accent hover:underline"
+                  className="h-11 px-1 text-[0.8125rem] font-semibold text-accent hover:underline"
                 >
                   {allSelected ? 'Select none' : 'Select all'}
                 </button>
@@ -316,7 +316,7 @@ function WorkspaceView({ workspace }: { workspace: Workspace }) {
                           className="flex h-9 w-8 flex-none flex-col items-center justify-center gap-px rounded-[7px] bg-tint text-accent"
                         >
                           <FileIcon size={14} strokeWidth={1.9} />
-                          <span className="text-[8px] font-bold tracking-[0.04em]">
+                          <span className="text-[0.5rem] font-bold tracking-[0.04em]">
                             {BADGE[material.kind]}
                           </span>
                         </span>
@@ -327,7 +327,7 @@ function WorkspaceView({ workspace }: { workspace: Workspace }) {
                           >
                             {material.name}
                           </span>
-                          <span className="text-[13px] leading-[1.5] text-muted">
+                          <span className="text-[0.8125rem] leading-[1.5] text-muted">
                             {KIND_LABEL[material.kind]}
                           </span>
                         </span>
@@ -336,7 +336,7 @@ function WorkspaceView({ workspace }: { workspace: Workspace }) {
                           type="checkbox"
                           checked={!excluded.includes(material.id)}
                           onChange={() => toggle(material.id)}
-                          className="size-[18px] flex-none cursor-pointer accent-accent"
+                          className="size-[1.125rem] flex-none cursor-pointer accent-accent"
                         />
                       </label>
                     </li>

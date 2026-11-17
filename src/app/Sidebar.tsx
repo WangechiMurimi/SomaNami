@@ -22,7 +22,7 @@ const ICON = {
 }
 
 const SECTION_LABEL =
-  'text-[11px] leading-[1.5] font-medium tracking-[0.08em] text-muted uppercase'
+  'text-[0.6875rem] leading-[1.5] font-medium tracking-[0.08em] text-muted uppercase'
 
 function NavItem({
   to,
@@ -48,7 +48,7 @@ function NavItem({
         end={end}
         title={rail ? label : undefined}
         className={({ isActive }) =>
-          `flex h-[43px] items-center gap-[11px] rounded-[10px] text-sm transition-colors ${
+          `flex h-[2.6875rem] items-center gap-[0.6875rem] rounded-[10px] text-sm transition-colors ${
             rail ? 'justify-center' : 'px-3'
           } ${
             isActive
@@ -87,17 +87,17 @@ function Recents() {
         Recents
       </h2>
       {status === 'ready' && loose.length === 0 ? (
-        <p className="text-xs leading-[18px] text-muted">
+        <p className="text-xs leading-[1.125rem] text-muted">
           Chats you start from Home will appear here.
         </p>
       ) : (
-        <ul className="flex flex-col gap-[9px]">
+        <ul className="flex flex-col gap-[0.5625rem]">
           {loose.map((conversation) => (
             <li key={conversation.id}>
               <NavLink
                 to={chatPath(conversation)}
                 className={({ isActive }) =>
-                  `group flex items-center gap-2.5 rounded-md text-[13px] leading-[22px] ${
+                  `group flex items-center gap-2.5 rounded-md text-[0.8125rem] leading-[1.375rem] ${
                     isActive
                       ? 'font-medium text-accent'
                       : 'text-muted hover:text-fg'
@@ -127,8 +127,8 @@ export default function Sidebar({ rail = false }: { rail?: boolean }) {
 
   return (
     <div
-      className={`flex h-full flex-col pt-[26px] pb-5 ${
-        rail ? 'px-2.5' : 'px-[18px]'
+      className={`flex h-full flex-col pt-[1.625rem] pb-5 ${
+        rail ? 'px-2.5' : 'px-[1.125rem]'
       }`}
     >
       {/* Only this part scrolls, so the account menu can open over its edge. */}
@@ -137,8 +137,8 @@ export default function Sidebar({ rail = false }: { rail?: boolean }) {
           to="/"
           aria-label={rail ? 'SomaNami' : undefined}
           title={rail ? 'SomaNami' : undefined}
-          className={`flex items-center gap-[9px] rounded-[10px] ${
-            rail ? 'self-center' : 'self-start pl-[9px]'
+          className={`flex items-center gap-[0.5625rem] rounded-[10px] ${
+            rail ? 'self-center' : 'self-start pl-[0.5625rem]'
           }`}
         >
           <BrandMark />
@@ -153,7 +153,7 @@ export default function Sidebar({ rail = false }: { rail?: boolean }) {
           to="/workspaces/new"
           aria-label={rail ? 'New workspace' : undefined}
           title={rail ? 'New workspace' : undefined}
-          className={`mt-7 flex h-10 items-center justify-center gap-[9px] rounded-lg bg-accent text-[13px] font-medium text-on-accent transition-opacity hover:opacity-90 ${
+          className={`mt-7 flex h-10 items-center justify-center gap-[0.5625rem] rounded-lg bg-accent text-[0.8125rem] font-medium text-on-accent transition-opacity hover:opacity-90 ${
             rail ? 'mx-auto w-11' : ''
           }`}
         >

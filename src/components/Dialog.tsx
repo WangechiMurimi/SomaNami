@@ -71,7 +71,7 @@ export default function Dialog({
           {description && (
             <p
               id={`${id}-description`}
-              className="text-[15px] leading-[1.6] text-muted"
+              className="text-[0.9375rem] leading-[1.6] text-muted"
             >
               {description}
             </p>
@@ -85,6 +85,6 @@ export default function Dialog({
 
 /** Button styles shared by the workspace dialogs. */
 export const DIALOG_SECONDARY =
-  'inline-flex h-11 items-center rounded-[10px] border border-edge px-[18px] text-sm font-medium hover:bg-tint'
+  'inline-flex h-11 items-center rounded-[10px] border border-edge px-[1.125rem] text-sm font-medium hover:bg-tint'
 export const DIALOG_PRIMARY =
-  'inline-flex h-11 items-center rounded-[10px] bg-accent px-[18px] text-sm font-medium text-on-accent transition-opacity hover:opacity-90 disabled:opacity-50'
+  'inline-flex h-11 items-center rounded-[10px] bg-accent px-[1.125rem] text-sm font-medium text-on-accent transition-opacity hover:opacity-90 disabled:opacity-50'
