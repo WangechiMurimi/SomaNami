@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
+import { FORM_CANCEL, FORM_PRIMARY } from './form-styles.ts'
 import { normalizeLink } from './fetch-link.ts'
 
 const FIELD =
@@ -80,18 +81,10 @@ export default function AddLinkForm({
         )}
       </div>
       <div className="flex flex-wrap gap-3">
-        <button
-          type="submit"
-          disabled={disabled}
-          className="inline-flex h-11 items-center rounded-[10px] bg-accent px-[1.125rem] text-sm font-medium text-on-accent disabled:opacity-50"
-        >
+        <button type="submit" disabled={disabled} className={FORM_PRIMARY}>
           Add link
         </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="inline-flex h-11 items-center rounded-[10px] px-3 text-sm font-medium text-muted hover:text-fg"
-        >
+        <button type="button" onClick={onCancel} className={FORM_CANCEL}>
           Cancel
         </button>
       </div>

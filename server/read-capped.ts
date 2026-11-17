@@ -23,3 +23,30 @@ export async function readCapped(
   }
   return new TextDecoder().decode(Buffer.concat(chunks))
 }
+
+export type JsonBody =
+  | { ok: true; body: unknown }
+  | { ok: false; problem: 'too-large' | 'invalid-json' }
+
+/**
+ * Reads a request body capped at `limit` bytes and parses it as JSON. Each
+ * Function maps the problems to its own error codes.
+ */
+export async function readJsonBody(
+  request: Request,
+  limit: number,
+): Promise<JsonBody> {
+  // A declared length is free to check; readCapped still enforces the cap for
+  // bodies that lie about it or stream without one.
+  const declared = Number(request.headers.get('content-length'))
+  if (declared > limit) return { ok: false, problem: 'too-large' }
+
+  const text = await readCapped(request, limit)
+  if (text === null) return { ok: false, problem: 'too-large' }
+
+  try {
+    return { ok: true, body: JSON.parse(text) }
+  } catch {
+    return { ok: false, problem: 'invalid-json' }
+  }
+}

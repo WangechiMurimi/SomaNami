@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
 import { Plus } from '../components/icons.tsx'
+import Loading from '../components/Loading.tsx'
+import NotFound from '../components/NotFound.tsx'
 import ConversationChat from '../features/chat/ConversationChat.tsx'
 import { materialsFor } from '../features/chat/conversation-materials.ts'
 import SaveToggle from '../features/chat/SaveToggle.tsx'
@@ -11,7 +13,6 @@ import { useLibraryContext } from '../features/library/library-context.ts'
 import { useWorkspace } from '../features/workspaces/use-workspace.ts'
 import { isLooseWorkspace } from '../lib/storage/index.ts'
 import type { StoredDocument } from '../types/contracts.ts'
-import { H1, LEDE } from './page-heading.ts'
 
 /** The question a chat was started with on Home or New chat, if any. */
 const startingQuestion = (state: unknown): string | undefined =>
@@ -70,26 +71,16 @@ function Conversation({
   ])
 
   if (state.status === 'loading') {
-    return (
-      <p role="status" className="text-muted">
-        Opening your conversation…
-      </p>
-    )
+    return <Loading>Opening your conversation…</Loading>
   }
   if (state.status === 'missing' || !conversation) {
     return (
-      <div>
-        <h1 className={H1}>We can’t find that chat</h1>
-        <p className={LEDE}>
-          It may have been removed.{' '}
-          <Link
-            to="/conversations"
-            className="font-semibold text-accent underline"
-          >
-            See your saved conversations
-          </Link>
-        </p>
-      </div>
+      <NotFound
+        title="We can’t find that chat"
+        note="It may have been removed."
+        linkTo="/conversations"
+        linkLabel="See your saved conversations"
+      />
     )
   }
 
@@ -154,11 +145,7 @@ export default function ConversationPage() {
 
   // Citations name their materials, so wait for the library before loading.
   if (status === 'loading') {
-    return (
-      <p role="status" className="text-muted">
-        Opening your conversation…
-      </p>
-    )
+    return <Loading>Opening your conversation…</Loading>
   }
   return (
     <Conversation

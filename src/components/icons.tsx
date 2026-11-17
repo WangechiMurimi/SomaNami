@@ -1,9 +1,15 @@
 import type { SVGProps } from 'react'
 
-type IconProps = SVGProps<SVGSVGElement> & { size?: number }
+/** Props every icon takes: any SVG attribute, plus a square `size` in px. */
+export type IconProps = SVGProps<SVGSVGElement> & { size?: number }
 
 /** Stroke icon frame shared by every icon: decorative, sized, currentColor. */
-function Icon({ size = 16, strokeWidth = 2, children, ...rest }: IconProps) {
+export function Icon({
+  size = 16,
+  strokeWidth = 2,
+  children,
+  ...rest
+}: IconProps) {
   return (
     <svg
       width={size}
@@ -68,13 +74,6 @@ export const EyeOff = (props: IconProps) => (
   </Icon>
 )
 
-export const Lock = (props: IconProps) => (
-  <Icon {...props}>
-    <rect x="3" y="11" width="18" height="11" rx="2" />
-    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-  </Icon>
-)
-
 export const LinkIcon = (props: IconProps) => (
   <Icon {...props}>
     <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
@@ -86,13 +85,6 @@ export const Clipboard = (props: IconProps) => (
   <Icon {...props}>
     <rect x="8" y="2" width="8" height="4" rx="1" />
     <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-  </Icon>
-)
-
-export const FolderPlus = (props: IconProps) => (
-  <Icon {...props}>
-    <path d="M12 10v6M9 13h6" />
-    <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
   </Icon>
 )
 

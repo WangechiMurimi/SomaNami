@@ -13,12 +13,6 @@ import type { ChunkRow, Row } from './cloud.ts'
 // rather than set to null, so a pulled record has the same shape as one made
 // on this device.
 
-/**
- * Link fields from #93 (#157). Declared here so links sync whether or not that
- * stack has reached this branch; `StoredDocument` gains them when it lands.
- */
-type LinkFields = { sourceUrl?: string; fetchedAt?: number }
-
 const optional = <T>(value: T | null | undefined): T | undefined =>
   value === null ? undefined : value
 
@@ -44,8 +38,7 @@ export function rowToWorkspace(row: Row): Workspace {
   }
 }
 
-export function documentToRow(stored: StoredDocument): Row {
-  const document: StoredDocument & LinkFields = stored
+export function documentToRow(document: StoredDocument): Row {
   return {
     id: document.id,
     workspace_id: document.workspaceId,
@@ -62,10 +55,8 @@ export function documentToRow(stored: StoredDocument): Row {
 }
 
 /** A pulled document; `chunks` is filled in separately, only when needed. */
-export function rowToDocument(
-  row: Row,
-): Omit<StoredDocument, 'chunks'> & LinkFields {
-  const document: Omit<StoredDocument, 'chunks'> & LinkFields = {
+export function rowToDocument(row: Row): Omit<StoredDocument, 'chunks'> {
+  const document: Omit<StoredDocument, 'chunks'> = {
     id: row.id,
     workspaceId: String(row.workspace_id),
     name: String(row.name),

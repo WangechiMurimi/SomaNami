@@ -1,3 +1,4 @@
+import { SYNCED_STORES } from '../../storage/schema.ts'
 import { MissingParentError } from '../cloud.ts'
 import type {
   ChunkRow,
@@ -31,12 +32,9 @@ const PARENT: Partial<Record<CloudTable, [string, CloudTable]>> = {
 export function createMemoryCloud({ userId = 'user-a' } = {}) {
   let clock = 1000
   const tick = () => ++clock
-  const tables = new Map<CloudTable, Map<string, PulledRow>>([
-    ['workspaces', new Map()],
-    ['documents', new Map()],
-    ['conversations', new Map()],
-    ['messages', new Map()],
-  ])
+  const tables = new Map<CloudTable, Map<string, PulledRow>>(
+    SYNCED_STORES.map((table) => [table, new Map()]),
+  )
   const chunks = new Map<string, ChunkRow>()
   const materials = new Map<string, MaterialRow>()
   const deletions = new Map<string, PulledDeletion>()

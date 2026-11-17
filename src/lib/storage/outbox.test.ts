@@ -23,18 +23,11 @@ import type { OutboxEntry } from './index.ts'
 import { changedAt, nextSeq, outboxEntry } from './outbox.ts'
 import { DEFAULT_WORKSPACE } from './schema.ts'
 import { ADAPTERS } from './test-adapters.ts'
-import type { NewDocument } from '../../types/contracts.ts'
+import { newDoc } from './testing/documents.ts'
 
 const material = (id: string, workspaceId?: string) =>
   saveDocument(
-    {
-      id,
-      name: `${id}.pdf`,
-      size: 1,
-      kind: 'pdf',
-      pageCount: 1,
-      chunks: [],
-    } satisfies NewDocument,
+    newDoc(id, { name: `${id}.pdf`, kind: 'pdf', pageCount: 1 }),
     workspaceId,
   )
 

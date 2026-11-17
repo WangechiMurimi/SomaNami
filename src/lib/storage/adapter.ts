@@ -5,12 +5,6 @@ export interface StorageRecord {
   id: string
 }
 
-/** One record to delete, named by store and key. */
-export interface Removal {
-  storeName: StoreName
-  key: string
-}
-
 /** One write in a `commit`: store a record, or delete one by key. */
 export type Change =
   | { type: 'put'; storeName: StoreName; record: StorageRecord }
@@ -45,20 +39,10 @@ export interface StorageAdapter {
     indexName: string,
     value: IDBValidKey | null | undefined,
   ): Promise<T[]>
-  remove(storeName: StoreName, key: string): Promise<void>
-  removeByIndex(
-    storeName: StoreName,
-    indexName: string,
-    value: IDBValidKey | null | undefined,
-  ): Promise<void>
-  /**
-   * Deletes records from several stores as one unit: either every removal
-   * applies or none does.
-   */
-  removeMany(removals: readonly Removal[]): Promise<void>
   /**
    * Applies puts and deletes across several stores as one unit: either every
-   * change applies or none does.
+   * change applies or none does. Deletes only go through here, so each one
+   * can queue its outbox entry in the same unit.
    */
   commit(changes: readonly Change[]): Promise<void>
   /**

@@ -18,6 +18,7 @@ import {
   updateWorkspace,
 } from '../storage/index.ts'
 import type { StorageAdapter } from '../storage/index.ts'
+import { newDoc } from '../storage/testing/documents.ts'
 import { syncOnce } from './engine.ts'
 import { createMemoryCloud } from './testing/memory-cloud.ts'
 
@@ -39,25 +40,22 @@ const at = (time: number) => {
   vi.setSystemTime(now)
 }
 
-const doc = (id: string): NewDocument => ({
-  id,
-  name: `${id}.txt`,
-  size: 10,
-  kind: 'text',
-  pageCount: null,
-  chunks: [
-    {
-      id: `${id}:0`,
-      text: 'Cells divide.',
-      source: { type: 'line', startLine: 1, endLine: 1 },
-    },
-    {
-      id: `${id}:1`,
-      text: 'Mitosis.',
-      source: { type: 'line', startLine: 2, endLine: 2 },
-    },
-  ],
-})
+const doc = (id: string): NewDocument =>
+  newDoc(id, {
+    size: 10,
+    chunks: [
+      {
+        id: `${id}:0`,
+        text: 'Cells divide.',
+        source: { type: 'line', startLine: 1, endLine: 1 },
+      },
+      {
+        id: `${id}:1`,
+        text: 'Mitosis.',
+        source: { type: 'line', startLine: 2, endLine: 2 },
+      },
+    ],
+  })
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })

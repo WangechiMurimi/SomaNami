@@ -3,6 +3,7 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderSignedInApp } from '../auth/testing/render-app.tsx'
+import { serveChatFromStore } from '../chat/testing/fake-chat-server.ts'
 import { uploadOriginal } from '../../lib/storage-cloud/originals.ts'
 import {
   createMemoryAdapter,
@@ -11,7 +12,6 @@ import {
   listWorkspaceDocuments,
   setStorageAdapter,
 } from '../../lib/storage/index.ts'
-import type { ChatReply, ChatRequest } from '../../types/contracts.ts'
 
 vi.mock('../../lib/storage-cloud/originals.ts', async (importOriginal) => ({
   ...(await importOriginal()),
@@ -41,22 +41,14 @@ async function attach(container: HTMLElement, file: File) {
 
 const cells = () => new File(['Mitochondria produce ATP.'], 'cells.txt')
 
-/** Answers every /api/chat call with its first passage, recording requests. */
-function serveChat() {
-  const requests: ChatRequest[] = []
-  vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
-    const request = JSON.parse(String(init?.body)) as ChatRequest
-    requests.push(request)
-    const reply: ChatReply = {
-      answer: 'From your notes.',
-      answerable: true,
-      citations: [],
-      passages: [],
-    }
-    return Response.json(reply)
-  })
-  return requests
-}
+/** Answers every /api/chat call with the same reply, recording requests. */
+const serveChat = () =>
+  serveChatFromStore(() => ({
+    answer: 'From your notes.',
+    answerable: true,
+    citations: [],
+    passages: [],
+  }))
 
 describe('Home quick start', () => {
   it('needs a file before it can send', async () => {

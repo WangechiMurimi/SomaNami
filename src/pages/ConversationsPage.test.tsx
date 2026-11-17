@@ -12,16 +12,7 @@ import {
   setConversationSaved,
   setStorageAdapter,
 } from '../lib/storage/index.ts'
-import type { NewDocument } from '../types/contracts.ts'
-
-const doc = (id: string): NewDocument => ({
-  id,
-  name: `${id}.txt`,
-  size: 1,
-  kind: 'text',
-  pageCount: null,
-  chunks: [],
-})
+import { newDoc } from '../lib/storage/testing/documents.ts'
 
 const main = () => within(screen.getByRole('main'))
 const savedList = () => main().findByRole('list', { name: 'Saved chats' })
@@ -29,8 +20,8 @@ const savedList = () => main().findByRole('list', { name: 'Saved chats' })
 beforeEach(async () => {
   setStorageAdapter(createMemoryAdapter())
   const biology = await createWorkspace({ name: 'Biology' })
-  await saveDocument(doc('cells'), biology.id)
-  await saveDocument(doc('loose'))
+  await saveDocument(newDoc('cells'), biology.id)
+  await saveDocument(newDoc('loose'))
   const inWorkspace = await createConversation({
     workspaceId: biology.id,
     materialIds: ['cells'],

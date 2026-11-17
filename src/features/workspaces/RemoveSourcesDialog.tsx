@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { DEFAULT_WORKSPACE } from '../../lib/storage/index.ts'
+import { count } from '../../lib/text/count.ts'
 import type { Workspace } from '../../types/contracts.ts'
 import { KIND_LABEL } from '../library/kind-label.ts'
 import { useLibraryContext } from '../library/library-context.ts'
@@ -8,8 +9,6 @@ import Dialog, {
   DIALOG_SECONDARY,
 } from '../../components/Dialog.tsx'
 import SourceChecklist from './SourceChecklist.tsx'
-
-const sources = (n: number) => `${n} ${n === 1 ? 'source' : 'sources'}`
 
 /**
  * Takes sources out of a workspace. They move back to My library rather than
@@ -87,7 +86,7 @@ export default function RemoveSourcesDialog({
         >
           {selected.length === 0
             ? 'Remove sources'
-            : `Remove ${sources(selected.length)}`}
+            : `Remove ${count(selected.length, 'source', 'sources')}`}
         </button>
       </div>
     </Dialog>

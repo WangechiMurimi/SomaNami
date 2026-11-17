@@ -8,43 +8,23 @@ import {
   CHAT_RATE_LIMIT,
   CHAT_RATE_WINDOW_SECONDS,
 } from '../../server/chat/limits.ts'
+import {
+  allowUser,
+  requestsTo,
+  signedInUser,
+} from '../../server/testing/fixtures.ts'
 import chat, { config, createChatFunction } from '../functions/chat.ts'
 
-const allow = () =>
-  vi.fn<Authenticate>().mockResolvedValue({
-    ok: true,
-    user: { id: 'user-1', aal: 'aal1' },
-    accessToken: 'token-1',
-  })
+const allow = () => allowUser('token-1')
 
 /** Accepts only requests that carry some Authorization header. */
 const requireHeader: Authenticate = async (header) =>
-  header
-    ? { ok: true, user: { id: 'user-1', aal: 'aal1' }, accessToken: 'token-1' }
-    : { ok: false, reason: 'missing' }
+  header ? signedInUser('token-1') : { ok: false, reason: 'missing' }
 
 /** A question naming no materials, which needs neither Supabase nor Claude. */
 const noMaterials = JSON.stringify({ question: 'Why ATP?', materialIds: [] })
 
-const post = (body: string, headers: Record<string, string> = {}) =>
-  new Request('https://example.test/api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...headers },
-    body,
-  })
-
-/** A request whose body streams in without announcing a Content-Length. */
-const streamed = (text: string) =>
-  new Request('https://example.test/api/chat', {
-    method: 'POST',
-    body: new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(new TextEncoder().encode(text))
-        controller.close()
-      },
-    }),
-    duplex: 'half',
-  } as RequestInit)
+const { post, streamed } = requestsTo('https://example.test/api/chat')
 
 describe('chat function', () => {
   it('is routed at /api/chat', () => {

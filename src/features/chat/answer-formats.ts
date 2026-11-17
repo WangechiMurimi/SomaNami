@@ -19,5 +19,3 @@ export const ANSWER_FORMATS = [
     prompt: 'Summarise that as a few short bullet points.',
   },
 ] as const
-
-export type AnswerFormat = (typeof ANSWER_FORMATS)[number]['id']

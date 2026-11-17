@@ -8,6 +8,7 @@ import type { FetchLinkDependencies } from './link/handle-fetch-link.ts'
 import { LINK_BODY_LIMIT_BYTES, LINK_RATE_LIMIT } from './link/limits.ts'
 import type { LoadMaterials } from './chat/load-materials.ts'
 import type { Answerer } from './llm/claude-answerer.ts'
+import { allowUser, PDF_LINK } from './testing/fixtures.ts'
 
 const question = { question: 'Why ATP?', materialIds: ['doc-1'] }
 
@@ -27,22 +28,12 @@ const loadMaterials = () =>
     },
   ])
 
-const allow = () =>
-  vi.fn<Authenticate>().mockResolvedValue({
-    ok: true,
-    user: { id: 'user-1', aal: 'aal1' },
-    accessToken: 'token',
-  })
+const allow = () => allowUser('token')
 
 const deny = () =>
   vi.fn<Authenticate>().mockResolvedValue({ ok: false, reason: 'missing' })
 
-const pdf: FetchedLink = {
-  bytes: new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x00, 0xff, 0x0a]),
-  contentType: 'application/pdf',
-  finalUrl: 'https://example.com/papers/cells.pdf',
-  fileName: 'Cell biology.pdf',
-}
+const pdf = PDF_LINK
 
 const fetched = (link: FetchedLink = pdf) =>
   vi.fn<FetchLinkDependencies['fetch']>().mockResolvedValue({ ok: true, link })

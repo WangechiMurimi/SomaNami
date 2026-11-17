@@ -4,19 +4,12 @@ import type {
   FetchLinkFailure,
 } from '../../src/types/contracts.ts'
 import type { Authenticate } from '../auth/types.ts'
-import type { FetchLinkOutcome } from './fetch-link.ts'
+import type { FetchedLink, FetchLinkOutcome } from './fetch-link.ts'
 import { LINK_MAX_URL_CHARS } from './limits.ts'
 
 /** A transport-neutral result, so Express and Netlify share one handler. */
 export type FetchLinkResponse =
-  | {
-      status: 200
-      bytes: Uint8Array
-      contentType: string
-      finalUrl: string
-      fileName: string
-    }
-  | { status: number; body: FetchLinkFailure }
+  ({ status: 200 } & FetchedLink) | { status: number; body: FetchLinkFailure }
 
 export interface FetchLinkDependencies {
   /** Verifies the caller's session; see `server/auth/verify-access-token.ts`. */

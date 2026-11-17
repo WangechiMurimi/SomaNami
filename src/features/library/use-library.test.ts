@@ -12,25 +12,16 @@ import {
   saveDocument,
   setStorageAdapter,
 } from '../../lib/storage/index.ts'
-import type { NewDocument } from '../../types/contracts.ts'
+import { newDoc } from '../../lib/storage/testing/documents.ts'
 import { useLibrary } from './use-library.ts'
-
-const doc = (id: string, name: string): NewDocument => ({
-  id,
-  name,
-  size: 1,
-  kind: 'text',
-  pageCount: null,
-  chunks: [],
-})
 
 beforeEach(() => setStorageAdapter(createMemoryAdapter()))
 afterEach(() => setSupabaseClient(undefined))
 
 describe('useLibrary', () => {
   it('loads the documents already stored on this device', async () => {
-    await saveDocument(doc('b', 'Beta.txt'))
-    await saveDocument(doc('a', 'Alpha.txt'))
+    await saveDocument(newDoc('b', { name: 'Beta.txt' }))
+    await saveDocument(newDoc('a', { name: 'Alpha.txt' }))
 
     const { result } = renderHook(() => useLibrary())
 
@@ -42,11 +33,11 @@ describe('useLibrary', () => {
   })
 
   it('saves an added document and lists it in name order', async () => {
-    await saveDocument(doc('b', 'Beta.txt'))
+    await saveDocument(newDoc('b', { name: 'Beta.txt' }))
     const { result } = renderHook(() => useLibrary())
     await waitFor(() => expect(result.current.status).toBe('ready'))
 
-    await act(() => result.current.add(doc('a', 'Alpha.txt')))
+    await act(() => result.current.add(newDoc('a', { name: 'Alpha.txt' })))
 
     expect(result.current.documents.map((d) => d.id)).toEqual(['a', 'b'])
     expect(await listDocuments()).toHaveLength(2)
@@ -56,8 +47,8 @@ describe('useLibrary', () => {
     const { result } = renderHook(() => useLibrary())
     await waitFor(() => expect(result.current.status).toBe('ready'))
 
-    await act(() => result.current.add(doc('a', 'Alpha.txt')))
-    await act(() => result.current.add(doc('a', 'Alpha v2.txt')))
+    await act(() => result.current.add(newDoc('a', { name: 'Alpha.txt' })))
+    await act(() => result.current.add(newDoc('a', { name: 'Alpha v2.txt' })))
 
     expect(result.current.documents.map((d) => d.name)).toEqual([
       'Alpha v2.txt',
@@ -65,7 +56,7 @@ describe('useLibrary', () => {
   })
 
   it('moves a document to another workspace and keeps it listed', async () => {
-    await saveDocument(doc('a', 'Alpha.txt'))
+    await saveDocument(newDoc('a', { name: 'Alpha.txt' }))
     const workspace = await createWorkspace({ name: 'Biology' })
     const { result } = renderHook(() => useLibrary())
     await waitFor(() => expect(result.current.status).toBe('ready'))
@@ -80,8 +71,8 @@ describe('useLibrary', () => {
 
   it('drops a deleted workspace’s documents and keeps the rest', async () => {
     const workspace = await createWorkspace({ name: 'Biology' })
-    await saveDocument(doc('a', 'Alpha.txt'), workspace.id)
-    await saveDocument(doc('b', 'Beta.txt'))
+    await saveDocument(newDoc('a', { name: 'Alpha.txt' }), workspace.id)
+    await saveDocument(newDoc('b', { name: 'Beta.txt' }))
     const { result } = renderHook(() => useLibrary())
     await waitFor(() => expect(result.current.status).toBe('ready'))
 
@@ -96,7 +87,7 @@ describe('useLibrary', () => {
     await waitFor(() => expect(result.current.status).toBe('ready'))
 
     // Not through the hook: as another screen or a sync pull would.
-    await act(() => saveDocument(doc('a', 'Alpha.txt')))
+    await act(() => saveDocument(newDoc('a', { name: 'Alpha.txt' })))
     await waitFor(() =>
       expect(result.current.documents.map((d) => d.id)).toEqual(['a']),
     )
@@ -110,7 +101,7 @@ describe('useLibrary', () => {
     await waitFor(() => expect(result.current.status).toBe('ready'))
     unmount()
 
-    await saveDocument(doc('a', 'Alpha.txt'))
+    await saveDocument(newDoc('a', { name: 'Alpha.txt' }))
     expect(result.current.documents).toEqual([])
   })
 })
@@ -130,7 +121,11 @@ describe('useLibrary original files', () => {
     const { result } = await ready()
 
     await act(() =>
-      result.current.add(doc('a', 'Alpha.txt'), undefined, original),
+      result.current.add(
+        newDoc('a', { name: 'Alpha.txt' }),
+        undefined,
+        original,
+      ),
     )
 
     await waitFor(() =>
@@ -147,7 +142,7 @@ describe('useLibrary original files', () => {
     setSupabaseClient(fake.client)
     const { result } = await ready()
 
-    await act(() => result.current.add(doc('a', 'Alpha.txt')))
+    await act(() => result.current.add(newDoc('a', { name: 'Alpha.txt' })))
 
     expect(fake.upload).not.toHaveBeenCalled()
   })
@@ -157,7 +152,11 @@ describe('useLibrary original files', () => {
     const { result } = await ready()
 
     const stored = await act(() =>
-      result.current.add(doc('a', 'Alpha.txt'), undefined, original),
+      result.current.add(
+        newDoc('a', { name: 'Alpha.txt' }),
+        undefined,
+        original,
+      ),
     )
 
     expect(stored.storagePath).toBeUndefined()
@@ -172,7 +171,11 @@ describe('useLibrary original files', () => {
     const { result } = await ready()
 
     await act(() =>
-      result.current.add(doc('a', 'Alpha.txt'), undefined, original),
+      result.current.add(
+        newDoc('a', { name: 'Alpha.txt' }),
+        undefined,
+        original,
+      ),
     )
 
     await waitFor(() => expect(warn).toHaveBeenCalled())
@@ -195,7 +198,11 @@ describe('useLibrary original files', () => {
     const { result } = await ready()
 
     await act(() =>
-      result.current.add(doc('a', 'Alpha.txt'), undefined, original),
+      result.current.add(
+        newDoc('a', { name: 'Alpha.txt' }),
+        undefined,
+        original,
+      ),
     )
     await waitFor(() => expect(fake.upload).toHaveBeenCalled())
     await act(() => result.current.remove('a'))

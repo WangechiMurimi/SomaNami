@@ -7,9 +7,10 @@
  * adds the signed-in user's id, and RLS refuses any other.
  */
 
+import type { SyncedStoreName } from '../storage/schema.ts'
+
 /** The synced tables, which share their names with the local stores. */
-export type CloudTable =
-  'workspaces' | 'documents' | 'conversations' | 'messages'
+export type CloudTable = SyncedStoreName
 
 export type Row = Record<string, unknown> & { id: string }
 

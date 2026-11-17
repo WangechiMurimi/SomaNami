@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router'
+import { Navigate, useParams } from 'react-router'
+import Loading from '../components/Loading.tsx'
+import NotFound from '../components/NotFound.tsx'
 import {
   chatPath,
   newChatPath,
 } from '../features/chat/conversation-materials.ts'
 import { useLibraryContext } from '../features/library/library-context.ts'
 import { listConversations } from '../lib/storage/index.ts'
-import { H1, LEDE } from './page-heading.ts'
 
 /**
  * The address chats used before they had their own: `/chat/<material id>`.
@@ -40,21 +41,14 @@ export default function ChatPage() {
 
   if (target) return <Navigate to={target} replace />
   if (document || status === 'loading') {
-    return (
-      <p role="status" className="text-muted">
-        Opening your library…
-      </p>
-    )
+    return <Loading>Opening your library…</Loading>
   }
   return (
-    <div>
-      <h1 className={H1}>We can’t find that material</h1>
-      <p className={LEDE}>
-        It may have been removed.{' '}
-        <Link to="/library" className="font-semibold text-accent underline">
-          Go to your library
-        </Link>
-      </p>
-    </div>
+    <NotFound
+      title="We can’t find that material"
+      note="It may have been removed."
+      linkTo="/library"
+      linkLabel="Go to your library"
+    />
   )
 }

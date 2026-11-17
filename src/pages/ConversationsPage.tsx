@@ -1,17 +1,20 @@
 import { useId, useState } from 'react'
 import { Link } from 'react-router'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
+import ErrorAlert from '../components/ErrorAlert.tsx'
 import { ArrowRight } from '../components/icons.tsx'
+import Loading from '../components/Loading.tsx'
+import { Bookmark } from '../features/chat/chat-icons.tsx'
 import { chatPath } from '../features/chat/conversation-materials.ts'
 import { useRecentConversations } from '../features/chat/use-recent-conversations.ts'
 import { userWorkspaces } from '../features/workspaces/user-workspaces.ts'
 import { useWorkspaces } from '../features/workspaces/use-workspaces.ts'
-import { Bookmark } from '../features/workspaces/workspace-icons.tsx'
 import {
   DEFAULT_WORKSPACE,
   isLooseWorkspace,
   setConversationSaved,
 } from '../lib/storage/index.ts'
+import { count } from '../lib/text/count.ts'
 import type { Conversation } from '../types/contracts.ts'
 import { H1, LEDE } from './page-heading.ts'
 
@@ -24,9 +27,6 @@ const FIELD =
   'h-11 w-full rounded-[10px] border border-edge bg-surface px-3 text-[0.9375rem] text-fg'
 
 const ALL = 'all'
-
-const conversationCount = (n: number) =>
-  `${n} ${n === 1 ? 'conversation' : 'conversations'}`
 
 /** Saved chats from Recents and from every workspace, newest first. */
 export default function ConversationsPage() {
@@ -71,13 +71,11 @@ export default function ConversationsPage() {
       </div>
 
       {status === 'loading' ? (
-        <p role="status" className="text-muted">
-          Opening your chats…
-        </p>
+        <Loading>Opening your chats…</Loading>
       ) : status === 'error' ? (
-        <p role="alert" className="rounded-xl bg-warn-soft p-6 text-warn">
+        <ErrorAlert className="rounded-xl p-6">
           We couldn’t open your saved chats. Reload the page to try again.
-        </p>
+        </ErrorAlert>
       ) : saved.length === 0 ? (
         <div className="flex flex-col items-start gap-2 rounded-xl border border-line bg-surface p-6">
           <Bookmark size={22} className="text-accent" />
@@ -129,11 +127,7 @@ export default function ConversationsPage() {
             </div>
           </div>
 
-          {error && (
-            <p role="alert" className="rounded-xl bg-warn-soft p-4 text-warn">
-              {error}
-            </p>
-          )}
+          {error && <ErrorAlert className="rounded-xl p-4">{error}</ErrorAlert>}
 
           <section
             aria-labelledby={`${id}-count`}
@@ -144,7 +138,8 @@ export default function ConversationsPage() {
               aria-live="polite"
               className="text-[0.8125rem] font-medium text-muted"
             >
-              {conversationCount(shown.length)} · newest first
+              {count(shown.length, 'conversation', 'conversations')} · newest
+              first
             </h2>
             {shown.length === 0 ? (
               <p className="rounded-xl border border-line bg-surface p-6 text-muted">
@@ -186,7 +181,7 @@ export default function ConversationsPage() {
                         onClick={() => unsave(conversation)}
                         className="inline-flex h-11 items-center gap-1.5 rounded-[10px] px-3 text-sm font-medium text-muted hover:bg-tint hover:text-fg"
                       >
-                        <Bookmark size={16} fill="currentColor" />
+                        <Bookmark size={16} filled />
                         Unsave
                         <span className="sr-only">: {conversation.title}</span>
                       </button>

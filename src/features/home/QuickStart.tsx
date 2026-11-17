@@ -1,11 +1,8 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
 import Composer from '../../components/Composer.tsx'
-import {
-  createConversation,
-  DEFAULT_WORKSPACE,
-} from '../../lib/storage/index.ts'
-import { chatPath, titleFrom } from '../chat/conversation-materials.ts'
+import ErrorAlert from '../../components/ErrorAlert.tsx'
+import { DEFAULT_WORKSPACE } from '../../lib/storage/index.ts'
+import { useStartChat } from '../chat/use-start-chat.ts'
 import PasteTextForm from '../upload/PasteTextForm.tsx'
 import AttachmentChips from './AttachmentChips.tsx'
 import { useAttachments } from './use-attachments.ts'
@@ -33,12 +30,10 @@ function blockedBecause({
  * opens it, where the question is asked straight away.
  */
 export default function QuickStart() {
-  const navigate = useNavigate()
   const { attachments, attach, retry, remove } = useAttachments()
   const [question, setQuestion] = useState('')
   const [pasting, setPasting] = useState(false)
-  const [starting, setStarting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { start: startChat, starting, error } = useStartChat()
 
   const materialIds = attachments.flatMap((attachment) =>
     attachment.status === 'ready' ? [attachment.document.id] : [],
@@ -51,31 +46,12 @@ export default function QuickStart() {
     uploading,
   })
 
-  const start = async () => {
-    setStarting(true)
-    setError(null)
-    try {
-      const conversation = await createConversation({
-        workspaceId: DEFAULT_WORKSPACE.id,
-        materialIds,
-        // TODO(#178): let the LLM title the chat from its first question.
-        title: titleFrom(question),
-      })
-      navigate(chatPath(conversation), { state: { question: question.trim() } })
-    } catch (cause) {
-      console.error('Could not start the chat', cause)
-      setError('We couldn’t start this chat. Try again.')
-      setStarting(false)
-    }
-  }
+  const start = () =>
+    startChat({ workspaceId: DEFAULT_WORKSPACE.id, materialIds, question })
 
   return (
     <section aria-label="Start a chat" className="flex flex-col gap-4">
-      {error && (
-        <p role="alert" className="rounded-[10px] bg-warn-soft p-4 text-warn">
-          {error}
-        </p>
-      )}
+      {error && <ErrorAlert>{error}</ErrorAlert>}
 
       <Composer
         label="Ask a question or share what you’re reading"

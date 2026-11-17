@@ -9,6 +9,7 @@ import {
   type FetchLinkDependencies,
 } from './handle-fetch-link.ts'
 import { LINK_MAX_URL_CHARS } from './limits.ts'
+import { allowUser } from '../testing/fixtures.ts'
 
 const link: FetchedLink = {
   bytes: new Uint8Array([37, 80, 68, 70]),
@@ -17,20 +18,13 @@ const link: FetchedLink = {
   fileName: 'paper.pdf',
 }
 
-const allow = () =>
-  vi.fn<Authenticate>().mockResolvedValue({
-    ok: true,
-    user: { id: 'user-1', aal: 'aal1' },
-    accessToken: 'token-of-user-1',
-  })
-
 const fetched = (outcome: FetchLinkOutcome = { ok: true, link }) =>
   vi.fn<FetchLinkDependencies['fetch']>().mockResolvedValue(outcome)
 
 const deps = (
   overrides: Partial<FetchLinkDependencies> = {},
 ): FetchLinkDependencies => ({
-  authenticate: allow(),
+  authenticate: allowUser(),
   authorization: 'Bearer token',
   fetch: fetched(),
   ...overrides,
@@ -55,7 +49,7 @@ describe('handleFetchLink', () => {
 
   describe('authentication', () => {
     it('passes the Authorization header to the authenticator', async () => {
-      const authenticate = allow()
+      const authenticate = allowUser()
 
       await handleFetchLink(
         { url: 'https://example.com/' },

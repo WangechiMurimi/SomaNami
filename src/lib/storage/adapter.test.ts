@@ -104,8 +104,8 @@ describe.each(ADAPTERS)('%s adapter', (_name, makeAdapter) => {
     ).toEqual([])
   })
 
-  // `IDBIndex.getAll(undefined)` means "no query" and matches everything, so an
-  // undefined id would make removeByIndex empty the store. Both adapters refuse.
+  // `IDBIndex.getAll(undefined)` means "no query" and matches every record, so
+  // an undefined id would silently return the whole store. Both adapters refuse.
   it.each([undefined, null])(
     'refuses an index lookup for %s',
     async (value) => {
@@ -114,10 +114,6 @@ describe.each(ADAPTERS)('%s adapter', (_name, makeAdapter) => {
       await expect(
         adapter.getAllByIndex(MESSAGES, 'conversationId', value),
       ).rejects.toThrow(TypeError)
-      await expect(
-        adapter.removeByIndex(MESSAGES, 'conversationId', value),
-      ).rejects.toThrow(TypeError)
-      expect(await adapter.getAll(MESSAGES)).toHaveLength(1)
     },
   )
 
@@ -125,70 +121,20 @@ describe.each(ADAPTERS)('%s adapter', (_name, makeAdapter) => {
     await adapter.put(DOCUMENTS, { id: 'd1' })
     await adapter.put(DOCUMENTS, { id: 'd2' })
 
-    await adapter.remove(DOCUMENTS, 'd1')
+    await adapter.commit([{ type: 'remove', storeName: DOCUMENTS, key: 'd1' }])
 
     expect(await adapter.getAll(DOCUMENTS)).toEqual([{ id: 'd2' }])
   })
 
   it('ignores removing a key that is not there', async () => {
-    await expect(adapter.remove(DOCUMENTS, 'missing')).resolves.toBeUndefined()
-  })
-
-  it('removes a whole index match in one call', async () => {
-    await adapter.put(CONVERSATIONS, { id: 'c1', workspaceId: 'w1' })
-    await adapter.put(CONVERSATIONS, { id: 'c2', workspaceId: 'w1' })
-    await adapter.put(CONVERSATIONS, { id: 'c3', workspaceId: 'w2' })
-
-    await adapter.removeByIndex(CONVERSATIONS, 'workspaceId', 'w1')
-
-    expect(await adapter.getAll(CONVERSATIONS)).toEqual([
-      { id: 'c3', workspaceId: 'w2' },
-    ])
-  })
-
-  it('ignores removing an index value nothing matches', async () => {
-    await adapter.put(CONVERSATIONS, { id: 'c1', workspaceId: 'w1' })
-
-    await adapter.removeByIndex(CONVERSATIONS, 'workspaceId', 'nobody')
-
-    expect(await adapter.getAll(CONVERSATIONS)).toHaveLength(1)
-  })
-
-  it('removes keys across several stores in one call', async () => {
-    await adapter.put(DOCUMENTS, { id: 'd1' })
-    await adapter.put(CONVERSATIONS, { id: 'c1', workspaceId: 'w1' })
-    await adapter.put(MESSAGES, { id: 'm1', conversationId: 'c1' })
-    await adapter.put(MESSAGES, { id: 'm2', conversationId: 'c2' })
-
-    await adapter.removeMany([
-      { storeName: MESSAGES, key: 'm1' },
-      { storeName: CONVERSATIONS, key: 'c1' },
-      { storeName: DOCUMENTS, key: 'd1' },
-    ])
-
-    expect(await adapter.getAll(DOCUMENTS)).toEqual([])
-    expect(await adapter.getAll(CONVERSATIONS)).toEqual([])
-    expect(await adapter.getAll(MESSAGES)).toEqual([
-      { id: 'm2', conversationId: 'c2' },
-    ])
-  })
-
-  it('removes nothing when one removal in the batch is invalid', async () => {
-    await adapter.put(DOCUMENTS, { id: 'd1' })
-
     await expect(
-      adapter.removeMany([
-        { storeName: DOCUMENTS, key: 'd1' },
-        // Deliberately not a StoreName: the whole batch must be rejected.
-        { storeName: 'nope' as StoreName, key: 'x' },
+      adapter.commit([
+        { type: 'remove', storeName: DOCUMENTS, key: 'missing' },
       ]),
-    ).rejects.toThrow()
-
-    expect(await adapter.getAll(DOCUMENTS)).toEqual([{ id: 'd1' }])
+    ).resolves.toBeUndefined()
   })
 
   it('accepts an empty batch', async () => {
-    await expect(adapter.removeMany([])).resolves.toBeUndefined()
     await expect(adapter.commit([])).resolves.toBeUndefined()
   })
 
@@ -241,7 +187,9 @@ describe.each(ADAPTERS)('%s adapter', (_name, makeAdapter) => {
     await adapter.put(DOCUMENTS, { id: 'shared' })
     await adapter.put(CONVERSATIONS, { id: 'shared', workspaceId: 'w1' })
 
-    await adapter.remove(DOCUMENTS, 'shared')
+    await adapter.commit([
+      { type: 'remove', storeName: DOCUMENTS, key: 'shared' },
+    ])
 
     expect(await adapter.getAll(CONVERSATIONS)).toHaveLength(1)
   })

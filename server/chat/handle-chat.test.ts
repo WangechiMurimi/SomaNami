@@ -12,6 +12,7 @@ import {
 import type { ChatDependencies } from './handle-chat.ts'
 import { MaterialsUnavailableError } from './load-materials.ts'
 import type { LoadedMaterial, LoadMaterials } from './load-materials.ts'
+import { allowUser } from '../testing/fixtures.ts'
 
 const chunk = (documentId: string, index: number, text: string) => ({
   id: `${documentId}:${index}`,
@@ -61,11 +62,7 @@ const request = (overrides: Partial<ChatRequest> = {}): ChatRequest => ({
   ...overrides,
 })
 
-const allow = vi.fn<Authenticate>().mockResolvedValue({
-  ok: true,
-  user: { id: 'user-1', aal: 'aal1' },
-  accessToken: 'token-of-user-1',
-})
+const allow = allowUser()
 
 /** Dependencies for a request from a signed-in user with a working database. */
 const signedIn = (
@@ -450,11 +447,7 @@ describe('handleChat', () => {
 
   describe('authentication', () => {
     it('checks the Authorization header it was given', async () => {
-      const authenticate = vi.fn<Authenticate>().mockResolvedValue({
-        ok: true,
-        user: { id: 'user-1', aal: 'aal1' },
-        accessToken: 'abc',
-      })
+      const authenticate = allowUser('abc')
       const answer = answering({ answer: 'x', answerable: true, citations: [] })
 
       await handleChat(request(), {

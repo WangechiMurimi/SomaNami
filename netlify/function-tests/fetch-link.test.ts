@@ -1,58 +1,34 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
 import type { Authenticate } from '../../server/auth/types.ts'
-import type { FetchedLink } from '../../server/link/fetch-link.ts'
 import type { FetchLinkDependencies } from '../../server/link/handle-fetch-link.ts'
 import {
   LINK_BODY_LIMIT_BYTES,
   LINK_RATE_LIMIT,
   LINK_RATE_WINDOW_SECONDS,
 } from '../../server/link/limits.ts'
+import {
+  allowUser,
+  PDF_LINK,
+  requestsTo,
+} from '../../server/testing/fixtures.ts'
 import fetchLinkFunction, {
   config,
   createFetchLinkFunction,
 } from '../functions/fetch-link.ts'
 
-const allow = () =>
-  vi.fn<Authenticate>().mockResolvedValue({
-    ok: true,
-    user: { id: 'user-1', aal: 'aal1' },
-    accessToken: 'token-of-user-1',
-  })
+const allow = () => allowUser()
 
 const deny: Authenticate = async () => ({ ok: false, reason: 'missing' })
 
-const pdf: FetchedLink = {
-  bytes: new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x00, 0xff]),
-  contentType: 'application/pdf',
-  finalUrl: 'https://example.com/papers/cells.pdf',
-  fileName: 'Cell biology.pdf',
-}
+const pdf = PDF_LINK
 
 const fetched = () =>
   vi
     .fn<FetchLinkDependencies['fetch']>()
     .mockResolvedValue({ ok: true, link: pdf })
 
-const post = (body: string, headers: Record<string, string> = {}) =>
-  new Request('https://example.test/api/fetch-link', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...headers },
-    body,
-  })
-
-/** A request whose body streams in without announcing a Content-Length. */
-const streamed = (text: string) =>
-  new Request('https://example.test/api/fetch-link', {
-    method: 'POST',
-    body: new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(new TextEncoder().encode(text))
-        controller.close()
-      },
-    }),
-    duplex: 'half',
-  } as RequestInit)
+const { post, streamed } = requestsTo('https://example.test/api/fetch-link')
 
 const validBody = JSON.stringify({
   url: 'https://example.com/papers/cells.pdf',

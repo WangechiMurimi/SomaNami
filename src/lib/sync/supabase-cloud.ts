@@ -1,5 +1,7 @@
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
+import { SYNCED_STORES } from '../storage/schema.ts'
 import { MATERIALS_BUCKET } from '../storage-cloud/originals.ts'
+import { batches } from './batches.ts'
 import { MissingParentError } from './cloud.ts'
 import type {
   ChunkRow,
@@ -17,13 +19,6 @@ const FOREIGN_KEY_VIOLATION = '23503'
 const IDS_PER_REQUEST = 50
 // Supabase caps a response at 1000 rows by default.
 const ROWS_PER_PAGE = 1000
-
-const chunked = <T>(items: readonly T[], size: number): T[][] => {
-  const result: T[][] = []
-  for (let i = 0; i < items.length; i += size)
-    result.push(items.slice(i, i + size))
-  return result
-}
 
 function check(error: PostgrestError | null): void {
   if (!error) return
@@ -138,7 +133,7 @@ export function createSupabaseCloud(
     },
 
     async remove(table, ids) {
-      for (const batch of chunked(ids, IDS_PER_REQUEST)) {
+      for (const batch of batches(ids, IDS_PER_REQUEST)) {
         const { error } = await client.from(table).delete().in('id', batch)
         check(error)
       }
@@ -187,7 +182,7 @@ export function createSupabaseCloud(
 
     async chunksFor(documentIds) {
       const rows: ChunkRow[] = []
-      for (const batch of chunked(documentIds, IDS_PER_REQUEST)) {
+      for (const batch of batches(documentIds, IDS_PER_REQUEST)) {
         rows.push(
           ...(await allPages<ChunkRow>((from, to) =>
             client
@@ -205,7 +200,7 @@ export function createSupabaseCloud(
 
     async materialsFor(conversationIds) {
       const rows: MaterialRow[] = []
-      for (const batch of chunked(conversationIds, IDS_PER_REQUEST)) {
+      for (const batch of batches(conversationIds, IDS_PER_REQUEST)) {
         rows.push(
           ...(await allPages<MaterialRow>((from, to) =>
             client
@@ -226,12 +221,7 @@ export function createSupabaseCloud(
         allPages<{ id: string }>((from, to) =>
           client.from(table).select('id').order('id').range(from, to),
         )
-      const tables: CloudTable[] = [
-        'workspaces',
-        'documents',
-        'conversations',
-        'messages',
-      ]
+      const tables = SYNCED_STORES
       const ids = await Promise.all(tables.map(idsOf))
       const now = Date.now()
       await cloud.recordDeletions(

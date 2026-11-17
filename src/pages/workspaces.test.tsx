@@ -17,16 +17,8 @@ import {
   setStorageAdapter,
   setWorkspacePinned,
 } from '../lib/storage/index.ts'
-import type { NewDocument, Workspace } from '../types/contracts.ts'
-
-const doc = (id: string, name: string): NewDocument => ({
-  id,
-  name,
-  size: 1,
-  kind: 'text',
-  pageCount: null,
-  chunks: [],
-})
+import { newDoc } from '../lib/storage/testing/documents.ts'
+import type { Workspace } from '../types/contracts.ts'
 
 // The app tests' fake Supabase has no Storage; uploads are covered by
 // use-library and originals tests, so here only check what gets handed over.
@@ -106,7 +98,7 @@ describe('Workspaces grid', () => {
   })
 
   it('never lists the default workspace that holds loose chats', async () => {
-    await saveDocument({ ...doc('loose', 'Loose.txt') })
+    await saveDocument({ ...newDoc('loose', { name: 'Loose.txt' }) })
     await createWorkspace({ name: 'Biology' })
     await open('/workspaces')
 
@@ -229,7 +221,7 @@ describe('Workspace card menu', () => {
   })
 
   it('asks before deleting and says the chats and materials go too', async () => {
-    await saveDocument(doc('cells', 'Cells.txt'), biology.id)
+    await saveDocument(newDoc('cells', { name: 'Cells.txt' }), biology.id)
     await createConversation({
       workspaceId: biology.id,
       materialIds: ['cells'],
@@ -267,7 +259,7 @@ describe('Workspace card menu', () => {
   })
 
   it('adds Library files to the workspace', async () => {
-    await saveDocument(doc('loose', 'Loose notes.txt'))
+    await saveDocument(newDoc('loose', { name: 'Loose notes.txt' }))
     await open('/workspaces')
     await userEvent.click(
       (await openMenu()).getByRole('menuitem', { name: 'Add sources' }),
@@ -288,7 +280,7 @@ describe('Workspace card menu', () => {
   })
 
   it('removes sources back to My library', async () => {
-    await saveDocument(doc('cells', 'Cells.txt'), biology.id)
+    await saveDocument(newDoc('cells', { name: 'Cells.txt' }), biology.id)
     await open('/workspaces')
     await userEvent.click(
       (await openMenu()).getByRole('menuitem', { name: 'Remove sources' }),
@@ -322,7 +314,7 @@ describe('Workspace page', () => {
       topic: 'Cells',
       description: 'Everything about the cell.',
     })
-    await saveDocument(doc('cells', 'Cells.txt'), biology.id)
+    await saveDocument(newDoc('cells', { name: 'Cells.txt' }), biology.id)
   })
 
   it('starts with the workspace itself, without intro copy', async () => {
@@ -364,7 +356,7 @@ describe('Workspace page', () => {
   })
 
   it('adds and removes sources from its header', async () => {
-    await saveDocument(doc('loose', 'Loose notes.txt'))
+    await saveDocument(newDoc('loose', { name: 'Loose notes.txt' }))
     await open(`/workspaces/${biology.id}`)
 
     await userEvent.click(
@@ -395,7 +387,7 @@ describe('Workspace page', () => {
   })
 
   it('does not open the default workspace as a workspace', async () => {
-    await saveDocument(doc('loose', 'Loose notes.txt'))
+    await saveDocument(newDoc('loose', { name: 'Loose notes.txt' }))
     await open(`/workspaces/${DEFAULT_WORKSPACE.id}`)
 
     expect(

@@ -4,10 +4,10 @@ import { configDefaults, defineConfig } from 'vitest/config'
 
 /**
  * Gitignored local copies that tools would otherwise scan: Claude Code
- * agent worktrees (whole checkouts of the repo) and Python virtualenvs.
+ * agent worktrees, which are whole checkouts of the repo.
  * Vitest and ESLint don't read .gitignore, so both list these.
  */
-const LOCAL_ONLY_DIRS = ['.claude/worktrees/**', '**/.venv/**']
+const LOCAL_ONLY_DIRS = ['.claude/worktrees/**']
 
 /**
  * Kept out of Vitest only. Nothing under .claude/ is ours to test, and

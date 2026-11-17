@@ -18,18 +18,16 @@ import {
   saveDocument,
   setStorageAdapter,
 } from '../lib/storage/index.ts'
+import { newDoc } from '../lib/storage/testing/documents.ts'
 import type { ChatReply, Workspace } from '../types/contracts.ts'
 
 let workspace: Workspace
 
 const material = (id: string, name: string, text: string) =>
   saveDocument(
-    {
-      id,
+    newDoc(id, {
       name,
       size: text.length,
-      kind: 'text',
-      pageCount: null,
       chunks: [
         {
           id: `${id}:0`,
@@ -37,7 +35,7 @@ const material = (id: string, name: string, text: string) =>
           source: { type: 'line', startLine: 1, endLine: 1 },
         },
       ],
-    },
+    }),
     workspace.id,
   )
 
