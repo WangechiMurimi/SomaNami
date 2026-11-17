@@ -81,7 +81,7 @@ The project lives at the repository root. Folders marked *(planned)* don't exist
 	- Consult relevant sources before implementation:
 	    - **PRD:** `docs/PRD.md`
 	    - **Design Specifications:** `docs/DESIGN.md`
-	    - **Architecture Decisions:** `docs/architecture/` (planned)
+	    - **Architecture Decisions:** `docs/architecture/` 
 	    - **Workflow:** GitHub Projects
 	- Report missing references rather than assuming requirements. 
 3. **Issue Tracking:** 
