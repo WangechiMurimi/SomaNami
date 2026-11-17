@@ -87,6 +87,14 @@ describe('Library', () => {
     expect(options).toEqual(['No workspace', 'Biology'])
   })
 
+  it('names the workspace picker for screen readers only', async () => {
+    await renderSignedInApp()
+
+    const picker = await screen.findByLabelText('Add to workspace')
+    const label = document.querySelector(`label[for="${picker.id}"]`)
+    expect(label).toHaveClass('sr-only')
+  })
+
   it('starts a chat with a file when it is clicked', async () => {
     await renderSignedInApp()
 

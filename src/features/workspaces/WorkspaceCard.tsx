@@ -23,21 +23,21 @@ export default function WorkspaceCard({
   onAction: (action: WorkspaceAction) => void
 }) {
   return (
-    <li className="group relative flex min-h-[270px] flex-col gap-2.5 rounded-2xl border border-line bg-surface px-6 pt-6 transition-colors hover:border-edge md:px-8 md:pt-8">
+    <li className="group relative flex min-h-[16.875rem] flex-col gap-2.5 rounded-2xl border border-line bg-surface px-6 pt-6 transition-colors hover:border-edge md:px-8 md:pt-8">
       <div className="flex min-h-6 items-center gap-2 pr-10">
         {workspace.pinned && (
-          <span className="flex items-center gap-1 text-[13px] font-medium text-accent">
+          <span className="flex items-center gap-1 text-[0.8125rem] font-medium text-accent">
             <Pin size={14} />
             Pinned
           </span>
         )}
         {workspace.topic && (
-          <span className="min-w-0 truncate rounded-md bg-tag px-3 py-[5px] text-xs leading-[1.5] font-medium tracking-[0.06em] text-accent uppercase">
+          <span className="min-w-0 truncate rounded-md bg-tag px-3 py-[0.3125rem] text-xs leading-[1.5] font-medium tracking-[0.06em] text-accent uppercase">
             {workspace.topic}
           </span>
         )}
       </div>
-      <h2 className="mt-2 text-[22px] leading-[1.3] font-semibold break-words">
+      <h2 className="mt-2 text-[1.375rem] leading-[1.3] font-semibold break-words">
         <Link
           to={`/workspaces/${workspace.id}`}
           // The ring goes on the stretched layer so focus outlines the card.

@@ -1,6 +1,6 @@
 /** Shared classes for the Account settings cards, from the design canvas. */
 export const CARD =
-  'flex min-w-0 flex-col gap-[18px] rounded-2xl border border-line bg-surface p-5 sm:p-7'
+  'flex min-w-0 flex-col gap-[1.125rem] rounded-2xl border border-line bg-surface p-5 sm:p-7'
 export const CARD_TITLE = 'text-xl leading-[1.3] font-semibold text-fg'
 
 const BUTTON =

@@ -62,7 +62,7 @@ export default function AuthCallbackPage() {
 
   return (
     <AuthLayout title="Signing you in">
-      <p role="status" className="text-[15px] text-muted">
+      <p role="status" className="text-[0.9375rem] text-muted">
         One moment…
       </p>
     </AuthLayout>

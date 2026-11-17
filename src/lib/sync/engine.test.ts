@@ -11,6 +11,7 @@ import {
   getWorkspace,
   listMessages,
   listOutbox,
+  moveDocument,
   renameConversation,
   saveDocument,
   setStorageAdapter,
@@ -166,6 +167,25 @@ describe('syncOnce', () => {
     ).toMatchObject({
       title: 'Cell division',
     })
+  })
+
+  it('delivers a moved material, and the chats that dropped it, to another device', async () => {
+    const { conversation } = await seedLaptop()
+    await on(laptop, () => syncOnce(cloud.cloud))
+    await on(phone, () => syncOnce(cloud.cloud))
+
+    at(2_000_000)
+    const history = await on(laptop, () => createWorkspace({ name: 'History' }))
+    await on(laptop, () => moveDocument('d1', history.id))
+    await on(laptop, () => syncOnce(cloud.cloud))
+    await on(phone, () => syncOnce(cloud.cloud))
+
+    expect(await on(phone, () => getDocument('d1'))).toMatchObject({
+      workspaceId: history.id,
+    })
+    expect(
+      await on(phone, () => getConversation(conversation.id)),
+    ).toMatchObject({ materialIds: [] })
   })
 
   it('keeps the newer edit when two devices change the same record', async () => {

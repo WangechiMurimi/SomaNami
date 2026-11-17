@@ -52,7 +52,7 @@ export default function AddLinkForm({
       className="flex flex-col gap-4 rounded-[14px] border border-line p-5"
     >
       <div className="flex flex-col gap-2">
-        <label htmlFor={`${id}-url`} className="text-[15px] font-medium">
+        <label htmlFor={`${id}-url`} className="text-[0.9375rem] font-medium">
           Link
         </label>
         <input
@@ -81,7 +81,11 @@ export default function AddLinkForm({
         )}
       </div>
       <div className="flex flex-wrap gap-3">
-        <button type="submit" disabled={disabled} className={FORM_PRIMARY}>
+        <button
+          type="submit"
+          disabled={disabled}
+          className="inline-flex h-11 items-center rounded-[10px] bg-accent px-[1.125rem] text-sm font-medium text-on-accent disabled:opacity-50"
+        >
           Add link
         </button>
         <button type="button" onClick={onCancel} className={FORM_CANCEL}>

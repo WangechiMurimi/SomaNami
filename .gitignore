@@ -34,3 +34,7 @@ dist-ssr
 
 # Vitest coverage reports (npm run test:coverage)
 coverage/
+
+# Playwright output
+test-results/
+playwright-report/

@@ -22,6 +22,139 @@ import { H2 } from './page-heading.ts'
 const HEADER_BUTTON =
   'inline-flex h-11 items-center gap-2 rounded-[10px] border border-edge bg-surface px-4 text-sm font-medium text-fg hover:bg-tint'
 
+const BADGE: Record<StoredDocument['kind'], string> = {
+  pdf: 'PDF',
+  docx: 'DOCX',
+  text: 'TXT',
+  web: 'WEB',
+}
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
+
+/** The "N sources" chip on a chat row, opening the list of materials it uses. */
+function ChatSources({ sources }: { sources: StoredDocument[] }) {
+  const [open, setOpen] = useState(false)
+  const id = useId()
+  return (
+    <div
+      className="relative"
+      onKeyDown={(event) => event.key === 'Escape' && setOpen(false)}
+    >
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={() => setOpen((shown) => !shown)}
+        className="flex h-8 items-center gap-1.5 rounded-full border border-edge px-2.5 text-[0.8125rem] text-muted hover:text-fg"
+      >
+        <FileIcon size={14} strokeWidth={1.9} />
+        {plural(sources.length, 'source')}
+      </button>
+      {open && (
+        <div
+          id={id}
+          className="absolute top-[calc(100%+6px)] left-0 z-20 w-max max-w-[min(20rem,80vw)] rounded-[10px] bg-fg px-3.5 py-2.5 text-ground shadow-lg"
+        >
+          <p className="mb-1 text-xs leading-[1.5] font-semibold tracking-[0.06em] uppercase">
+            Sources in this chat
+          </p>
+          {sources.length === 0 ? (
+            <p className="text-[0.8125rem]">Its materials have been removed.</p>
+          ) : (
+            <ul className="list-disc pl-[1.125rem] text-[0.8125rem] leading-[1.65]">
+              {sources.map(({ id: key, name }) => (
+                <li key={key} className="break-words">
+                  {name}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Saves a chat to Saved conversations, or takes it off again. */
+function SaveToggle({ chat }: { chat: Conversation }) {
+  const saved = Boolean(chat.saved)
+  const [failed, setFailed] = useState(false)
+  const toggle = () => {
+    setFailed(false)
+    setConversationSaved(chat.id, !saved).catch((cause: unknown) => {
+      console.error('Could not save the chat', cause)
+      setFailed(true)
+    })
+  }
+  return (
+    <button
+      type="button"
+      aria-pressed={saved}
+      aria-label={`Save ${chat.title}`}
+      title={failed ? 'That didn’t work. Try again.' : undefined}
+      onClick={toggle}
+      className={`flex h-11 flex-none items-center gap-1.5 rounded-[10px] px-2.5 text-sm font-medium hover:bg-tint ${
+        saved ? 'text-accent' : 'text-muted hover:text-fg'
+      }`}
+    >
+      <Bookmark size={16} fill={saved ? 'currentColor' : 'none'} />
+      {/* The label stays "Save"; aria-pressed and the filled icon carry the state. */}
+      Save
+    </button>
+  )
+}
+
+function ChatList({
+  chats,
+  documents,
+}: {
+  chats: Conversation[]
+  documents: StoredDocument[]
+}) {
+  if (chats.length === 0) {
+    return (
+      <p className="rounded-xl border border-line bg-surface px-5 py-6 text-muted">
+        No chats yet. Ask a question below to start one.
+      </p>
+    )
+  }
+  return (
+    <ul
+      aria-label="Chats in this workspace"
+      className="flex flex-col divide-y divide-line rounded-xl border border-line bg-surface"
+    >
+      {chats.map((chat) => (
+        <li
+          key={chat.id}
+          className="flex items-center gap-3.5 px-4 py-3.5 sm:px-5"
+        >
+          <span
+            aria-hidden="true"
+            className="hidden size-10 flex-none items-center justify-center rounded-[10px] bg-tint text-accent sm:flex"
+          >
+            <Chats size={18} strokeWidth={1.7} />
+          </span>
+          <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
+            <span className="max-w-full truncate text-[0.9375rem] leading-[1.5] font-medium">
+              {chat.title}
+            </span>
+            <ChatSources sources={materialsFor(chat, documents)} />
+          </div>
+          <SaveToggle chat={chat} />
+          <Link
+            to={chatPath(chat)}
+            className="flex h-11 flex-none items-center gap-[0.4375rem] text-sm font-semibold text-accent hover:underline"
+          >
+            Continue
+            <span className="sr-only">: {chat.title}</span>
+            <ArrowRight size={14} strokeWidth={2.2} />
+          </Link>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function WorkspaceView({ workspace }: { workspace: Workspace }) {
   const { documents } = useLibraryContext()
   const { conversations } = useRecentConversations()
@@ -72,7 +205,7 @@ function WorkspaceView({ workspace }: { workspace: Workspace }) {
   return (
     <div className="flex flex-col gap-6">
       {/* The workspace starts straight away: its name and what you can do. */}
-      <div className="flex min-h-[50px] flex-wrap items-center justify-between gap-3">
+      <div className="flex min-h-[3.125rem] flex-wrap items-center justify-between gap-3">
         <h1 className="min-w-0 text-2xl leading-[1.3] font-semibold break-words">
           {workspace.name}
         </h1>
@@ -119,12 +252,79 @@ function WorkspaceView({ workspace }: { workspace: Workspace }) {
             pasting={pasting}
             onPastingChange={setPasting}
           />
-          <MaterialChecklist
-            materials={materials}
-            excluded={excluded}
-            onToggle={toggle}
-            onExcludedChange={setExcluded}
-          />
+          {materials.length === 0 ? (
+            <p className="text-[0.8125rem] text-muted">
+              Nothing here yet. Add notes, readings or slides for this workspace
+              to learn from.
+            </p>
+          ) : (
+            <div
+              role="group"
+              aria-labelledby="selected-title"
+              className="flex flex-col gap-2.5"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <h3
+                  id="selected-title"
+                  className="text-xs leading-[1.5] font-semibold tracking-[0.08em] text-muted uppercase"
+                >
+                  In this workspace
+                </h3>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExcluded(
+                      allSelected ? materials.map(({ id }) => id) : [],
+                    )
+                  }
+                  className="h-11 px-1 text-[0.8125rem] font-semibold text-accent hover:underline"
+                >
+                  {allSelected ? 'Select none' : 'Select all'}
+                </button>
+              </div>
+              <ul className="flex flex-col divide-y divide-line rounded-xl border border-line bg-surface">
+                {materials.map((material) => {
+                  const inputId = `material-${material.id}`
+                  return (
+                    <li key={material.id}>
+                      <label
+                        htmlFor={inputId}
+                        className="flex min-h-14 cursor-pointer items-center gap-2.5 px-3 py-2.5"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="flex h-9 w-8 flex-none flex-col items-center justify-center gap-px rounded-[7px] bg-tint text-accent"
+                        >
+                          <FileIcon size={14} strokeWidth={1.9} />
+                          <span className="text-[0.5rem] font-bold tracking-[0.04em]">
+                            {BADGE[material.kind]}
+                          </span>
+                        </span>
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <span
+                            title={material.name}
+                            className="truncate text-sm leading-[1.45] font-semibold"
+                          >
+                            {material.name}
+                          </span>
+                          <span className="text-[0.8125rem] leading-[1.5] text-muted">
+                            {KIND_LABEL[material.kind]}
+                          </span>
+                        </span>
+                        <input
+                          id={inputId}
+                          type="checkbox"
+                          checked={!excluded.includes(material.id)}
+                          onChange={() => toggle(material.id)}
+                          className="size-[1.125rem] flex-none cursor-pointer accent-accent"
+                        />
+                      </label>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
         </section>
       </div>
 

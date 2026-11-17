@@ -3,7 +3,7 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderSignedInApp } from '../auth/testing/render-app.tsx'
-import { serveChatFromStore } from '../chat/testing/fake-chat-server.ts'
+import { uploadOriginal } from '../../lib/storage-cloud/originals.ts'
 import {
   createMemoryAdapter,
   DEFAULT_WORKSPACE,
@@ -12,7 +12,13 @@ import {
   setStorageAdapter,
 } from '../../lib/storage/index.ts'
 
+vi.mock('../../lib/storage-cloud/originals.ts', async (importOriginal) => ({
+  ...(await importOriginal()),
+  uploadOriginal: vi.fn(async () => null),
+}))
+
 beforeEach(() => {
+  vi.mocked(uploadOriginal).mockClear()
   setStorageAdapter(createMemoryAdapter())
   window.history.pushState({}, '', '/')
 })
@@ -86,6 +92,17 @@ describe('Home quick start', () => {
     expect(
       screen.queryByRole('link', { name: 'Ask about this' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('keeps the original of an attached file, not just its text', async () => {
+    const { container } = await renderSignedInApp()
+    await attach(container, cells())
+    await files().findByRole('button', { name: 'Remove cells.txt' })
+
+    const [stored] = await listWorkspaceDocuments(DEFAULT_WORKSPACE.id)
+    expect(
+      vi.mocked(uploadOriginal).mock.calls.map(([id, file]) => [id, file.name]),
+    ).toEqual([[stored!.id, 'cells.txt']])
   })
 
   it('removes an attached file from the box and the library', async () => {

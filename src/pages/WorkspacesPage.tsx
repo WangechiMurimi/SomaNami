@@ -84,7 +84,7 @@ export default function WorkspacesPage() {
           {/* Spans the row so starting something new reads as its own action. */}
           <li className="col-span-full flex flex-col gap-2.5 rounded-2xl border-[1.5px] border-dashed border-edge p-6 md:p-8">
             <Plus size={24} strokeWidth={1.8} className="text-accent" />
-            <h2 className="mt-2 text-[22px] leading-[1.3] font-semibold">
+            <h2 className="mt-2 text-[1.375rem] leading-[1.3] font-semibold">
               Start something new
             </h2>
             <p className="text-base leading-[1.6] text-muted">
@@ -93,7 +93,7 @@ export default function WorkspacesPage() {
             </p>
             <Link
               to="/workspaces/new"
-              className="mt-1.5 inline-flex min-h-11 items-center gap-[7px] self-start text-sm font-semibold text-accent hover:underline"
+              className="mt-1.5 inline-flex min-h-11 items-center gap-[0.4375rem] self-start text-sm font-semibold text-accent hover:underline"
             >
               Create workspace
               <ArrowRight size={14} strokeWidth={2.2} />

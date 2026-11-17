@@ -9,8 +9,10 @@ import {
   deleteWorkspace,
   ensureDefaultWorkspace,
   getConversation,
+  getDocument,
   listMessages,
   listOutbox,
+  moveDocument,
   renameConversation,
   saveDocument,
   setStorageAdapter,
@@ -254,6 +256,64 @@ describe.each(ADAPTERS)('change tracking on the %s adapter', (_name, make) => {
         op: 'upsert',
         updatedAt: 2000,
       })
+    })
+  })
+
+  describe('moveDocument', () => {
+    it('queues the moved document and the chats that dropped it, with updatedAt bumped', async () => {
+      const now = vi.spyOn(Date, 'now').mockReturnValue(1000)
+      const biology = await createWorkspace({ name: 'Biology' })
+      const history = await createWorkspace({ name: 'History' })
+      await material('d1', biology.id)
+      await material('d2', biology.id)
+      const workspaceChat = await createConversation({
+        workspaceId: biology.id,
+        materialIds: ['d1', 'd2'],
+      })
+      now.mockReturnValue(2000)
+      const moved = await moveDocument('d1', history.id)
+
+      expect(moved).toMatchObject({ workspaceId: history.id, updatedAt: 2000 })
+      expect(await getDocument('d1')).toMatchObject({ updatedAt: 2000 })
+      expect(await entryFor('documents', 'd1')).toMatchObject({
+        op: 'upsert',
+        updatedAt: 2000,
+      })
+      expect(await getConversation(workspaceChat.id)).toMatchObject({
+        materialIds: ['d2'],
+        updatedAt: 2000,
+      })
+      expect(await entryFor('conversations', workspaceChat.id)).toMatchObject({
+        op: 'upsert',
+        updatedAt: 2000,
+      })
+    })
+
+    it('leaves loose chats, which keep the material, untouched and unqueued', async () => {
+      const now = vi.spyOn(Date, 'now').mockReturnValue(1000)
+      const biology = await createWorkspace({ name: 'Biology' })
+      const history = await createWorkspace({ name: 'History' })
+      await material('d1', biology.id)
+      const looseChat = await createConversation({
+        workspaceId: DEFAULT_WORKSPACE.id,
+        materialIds: ['d1'],
+      })
+      const entryBefore = await entryFor('conversations', looseChat.id)
+      now.mockReturnValue(2000)
+      await moveDocument('d1', history.id)
+
+      expect(await getConversation(looseChat.id)).toEqual(looseChat)
+      expect(await entryFor('conversations', looseChat.id)).toEqual(entryBefore)
+    })
+
+    it('queues nothing when the material is already in that workspace', async () => {
+      const biology = await createWorkspace({ name: 'Biology' })
+      await material('d1', biology.id)
+      const before = await listOutbox()
+
+      await moveDocument('d1', biology.id)
+
+      expect(await listOutbox()).toEqual(before)
     })
   })
 

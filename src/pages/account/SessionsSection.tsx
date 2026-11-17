@@ -25,7 +25,7 @@ function Row({
   return (
     <li className="flex flex-col gap-4 py-5 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
       <div>
-        <h3 className="text-[15px] font-semibold text-fg">{title}</h3>
+        <h3 className="text-[0.9375rem] font-semibold text-fg">{title}</h3>
         <p className="mt-1 text-sm leading-[1.6] text-muted">{children}</p>
       </div>
       {action}

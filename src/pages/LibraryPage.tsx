@@ -32,6 +32,170 @@ const FILTERS: { label: string; kind: DocumentKind | null }[] = [
   { label: 'Web', kind: 'web' },
 ]
 
+const chats = (n: number) => `${n} ${n === 1 ? 'chat' : 'chats'}`
+
+/** What removing a material does to the chats that use it (US-08 AC5). */
+function RemoveMaterial({
+  material,
+  onDone,
+}: {
+  material: StoredDocument
+  /** Called with what to tell the learner, or nothing if they cancelled. */
+  onDone: (notice?: string) => void
+}) {
+  const { remove } = useLibraryContext()
+  const { status: sync, flush } = useSync()
+  const inCloud = sync !== 'off'
+  const [effect, setEffect] = useState<{ ending: number; keeping: number }>()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    listConversations(material.id).then(
+      (using) => {
+        if (cancelled) return
+        const ending = using.filter(({ materialIds }) =>
+          materialIds.every((id) => id === material.id),
+        ).length
+        setEffect({ ending, keeping: using.length - ending })
+      },
+      () => !cancelled && setEffect({ ending: 0, keeping: 0 }),
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [material.id])
+
+  const confirm = async () => {
+    setBusy(true)
+    try {
+      await remove(material.id)
+    } catch (cause) {
+      console.error('Could not remove the material', cause)
+      setError('We couldn’t remove it. Try again.')
+      setBusy(false)
+      return
+    }
+    // Deleted here and queued for the cloud; only say "deleted" once the
+    // cloud has confirmed it (#147). If it can't yet, the queue keeps it and
+    // a later sync finishes the job, so say exactly that.
+    try {
+      await flush()
+      onDone(`‘${material.name}’ deleted`)
+    } catch {
+      onDone(
+        `‘${material.name}’ is removed from your library. We couldn’t reach SomaNami to erase it from your account yet; we’ll finish as soon as we can.`,
+      )
+    }
+  }
+
+  return (
+    <ConfirmDialog
+      title={`Remove ${material.name}?`}
+      confirmLabel="Remove"
+      busy={busy || !effect}
+      onConfirm={() => void confirm()}
+      onCancel={() => onDone()}
+    >
+      <p>
+        {inCloud
+          ? 'It will be deleted from your account and all your devices, original file included.'
+          : 'It will be deleted.'}
+      </p>
+      {effect && effect.ending > 0 && (
+        <p className="mt-2">
+          {chats(effect.ending)} that only used this material will be removed
+          too.
+        </p>
+      )}
+      {effect && effect.keeping > 0 && (
+        <p className="mt-2">
+          {chats(effect.keeping)} that also{' '}
+          {effect.keeping === 1 ? 'uses' : 'use'} other materials will keep
+          those, and earlier answers that quoted this one will no longer show
+          the passage.
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="mt-2 text-warn">
+          {error}
+        </p>
+      )}
+    </ConfirmDialog>
+  )
+}
+
+/** A file row: clicking anywhere on it starts a loose chat with that file. */
+function FileRow({
+  material,
+  workspaceName,
+  onStart,
+  onRemove,
+}: {
+  material: StoredDocument
+  workspaceName: string | null
+  onStart: () => void
+  onRemove: () => void
+}) {
+  return (
+    <tr
+      // Mouse users can click the whole row; keyboard users get the name button.
+      onClick={(event) => {
+        if (!(event.target as HTMLElement).closest('a, button')) onStart()
+      }}
+      className="group cursor-pointer border-t border-line transition-colors hover:bg-tint/50 focus-within:bg-tint/50"
+    >
+      <td className="px-5 py-2">
+        <button
+          type="button"
+          onClick={onStart}
+          className="flex min-h-11 max-w-[24rem] min-w-0 items-center gap-3 text-left text-[0.9375rem] leading-[1.5] font-medium text-fg"
+        >
+          <KindIcon kind={material.kind} />
+          <span className="truncate group-hover:underline">
+            {material.name}
+          </span>
+          <span className="flex flex-none items-center gap-1 rounded-full bg-tint px-2.5 py-0.5 text-xs font-semibold text-accent opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
+            Start a chat
+            <ArrowRight size={12} strokeWidth={2.4} />
+          </span>
+        </button>
+      </td>
+      <td className="px-5 py-3.5 text-sm text-muted">
+        {KIND_LABEL[material.kind]}
+      </td>
+      <td className="px-5 py-3.5 text-sm text-muted">
+        {workspaceName ? (
+          <Link
+            to={`/workspaces/${material.workspaceId}`}
+            className="hover:text-fg hover:underline"
+          >
+            {workspaceName}
+          </Link>
+        ) : (
+          <>
+            <span aria-hidden="true">—</span>
+            <span className="sr-only">Not in a workspace</span>
+          </>
+        )}
+      </td>
+      <td className="px-5 py-1.5">
+        <div className="flex items-center justify-end">
+          <button
+            type="button"
+            onClick={onRemove}
+            className="inline-flex size-11 flex-none items-center justify-center rounded-[10px] text-muted hover:bg-warn-soft hover:text-warn"
+          >
+            <Trash size={17} strokeWidth={1.8} />
+            <span className="sr-only">Remove {material.name}</span>
+          </button>
+        </div>
+      </td>
+    </tr>
+  )
+}
+
 /** Conversations whose title matches the library search. */
 function ConversationResults({
   conversations,
@@ -51,10 +215,10 @@ function ConversationResults({
             to={chatPath(conversation)}
             className="flex min-h-14 items-center justify-between gap-3 px-5 py-3 hover:bg-tint/50"
           >
-            <span className="min-w-0 truncate text-[15px] font-medium text-fg">
+            <span className="min-w-0 truncate text-[0.9375rem] font-medium text-fg">
               {conversation.title}
             </span>
-            <span className="flex-none text-[13px] text-muted">
+            <span className="flex-none text-[0.8125rem] text-muted">
               {placeOf(conversation)}
             </span>
           </Link>
@@ -138,15 +302,16 @@ export default function LibraryPage() {
             with it.
           </p>
         </div>
-        <div className="flex min-w-0 flex-col gap-2">
-          <label htmlFor={`${id}-target`} className="text-sm font-medium">
+        <div className="flex min-w-0 flex-col">
+          {/* Not shown, but the picker still needs a name for screen readers. */}
+          <label htmlFor={`${id}-target`} className="sr-only">
             Add to workspace
           </label>
           <select
             id={`${id}-target`}
             value={target}
             onChange={(event) => setTarget(event.target.value)}
-            className="h-11 max-w-full rounded-[10px] border border-edge bg-surface px-3 text-[15px] text-fg"
+            className="h-11 max-w-full rounded-[10px] border border-edge bg-surface px-3 text-[0.9375rem] text-fg"
           >
             <option value={DEFAULT_WORKSPACE.id}>No workspace</option>
             {userWorkspaces(workspaces).map((workspace) => (
@@ -188,7 +353,7 @@ export default function LibraryPage() {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Conversations and file names"
-                  className="h-11 w-full rounded-[10px] border border-edge bg-surface pr-3 pl-10 text-[15px] text-fg"
+                  className="h-11 w-full rounded-[10px] border border-edge bg-surface pr-3 pl-10 text-[0.9375rem] text-fg"
                 />
               </div>
             </div>
@@ -215,7 +380,7 @@ export default function LibraryPage() {
                   </button>
                 ))}
               </div>
-              <span aria-live="polite" className="text-[13px] text-muted">
+              <span aria-live="polite" className="text-[0.8125rem] text-muted">
                 Showing {shown.length} of {documents.length}
               </span>
             </div>

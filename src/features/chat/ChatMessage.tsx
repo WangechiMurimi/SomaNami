@@ -6,7 +6,7 @@ import type { ResolvedCitation } from './describe-source.ts'
 import type { ChatTurn } from './use-chat.ts'
 
 const BUBBLE =
-  'flex min-w-0 flex-1 flex-col gap-3 rounded-[4px_16px_16px_16px] border px-[18px] py-4'
+  'flex min-w-0 flex-1 flex-col gap-3 rounded-[4px_16px_16px_16px] border px-[1.125rem] py-4'
 const BODY = 'text-base leading-[1.6] break-words whitespace-pre-wrap'
 
 /** The source footer: which passages back the answer, each openable in place. */
@@ -17,7 +17,7 @@ function Citations({ citations }: { citations: ResolvedCitation[] }) {
   if (citations.length === 0) {
     // US-06: an answer with no passages behind it is not document-grounded.
     return (
-      <p className="border-t border-line pt-2.5 text-[13px] leading-[1.5] text-muted">
+      <p className="border-t border-line pt-2.5 text-[0.8125rem] leading-[1.5] text-muted">
         Written by the assistant, with no passage from your materials behind it.
       </p>
     )
@@ -32,7 +32,7 @@ function Citations({ citations }: { citations: ResolvedCitation[] }) {
 
   return (
     <div className="flex flex-col gap-2.5 border-t border-line pt-2.5">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] leading-[1.5] text-muted">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.8125rem] leading-[1.5] text-muted">
         <h2 className="flex items-center gap-1.5 font-semibold text-accent">
           <Book size={14} strokeWidth={1.9} />
           From your materials
@@ -52,7 +52,7 @@ function Citations({ citations }: { citations: ResolvedCitation[] }) {
               aria-expanded={open.includes(key)}
               aria-controls={`${id}-${index}`}
               onClick={() => toggle(key)}
-              className={`flex min-h-8 max-w-full items-center gap-1.5 rounded-full px-3 py-1 text-left text-[13px] leading-[1.5] font-medium break-words ${
+              className={`flex min-h-8 max-w-full items-center gap-1.5 rounded-full px-3 py-1 text-left text-[0.8125rem] leading-[1.5] font-medium break-words ${
                 open.includes(key)
                   ? 'bg-accent text-on-accent'
                   : 'bg-tint text-accent hover:underline'
@@ -71,7 +71,7 @@ function Citations({ citations }: { citations: ResolvedCitation[] }) {
             id={`${id}-${index}`}
             className="flex flex-col gap-1 rounded-[10px] bg-tile px-3.5 py-3"
           >
-            <span className="text-[13px] leading-[1.5] font-medium text-muted">
+            <span className="text-[0.8125rem] leading-[1.5] font-medium text-muted">
               {label}
             </span>
             <p className="text-sm leading-[1.6] break-words">
@@ -137,7 +137,7 @@ export default function ChatMessage({
   if (!message.answerable) {
     return (
       <AssistantTurn label="Not answered from your materials" tone="warn">
-        <h2 className="flex items-center gap-[7px] text-xs leading-[1.5] font-semibold tracking-[0.06em] text-warn uppercase">
+        <h2 className="flex items-center gap-[0.4375rem] text-xs leading-[1.5] font-semibold tracking-[0.06em] text-warn uppercase">
           <svg
             width="15"
             height="15"

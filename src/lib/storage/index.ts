@@ -351,16 +351,21 @@ export async function moveDocument(
     : (
         await db.getAllByIndex<Conversation>(CONVERSATIONS, 'materialIds', id)
       ).filter((c) => c.workspaceId === document.workspaceId)
-  const moved: StoredDocument = { ...document, workspaceId }
+  // `workspace_id` and `materialIds` sync, so every record this changes gets a
+  // newer `updatedAt` and an outbox entry; otherwise the move never reaches
+  // the cloud and last-write-wins could restore the old copies on a pull.
+  const now = Date.now()
+  const moved: StoredDocument = { ...document, workspaceId, updatedAt: now }
   await db.commit([
-    ...left.map((conversation): Change => {
+    ...left.flatMap((conversation) => {
       const record: Conversation = {
         ...conversation,
         materialIds: conversation.materialIds.filter((m) => m !== id),
+        updatedAt: now,
       }
-      return { type: 'put', storeName: CONVERSATIONS, record }
+      return upsert(CONVERSATIONS, record)
     }),
-    { type: 'put', storeName: DOCUMENTS, record: moved },
+    ...upsert(DOCUMENTS, moved),
   ])
   if (left.length > 0) notifyConversations()
   return moved

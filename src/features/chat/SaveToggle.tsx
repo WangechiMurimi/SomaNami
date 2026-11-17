@@ -29,7 +29,7 @@ export default function SaveToggle({
   return (
     <div className="flex flex-none items-center gap-2">
       {failed && (
-        <span role="alert" className="text-[13px] text-warn">
+        <span role="alert" className="text-[0.8125rem] text-warn">
           Couldn’t update. Try again.
         </span>
       )}

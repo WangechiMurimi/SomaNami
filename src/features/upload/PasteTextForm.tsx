@@ -47,7 +47,7 @@ export default function PasteTextForm({
       className="flex flex-col gap-4 rounded-[14px] border border-line p-5"
     >
       <div className="flex flex-col gap-2">
-        <label htmlFor={`${id}-title`} className="text-[15px] font-medium">
+        <label htmlFor={`${id}-title`} className="text-[0.9375rem] font-medium">
           Title <span className="font-normal text-muted">(optional)</span>
         </label>
         <input
@@ -60,7 +60,7 @@ export default function PasteTextForm({
         />
       </div>
       <div className="flex flex-col gap-2">
-        <label htmlFor={`${id}-text`} className="text-[15px] font-medium">
+        <label htmlFor={`${id}-text`} className="text-[0.9375rem] font-medium">
           Text
         </label>
         <textarea
@@ -82,7 +82,11 @@ export default function PasteTextForm({
         )}
       </div>
       <div className="flex flex-wrap gap-3">
-        <button type="submit" disabled={disabled} className={FORM_PRIMARY}>
+        <button
+          type="submit"
+          disabled={disabled}
+          className="inline-flex h-11 items-center rounded-[10px] bg-accent px-[1.125rem] text-sm font-medium text-on-accent disabled:opacity-50"
+        >
           Add text
         </button>
         <button type="button" onClick={onCancel} className={FORM_CANCEL}>
