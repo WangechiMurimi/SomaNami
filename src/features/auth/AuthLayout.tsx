@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { H1, LEDE } from '../../pages/page-heading.ts'
 import BrandMark from '../../components/BrandMark.tsx'
-import { SMALL_LINK, STEP_LABEL } from './auth-ui.ts'
+import { STEP_LABEL } from './auth-ui.ts'
 
 interface AuthLayoutProps {
   title: string
@@ -115,13 +115,6 @@ function BrandPanel() {
           ))}
         </ul>
       </div>
-      {/* A link, not a promise: the product's one claim is where answers come
-          from, and the details of data handling live on their own page. */}
-      <p className="text-sm leading-[1.5]">
-        <Link to="/your-data" className={SMALL_LINK}>
-          How your data is handled
-        </Link>
-      </p>
     </section>
   )
 }

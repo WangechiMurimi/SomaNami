@@ -1,0 +1,6 @@
+Photosynthesis
+
+Plants turn light into chemical energy through photosynthesis.
+Chlorophyll in the chloroplasts absorbs mostly red and blue light, which is why leaves look green.
+The light-dependent reactions split water and release oxygen as a by-product.
+The Calvin cycle then uses carbon dioxide to build glucose.

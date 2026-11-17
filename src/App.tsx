@@ -11,7 +11,6 @@ import AuthCallbackPage from './pages/AuthCallbackPage.tsx'
 import ChatPage from './pages/ChatPage.tsx'
 import ConversationPage from './pages/ConversationPage.tsx'
 import ConversationsPage from './pages/ConversationsPage.tsx'
-import DataHandlingPage from './pages/DataHandlingPage.tsx'
 import DetailsPage from './pages/DetailsPage.tsx'
 import ForgotPasswordPage from './pages/ForgotPasswordPage.tsx'
 import HelpPage from './pages/HelpPage.tsx'
@@ -64,7 +63,6 @@ export function AppRoutes() {
         <Route path="forgot-password" element={<ForgotPasswordPage />} />
         <Route path="update-password" element={<UpdatePasswordPage />} />
         <Route path="auth/callback" element={<AuthCallbackPage />} />
-        <Route path="your-data" element={<DataHandlingPage />} />
         <Route element={<RequireAuth />}>
           <Route path="welcome/details" element={<DetailsPage />} />
           <Route element={<RequireProfile />}>

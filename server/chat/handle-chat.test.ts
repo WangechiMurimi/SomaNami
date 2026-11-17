@@ -261,13 +261,47 @@ describe('handleChat', () => {
     })
   })
 
-  it('answers "not covered" without calling the model when nothing matches', async () => {
-    const answer = vi.fn<Answerer>()
+  it('lets the model judge coverage when strict retrieval finds nothing', async () => {
+    const answer = vi.fn<Answerer>().mockResolvedValue({
+      kind: 'answer',
+      answer: {
+        answer: 'Your notes are about cells, not football.',
+        answerable: false,
+        citations: [],
+      },
+    })
 
     const result = await handleChat(
       request({ question: 'Who won the 1998 World Cup?' }),
       { answer, ...signedIn() },
     )
+
+    // The model sees the material's opening rather than nothing at all...
+    expect(
+      answer.mock.calls[0]?.[0].passages.map(({ chunkId }) => chunkId),
+    ).toEqual(['doc-1:0', 'doc-1:1', 'doc-1:2'])
+    // ...and its "not covered" verdict reaches the learner unchanged.
+    expect(result).toEqual({
+      status: 200,
+      body: {
+        answer: 'Your notes are about cells, not football.',
+        answerable: false,
+        citations: [],
+        passages: [],
+      },
+    })
+  })
+
+  it('answers "not covered" without calling the model when the materials have no text', async () => {
+    const answer = vi.fn<Answerer>()
+    const empty = vi
+      .fn<LoadMaterials>()
+      .mockResolvedValue([{ id: 'doc-1', name: 'Scan.pdf', chunks: [] }])
+
+    const result = await handleChat(request(), {
+      answer,
+      ...signedIn({ loadMaterials: empty }),
+    })
 
     expect(answer).not.toHaveBeenCalled()
     expect(result).toEqual({ status: 200, body: notCovered })

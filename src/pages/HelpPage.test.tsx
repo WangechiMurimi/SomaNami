@@ -54,8 +54,5 @@ describe('Help', () => {
     expect(text).not.toMatch(
       /offline|online|on this device|private|never leaves/i,
     )
-    expect(
-      main().getByRole('link', { name: 'How your data is handled' }),
-    ).toHaveAttribute('href', '/your-data')
   })
 })

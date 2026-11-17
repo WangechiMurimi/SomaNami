@@ -79,6 +79,7 @@ Email and password sign-in works without them.
 | `npm run dev`          | Vite dev server                                       |
 | `npm run server:dev`   | Express API with reload, loading `.env` if present    |
 | `npm test`             | Vitest (unit and component tests)                     |
+| `npm run test:e2e`     | Playwright end-to-end tests (`test:e2e:ui` to debug)  |
 | `npm run typecheck`    | `tsc -b` across app, tests and server                 |
 | `npm run lint`         | ESLint                                                |
 | `npm run format:check` | Prettier check (`npm run format` to fix)              |
@@ -89,6 +90,18 @@ Email and password sign-in works without them.
 
 CI runs lint, typecheck, format check, tests and build on every pull request,
 and applies the migrations to a fresh database to run the pgTAP tests.
+
+## API
+
+The API (`GET /api/health`, `POST /api/chat`, `POST /api/fetch-link`) is
+described in [`docs/api/openapi.yaml`](docs/api/openapi.yaml) (OpenAPI 3.1),
+including every error code and limit. `server/openapi-spec.test.ts` fails if
+the routes or request schemas drift from it.
+
+Chat and fetch-link need the signed-in user's Supabase access token as
+`Authorization: Bearer <token>`; the server verifies it against the Supabase
+project's signing keys and answers `401` without a valid one. Health is
+public.
 
 ## Deploying to Netlify
 

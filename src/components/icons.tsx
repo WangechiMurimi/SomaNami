@@ -50,6 +50,24 @@ export const Check = (props: IconProps) => (
   </Icon>
 )
 
+/** An open eye: the password is hidden, press to reveal it. */
+export const Eye = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" />
+    <circle cx="12" cy="12" r="3" />
+  </Icon>
+)
+
+/** A struck-through eye: the password is showing, press to hide it. */
+export const EyeOff = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M10.7 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-2.2 3.2" />
+    <path d="M6.6 6.6A17 17 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6" />
+    <path d="M14.1 14.1a3 3 0 0 1-4.2-4.2" />
+    <path d="m2 2 20 20" />
+  </Icon>
+)
+
 export const Lock = (props: IconProps) => (
   <Icon {...props}>
     <rect x="3" y="11" width="18" height="11" rx="2" />

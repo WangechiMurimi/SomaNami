@@ -14,6 +14,18 @@ describe('SYSTEM_PROMPT', () => {
     expect(SYSTEM_PROMPT).toMatch(/not evidence/)
   })
 
+  it('keeps facts tied to the sources while allowing labelled explanation', () => {
+    expect(SYSTEM_PROMPT).toMatch(/supported by the passages/)
+    expect(SYSTEM_PROMPT).toMatch(/analogies/)
+    expect(SYSTEM_PROMPT).toMatch(/Label anything that comes from you/)
+  })
+
+  it('reserves "answerable": false for subjects the material does not address', () => {
+    expect(SYSTEM_PROMPT).toMatch(
+      /"answerable" to false only when the material does not address the subject/,
+    )
+  })
+
   it('contains no per-request content, so it can be cached', () => {
     expect(SYSTEM_PROMPT).not.toMatch(/<passage|<question/)
   })

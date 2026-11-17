@@ -1,4 +1,3 @@
-import { Link } from 'react-router'
 import { useBreadcrumbs } from '../app/breadcrumbs.ts'
 import {
   MAX_FILE_BYTES,
@@ -104,15 +103,6 @@ export default function HelpPage() {
           ))}
         </dl>
       </section>
-
-      <p className="text-[0.9375rem]">
-        <Link
-          to="/your-data"
-          className="font-semibold text-accent hover:underline"
-        >
-          How your data is handled
-        </Link>
-      </p>
     </div>
   )
 }
