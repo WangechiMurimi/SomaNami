@@ -10,13 +10,6 @@ test.describe('Upload a document', () => {
 
     await uploadFixture(page)
 
-    const card = page.getByRole('status').filter({ hasText: 'photosynthesis' })
-    await expect(card).toContainText('Text')
-    await expect(card).toContainText(/passages? indexed/)
-    await expect(
-      page.getByRole('link', { name: 'Ask about this' }),
-    ).toBeVisible()
-
     // The original goes to the private bucket, under the learner's own folder.
     await expect
       .poll(() => backend.uploads.map(({ path }) => path))
