@@ -28,7 +28,7 @@ export default function MaterialChecklist({
   const selected = materials.filter(({ id }) => !excluded.includes(id))
   const allSelected = selected.length === materials.length
   return materials.length === 0 ? (
-    <p className="text-[13px] text-muted">
+    <p className="text-[0.8125rem] text-muted">
       Nothing here yet. Add notes, readings or slides for this workspace to
       learn from.
     </p>
@@ -50,7 +50,7 @@ export default function MaterialChecklist({
           onClick={() =>
             onExcludedChange(allSelected ? materials.map(({ id }) => id) : [])
           }
-          className="h-11 px-1 text-[13px] font-semibold text-accent hover:underline"
+          className="h-11 px-1 text-[0.8125rem] font-semibold text-accent hover:underline"
         >
           {allSelected ? 'Select none' : 'Select all'}
         </button>
@@ -69,7 +69,7 @@ export default function MaterialChecklist({
                   className="flex h-9 w-8 flex-none flex-col items-center justify-center gap-px rounded-[7px] bg-tint text-accent"
                 >
                   <FileIcon size={14} strokeWidth={1.9} />
-                  <span className="text-[8px] font-bold tracking-[0.04em]">
+                  <span className="text-[0.5rem] font-bold tracking-[0.04em]">
                     {BADGE[material.kind]}
                   </span>
                 </span>
@@ -80,7 +80,7 @@ export default function MaterialChecklist({
                   >
                     {material.name}
                   </span>
-                  <span className="text-[13px] leading-[1.5] text-muted">
+                  <span className="text-[0.8125rem] leading-[1.5] text-muted">
                     {KIND_LABEL[material.kind]}
                   </span>
                 </span>
@@ -89,7 +89,7 @@ export default function MaterialChecklist({
                   type="checkbox"
                   checked={!excluded.includes(material.id)}
                   onChange={() => onToggle(material.id)}
-                  className="size-[18px] flex-none cursor-pointer accent-accent"
+                  className="size-[1.125rem] flex-none cursor-pointer accent-accent"
                 />
               </label>
             </li>

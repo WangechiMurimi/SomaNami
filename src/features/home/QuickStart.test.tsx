@@ -3,6 +3,7 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderSignedInApp } from '../auth/testing/render-app.tsx'
+import { serveChatFromStore } from '../chat/testing/fake-chat-server.ts'
 import { uploadOriginal } from '../../lib/storage-cloud/originals.ts'
 import {
   createMemoryAdapter,

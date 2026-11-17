@@ -78,7 +78,7 @@ export default function ConfirmDialog({
             ref={cancel}
             type="button"
             onClick={onCancel}
-            className="inline-flex h-11 items-center rounded-[10px] border border-edge px-[1.125rem] text-sm font-medium hover:bg-tint"
+            className={DIALOG_SECONDARY}
           >
             Cancel
           </button>

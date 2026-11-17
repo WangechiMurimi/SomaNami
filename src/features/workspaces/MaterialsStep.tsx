@@ -49,7 +49,7 @@ export default function MaterialsStep({
         >
           Add the materials it should learn from
         </h2>
-        <p className="text-[15px] leading-[1.6] text-muted">
+        <p className="text-[0.9375rem] leading-[1.6] text-muted">
           Chats here answer only from what you add. You can add more at any
           time.
         </p>
@@ -105,7 +105,7 @@ export default function MaterialsStep({
 
       {added.length > 0 && (
         <section aria-labelledby={`${id}-added`}>
-          <h3 id={`${id}-added`} className="text-[15px] font-medium">
+          <h3 id={`${id}-added`} className="text-[0.9375rem] font-medium">
             Added so far
           </h3>
           <ul className="mt-3 divide-y divide-line rounded-xl border border-line">

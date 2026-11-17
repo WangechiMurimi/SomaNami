@@ -1,7 +1,7 @@
 import type { FormEvent, RefObject } from 'react'
 
 const LABEL = 'text-base leading-[1.5] font-semibold'
-const HINT = 'text-[15px] leading-[1.5] text-muted'
+const HINT = 'text-[0.9375rem] leading-[1.5] text-muted'
 const FIELD =
   'h-12 w-full rounded-[10px] border border-edge bg-surface px-3.5 text-base text-fg'
 
@@ -44,7 +44,7 @@ export default function NameStep({
         <h2
           ref={headingRef}
           tabIndex={-1}
-          className="text-[22px] leading-[1.3] font-semibold outline-none"
+          className="text-[1.375rem] leading-[1.3] font-semibold outline-none"
         >
           Set up your workspace
         </h2>

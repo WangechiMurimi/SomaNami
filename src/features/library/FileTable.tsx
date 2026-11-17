@@ -31,7 +31,7 @@ function FileRow({
         <button
           type="button"
           onClick={onStart}
-          className="flex min-h-11 max-w-[24rem] min-w-0 items-center gap-3 text-left text-[15px] leading-[1.5] font-medium text-fg"
+          className="flex min-h-11 max-w-[24rem] min-w-0 items-center gap-3 text-left text-[0.9375rem] leading-[1.5] font-medium text-fg"
         >
           <KindIcon kind={material.kind} />
           <span className="truncate group-hover:underline">

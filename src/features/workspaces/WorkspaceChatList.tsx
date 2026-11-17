@@ -21,7 +21,7 @@ function ChatSources({ sources }: { sources: StoredDocument[] }) {
         aria-expanded={open}
         aria-controls={id}
         onClick={() => setOpen((shown) => !shown)}
-        className="flex h-8 items-center gap-1.5 rounded-full border border-edge px-2.5 text-[13px] text-muted hover:text-fg"
+        className="flex h-8 items-center gap-1.5 rounded-full border border-edge px-2.5 text-[0.8125rem] text-muted hover:text-fg"
       >
         <FileIcon size={14} strokeWidth={1.9} />
         {count(sources.length, 'source', 'sources')}
@@ -35,9 +35,9 @@ function ChatSources({ sources }: { sources: StoredDocument[] }) {
             Sources in this chat
           </p>
           {sources.length === 0 ? (
-            <p className="text-[13px]">Its materials have been removed.</p>
+            <p className="text-[0.8125rem]">Its materials have been removed.</p>
           ) : (
-            <ul className="list-disc pl-[18px] text-[13px] leading-[1.65]">
+            <ul className="list-disc pl-[1.125rem] text-[0.8125rem] leading-[1.65]">
               {sources.map(({ id: key, name }) => (
                 <li key={key} className="break-words">
                   {name}
@@ -115,7 +115,7 @@ export default function WorkspaceChatList({
             <Chats size={18} strokeWidth={1.7} />
           </span>
           <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
-            <span className="max-w-full truncate text-[15px] leading-[1.5] font-medium">
+            <span className="max-w-full truncate text-[0.9375rem] leading-[1.5] font-medium">
               {chat.title}
             </span>
             <ChatSources sources={materialsFor(chat, documents)} />
@@ -123,7 +123,7 @@ export default function WorkspaceChatList({
           <ChatSaveButton chat={chat} />
           <Link
             to={chatPath(chat)}
-            className="flex h-11 flex-none items-center gap-[7px] text-sm font-semibold text-accent hover:underline"
+            className="flex h-11 flex-none items-center gap-[0.4375rem] text-sm font-semibold text-accent hover:underline"
           >
             Continue
             <span className="sr-only">: {chat.title}</span>
