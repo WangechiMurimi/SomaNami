@@ -6,77 +6,41 @@
 
 ## Context
 
-US-12 asks that each learner's materials and conversations stay private.
-#114 added accounts: Supabase Auth with email and password, a Cloudflare
-Turnstile check, an age screen before sign-up (month and year), optional
-TOTP two-step codes, and generated Privacy and Terms pages. Reviewing it
-showed four problems:
+#114 added Supabase Auth with email and password, Cloudflare Turnstile, a birth-date screen before sign-up, optional TOTP, and generated Privacy and Terms pages. A review found four problems:
 
-- **The age screen comes first.** It's the first thing a new user sees, and it
-  asks for a birth date we then have to promise not to keep.
-- **Email-only sign-up.** It depends on Supabase email delivery, and every
-  learner has to manage another password.
-- **Lockouts.** TOTP adds lockouts the team can't support. There is no help
-  desk to recover a lost authenticator.
-- **Unreviewed legal pages.** Nobody on the team wrote or reviewed the
-  Privacy and Terms pages.
+- The first screen asked for a birth date we then had to promise not to keep.
+- Email-only sign-up meant another password for every learner.
+- No one could support TOTP lockouts.
+- No one on the team had written or reviewed the legal pages.
 
-Epic #143 also starts storing materials in Supabase, so the database needs a
-place for per-user details that users can't tamper with.
+Storing materials in Supabase (#143) also needed a place for per-user details that users can't edit themselves.
 
 ## Decision
 
-1. **Google first, email as the fallback.** "Continue with Google" uses
-   Supabase OAuth; email and password stay for anyone without Google.
-   Google provides its own 2-step checks.
-2. **PKCE everywhere.** The browser client uses `flowType: 'pkce'` with
-   `detectSessionInUrl: false`. Google, confirmation and recovery links all
-   return a one-time `?code=` to one public route, `/auth/callback`, which
-   exchanges it and continues to a safe `next` (`safe-next.ts`). Tokens never
-   appear in URLs.
-3. **Account first, then details.** Creating an account asks for nothing
-   else. A details step then asks for a display name (prefilled from Google)
-   and an "I'm 13 or older" checkbox. No birth date is asked for or stored.
-4. **Details live in `profiles`, not user metadata.** A `profiles` row (RLS:
-   owner only) holds `display_name` and `age_13_plus`. Users can edit their
-   own Auth metadata through the API, so nothing we rely on goes there.
-5. **A profile gate, not a backfill.** `RequireProfile`, inside
-   `RequireAuth`, sends a signed-in user without a complete row to
-   `/welcome/details`. Existing accounts are caught the same way. The gate is
-   skipped while signed in offline, so offline reading (US-07) keeps working.
-6. **No TOTP.** Two-step verification, its routes and its account section are
-   removed. Password reset by email is the recovery path for email accounts.
-7. **The team's own data note.** The generated Privacy and Terms pages are
-   replaced by a placeholder "How your data is handled" page (`/your-data`)
-   that the team will write.
-8. **Wireframes for now.** The final auth design isn't done, so the auth
-   screens use plain wireframe styling. They keep their labels, focus
-   handling and target sizes.
-9. **A narrow CSP.** `connect-src` names only this project's Supabase host.
+1. **Google first, email as the fallback.** Supabase OAuth for Google; email and password for everyone else.
+2. **PKCE everywhere.** Google, confirmation and recovery links return a one-time `?code=` to `/auth/callback`, which exchanges it and continues to a checked `next` (`safe-next.ts`). Tokens never appear in URLs.
+3. **Account first, then details.** Sign-up asks for nothing extra. A details step then asks for a display name and an "I'm 13 or older" checkbox. No birth date is asked for or stored.
+4. **Details live in `profiles`, never in Auth user metadata**, which users can edit through the API. RLS lets each user read and write only their own row.
+5. **A profile gate, not a backfill.** `RequireProfile` sends a signed-in user without a complete profile to `/welcome/details`. The check is skipped when the session opens offline.
+6. **No TOTP.** Password reset by email is the recovery path.
+7. **A narrow CSP.** `connect-src` names only this project's Supabase host.
 
 ## Consequences
 
-- **The age check is self-declared.** Under-13s are asked to confirm their
-  age, not blocked by a computed date. Kenyan DPA parental consent for 13–17
-  is still a follow-up (#114).
-- **Links work in one browser only.** Under PKCE, a confirmation or reset link
-  works only in the browser that requested it. A confirmation link opened
-  elsewhere still confirms the email, and the callback asks the learner to
-  sign in. Links sent before this change (implicit flow) no longer sign in.
-- **Every origin must be allowed.** Redirect URLs must list each origin,
-  including Netlify deploy previews, in Supabase and in the Google client.
-  Turnstile doesn't apply to Google sign-in.
-- **Accounts with TOTP.** Existing users with a TOTP factor keep it in
-  Supabase, but the app no longer asks for it. The server still parses `aal`,
-  harmlessly.
-- **Moving to another Supabase project** means changing the CSP host in
-  `netlify.toml`.
+- The age check is self-declared. Parental consent for ages 13–17 (Kenya DPA) is still open (#114).
+- A PKCE link works only in the browser that requested it. Opened elsewhere, a confirmation link still confirms the email, and the learner is asked to sign in.
+- Every origin, including Netlify deploy previews, must be listed as a redirect URL in Supabase and in the Google client.
+- Turnstile doesn't cover Google sign-in.
+- Accounts that had TOTP keep the factor in Supabase, but the app never asks for it.
+- Moving to another Supabase project means changing the CSP host in `netlify.toml`.
 
 ## Alternatives considered
 
-- **Keep TOTP, optional.** Rejected for the support cost; passkeys are a
-  possible later replacement.
-- **Store the age answer in user metadata.** Rejected because users can edit
-  it.
-- **Backfill profiles with a migration.** Rejected because there is no
-  trustworthy source for existing users' answers; the gate asks once instead.
+- **Keep TOTP as an option.** Rejected for the support cost; passkeys are a possible later replacement.
+- **Store the age answer in user metadata.** Rejected, because users can edit it.
+- **Backfill profiles in a migration.** Rejected, because there is no trustworthy source for existing users' answers.
+
+## Later changes
+
+- The generated legal pages were replaced by a "How your data is handled" page (#177), which was itself removed in #204.
+- The interim wireframe styling for auth screens was replaced by the design refresh (#176, #177).
